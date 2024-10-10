@@ -16,13 +16,15 @@ class MainViewModel(private val client: MudConnection) {
     private val viewModelScope = CoroutineScope(Dispatchers.IO)
 
     fun reconnect() {
-        client.reconnect()
+        client.forceDisconnect()
     }
 
     // Function to connect to the TCP server
     fun connect() {
         // Launch a coroutine for network I/O
-        client.connect()
+        var connected = false
+        while (!connected)
+            connected = client.connect()
         viewModelScope.launch {
             // Collect the model's flow of received bytes
             client.dataFlow.collect { message ->
@@ -46,6 +48,6 @@ class MainViewModel(private val client: MudConnection) {
     // Clean up when needed
     fun close() {
         viewModelScope.cancel()
-        client.close()
+        client.closeDefinitive()
     }
 }

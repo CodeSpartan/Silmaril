@@ -27,6 +27,8 @@ class MudConnection(private val host: String, private val port: Int) {
     private var _zlibDecompressionStream: InflaterInputStream? = null
 
     private val clientScope = CoroutineScope(Dispatchers.IO)
+    private var clientJob: Job? = null
+    private val reconnectScope = CoroutineScope(Dispatchers.IO)
 
     object TelnetConstants {
         const val GoAheadCode: Byte = 0xF9.toByte()
@@ -47,25 +49,28 @@ class MudConnection(private val host: String, private val port: Int) {
         return try {
             println("Connecting to $host:$port (thread: ${Thread.currentThread().name})")
             socket = Socket(host, port)  // Try to connect to the host, blocking call?
+            println("Connection established to $host:$port")
             inputStream = socket?.getInputStream()  // Get the input stream
             outputStream = socket?.getOutputStream()  // Get the output stream
             startReadingData()
-            println("Connection established to $host:$port")
             true  // Connection successful, return true
         } catch (e: UnknownHostException) {
             println("Unknown host: ${e.message}")  // Handle unknown host error
-            reconnect()
             false  // Connection failed, return false
         } catch (e: IOException) {
             println("Connection failed: ${e.message}")  // Handle connection failure
-            reconnect()
             false  // Connection failed, return false
         }
     }
 
-    // Close the connection
-    fun close() {
+    // this closes the connection without possibility of reconnection, e.g. when closing the window
+    fun closeDefinitive() {
         clientScope.cancel()
+        close()
+    }
+
+    // Close the connection during reconnect
+    fun close() {
         inputStream?.close()
         outputStream?.close()
         socket?.close()
@@ -76,10 +81,21 @@ class MudConnection(private val host: String, private val port: Int) {
         _customProtocolEnabled = false
     }
 
-    fun reconnect() {
-        println("Reconnecting...")
-        close()
-        connect()
+    fun forceDisconnect() {
+        socket?.close()
+    }
+
+    private fun reconnect() {
+        reconnectScope.launch {
+            println("Reconnecting...")
+            //Thread.sleep(100)
+            clientJob?.cancel()
+            clientJob?.join()
+            close()
+            var connected = false
+            while (!connected)
+                connected = connect()
+        }
     }
 
     /************** SEND *************/
@@ -100,7 +116,7 @@ class MudConnection(private val host: String, private val port: Int) {
     }
 
     // send raw bytes, don't duplicate IAC bytes
-    fun sendRaw(messageBytes : ByteArray) {
+    private fun sendRaw(messageBytes : ByteArray) {
         try {
             outputStream?.let { outStream ->
                 outStream.write(messageBytes)
@@ -143,7 +159,8 @@ class MudConnection(private val host: String, private val port: Int) {
     // Start receiving messages asynchronously using a coroutine
     private fun startReadingData() {
         println("trying to launch a couroutine")
-        clientScope.launch {
+
+        clientJob = clientScope.launch {
             try {
                 println("coroutine launched")
                 val buffer = ByteArray(32767)
@@ -241,96 +258,6 @@ class MudConnection(private val host: String, private val port: Int) {
         return writeIndex
     }
 
-    /* ************ RECEIVE ************* */
-
-//    // Start receiving and returning processed message data
-//    fun receiveMessages(): String? {
-//        return try {
-//            while (true) {
-//                val bytesRead = inputStream?.read(buffer) ?: break
-//
-//                if (bytesRead == -1) {
-//                    break  // End of stream
-//                }
-//
-//                // Handle compression and Telnet data
-//                return handleIncomingData(buffer, bytesRead)
-//            }
-//            null
-//        } catch (e: IOException) {
-//            println("Error reading data: ${e.message}")
-//            null
-//        }
-//    }
-//
-//    fun receiveData() {
-//        val buffer = ByteArray(8192)
-//        val uncompressedBuffer = ByteArray(8192)  // Buffer for decompressed data
-//        val inputStream = inputStream ?: return
-//
-//        var bytesRead: Int
-//        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-//            if (bytesRead > 0) {
-//                // Handle compressed or non-compressed data accordingly
-//                if (!_compressionInProgress) {
-//                    processData(buffer, 0, bytesRead)
-//                } else {
-//                    handleCompressedData(buffer, 0, bytesRead, uncompressedBuffer)
-//                }
-//            }
-//        }
-//    }
-//
-//    private fun handleCompressedData(data: ByteArray, offset: Int, bytesCount: Int, uncompressedBuffer: ByteArray) {
-//        try {
-//            _zlibDecompressionStream?.let {
-//                val numBytesDecompressed = it.read(uncompressedBuffer)
-//                if (numBytesDecompressed < 0) {
-//                    _compressionInProgress = false  // Compression has ended
-//                    it.close()
-//                    _zlibDecompressionStream = null
-//                } else {
-//                    // Process the decompressed data
-//                    processData(uncompressedBuffer, 0, numBytesDecompressed)
-//                }
-//            }
-//        } catch (ex: IOException) {
-//            _compressionInProgress = false
-//            _zlibDecompressionStream?.close()
-//            _zlibDecompressionStream = null
-//            System.err.println("Error decompressing data: ${ex.message}")
-//        }
-//    }
-//
-//    private fun processData(data: ByteArray, offset: Int, bytesCount: Int) {
-//        var pos = offset
-//        val lastOffset = offset + bytesCount
-//
-//        // Process Telnet IAC commands, if present
-//        while (pos < lastOffset) {
-//            val iacIndex = findIAC(data, pos, lastOffset - pos)
-//            if (iacIndex >= 0) {
-//                val codeLength = processIAC(data, iacIndex, lastOffset - iacIndex)
-//                if (codeLength > 0) {
-//                    // Process the bytes before IAC
-//                    if (iacIndex > pos) {
-//                        handleRawData(data, pos, iacIndex - pos)
-//                    }
-//
-//                    pos = iacIndex + codeLength
-//                    continue
-//                }
-//            }
-//
-//            pos++
-//        }
-//
-//        // If no IAC found, process the whole buffer as raw data
-//        if (pos == lastOffset) {
-//            handleRawData(data, offset, bytesCount)
-//        }
-//    }
-//
     private fun findIAC(data: ByteArray, offset: Int, bytesLength: Int): Int {
         // Search for Interpret As Command (255 / 0xFF) in the buffer
         for (i in offset until bytesLength) {

@@ -53,8 +53,8 @@ fun MainWindow(viewModel: MainViewModel) {
                         .onKeyEvent {
                             if (it.key == Key.K && it.type == KeyEventType.KeyDown) {
                                 val randomString = generateRandomString()
-                                viewModel.sendMessage(randomString)
-                                // viewModel.reconnect()
+                                // viewModel.sendMessage(randomString)
+                                viewModel.reconnect()
                                 //strings.value += randomString
                                 // println("Added random string: $randomString")
                                 true
