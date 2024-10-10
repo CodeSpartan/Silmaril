@@ -21,6 +21,8 @@ dependencies {
     // (in a separate module for demo project and in testMain).
     // With compose.desktop.common you will also lose @Preview functionality
     implementation(compose.desktop.currentOs)
+    // Add the kotlinx-coroutines-swing dependency for enabling Dispatchers.Main on Compose Desktop
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.0")
 }
 
 compose.desktop {

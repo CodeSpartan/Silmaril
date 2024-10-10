@@ -13,34 +13,39 @@ class MainViewModel(private val client: MudConnection) {
     val messages: StateFlow<List<String>> get() = _messages
 
     // Coroutine scope tied to the lifecycle of the ViewModel
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val viewModelScope = CoroutineScope(Dispatchers.IO)
+
+    fun reconnect() {
+        client.reconnect()
+    }
 
     // Function to connect to the TCP server
     fun connect() {
         // Launch a coroutine for network I/O
         client.connect()
+        viewModelScope.launch {
+            // Collect the model's flow of received bytes
+            client.dataFlow.collect { message ->
+                //val message = dataToString(data)  // Convert the data (bytes) to String
+
+                // Append the received message to the list and expose it via StateFlow
+                _messages.value += message
+            }
+        }
     }
 
     // Function to send a message via TCP
     fun sendMessage(message: String) {
         // Adding the sent message to the list locally
-        _messages.value = _messages.value + "You: $message"
+        _messages.value += "Client: $message"
 
         // Send the message over TCP asynchronously
         client.sendMessage(message)
     }
 
-    // Function to add a message received from the server
-    fun receiveMessage() {
-        // Launching coroutine to handle message reception in the background
-        scope.launch {
-            val response = client.receiveMessage() ?: ""
-            _messages.value += "Server: $response"
-        }
-    }
-
     // Clean up when needed
     fun close() {
+        viewModelScope.cancel()
         client.close()
     }
 }

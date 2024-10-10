@@ -16,11 +16,11 @@ import viewmodel.MainViewModel
 
 fun main() = application {
     val client = MudConnection("adan.ru", 4000)
-    val viewModel = MainViewModel(client)
+    val mainViewModel = MainViewModel(client)
     Window(onCloseRequest = ::exitApplication) {
-        MainWindow(viewModel)
+        MainWindow(mainViewModel)
     }
-    //viewModel.connect()
+    mainViewModel.connect()
 
     // Simulate receiving messages periodically
 //    LaunchedEffect(Unit) {
