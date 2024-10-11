@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
@@ -26,6 +27,7 @@ import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
 import androidx.compose.material.TextField
 import androidx.compose.material.TextFieldDefaults
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -96,42 +98,39 @@ fun MainWindow(viewModel: MainViewModel) {
                         //.padding(1.dp),
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
-                    TextField(
+                    BasicTextField(
                         value = textFieldValue,
                         onValueChange = { textFieldValue = it },
                         modifier = Modifier
                             .width(600.dp)
                             //.height(40.dp)
                             .focusRequester(focusRequester)
-                            .background(Color.Transparent)
-                            .focusable(),
+                            .background(Color(0xFF424242), RoundedCornerShape(32.dp)) // Add background with clipping to the rounded shape
+                            .focusable()
+                            .padding(8.dp), // Apply padding as necessary
                         textStyle = TextStyle(
-                            //color = Color.White, // Set typed text color to white
+                            color = Color.White,
                             fontSize = 16.sp
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.textFieldColors(
-                            backgroundColor = Color(0xFF424242), // Use this color for the background and it will clip to the rounded shape
-                            cursorColor = Color.White,          // Change the caret (cursor) color to white
-                            focusedIndicatorColor = Color.Transparent, // Remove the purple focus underline when focused
-                            unfocusedIndicatorColor = Color.Transparent, // Remove the purple underline when unfocused
-                            textColor = Color.White,           // White text color inside the field
-                            placeholderColor = Color.LightGray // Grey color for the placeholder
-                        ),
-                        //contentPadding = PaddingValues(vertical = 4.dp),
-                        singleLine = true, // Make the input handle a single line
-                        keyboardOptions = KeyboardOptions.Default.copy(
-                            imeAction = ImeAction.Done // Keyboard Action to "Done"
-                        ),
+                        cursorBrush = SolidColor(Color.White), // Change the caret (cursor) color to white
+                        singleLine = true, // Handle single line input
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                // Optional: Handle submit action if IME "Done" button is pressed
                                 textFieldValue = textFieldValue.copy(
                                     selection = TextRange(0, textFieldValue.text.length) // Select all text
                                 )
                                 viewModel.sendMessage(textFieldValue.text)
                             }
-                        )
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 0.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                innerTextField() // This is where the actual text field content is drawn
+                            }
+                        }
                     )
                 }
             }

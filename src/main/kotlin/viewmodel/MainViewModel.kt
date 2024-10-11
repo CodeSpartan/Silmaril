@@ -40,7 +40,7 @@ class MainViewModel(private val client: MudConnection) {
     fun sendMessage(message: String) {
         println("Sending: $message")
         // Adding the sent message to the list locally
-        _messages.value += "Client: $message"
+        _messages.value += "> $message"
 
         // Send the message over TCP asynchronously
         client.sendMessage(message)
