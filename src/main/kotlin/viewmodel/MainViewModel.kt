@@ -38,6 +38,7 @@ class MainViewModel(private val client: MudConnection) {
 
     // Function to send a message via TCP
     fun sendMessage(message: String) {
+        println("Sending: $message")
         // Adding the sent message to the list locally
         _messages.value += "Client: $message"
 

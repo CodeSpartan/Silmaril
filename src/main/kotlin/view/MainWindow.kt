@@ -1,12 +1,13 @@
 package view
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -23,17 +24,24 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
+import androidx.compose.material.TextField
+import androidx.compose.material.TextFieldDefaults
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 
 @Composable
 @Preview
 fun MainWindow(viewModel: MainViewModel) {
-    //val strings = remember { mutableStateOf(listOf("Default String 1", "Default String 2")) }
     // Observe messages from the ViewModel
     val messages by viewModel.messages.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -43,54 +51,89 @@ fun MainWindow(viewModel: MainViewModel) {
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.BottomCenter
         ) {
-            Row(modifier = Modifier) {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f, true) // true = take up all remaining space horizontally
-                        .fillMaxHeight()
-                        .focusRequester(focusRequester)
-                        .focusable() // Make the LazyColumn focusable
-                        .onKeyEvent {
-                            if (it.key == Key.K && it.type == KeyEventType.KeyDown) {
-                                val randomString = generateRandomString()
-                                // viewModel.sendMessage(randomString)
-                                viewModel.reconnect()
-                                //strings.value += randomString
-                                // println("Added random string: $randomString")
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                    state = listState,
-                    verticalArrangement = Arrangement.Bottom,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    items(messages) { item ->
-                        Text(
-                            text = item,
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.weight(1f)) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f, true) // true = take up all remaining space horizontally
+                            .fillMaxHeight(),
+                        state = listState,
+                        verticalArrangement = Arrangement.Bottom,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        items(messages) { item ->
+                            Text(
+                                text = item,
+                                color = Color.White,
+                                fontSize = 18.sp
+                            )
+                        }
                     }
+
+                    // Vertical scrollbar on the right side
+                    VerticalScrollbar(
+                        modifier = Modifier
+                            .padding(end = 4.dp).fillMaxHeight()
+                            .width(8.dp)      // Set a sensible width for the scrollbar
+                            .padding(end = 4.dp), // Add padding between the scrollbar and content
+                        adapter = rememberScrollbarAdapter(listState),
+                        style = ScrollbarStyle(
+                            minimalHeight = 16.dp,
+                            thickness = 8.dp,
+                            shape = RoundedCornerShape(4.dp),
+                            hoverDurationMillis = 300,
+                            unhoverColor = Color.Gray,    // Color when not hovered
+                            hoverColor = Color.White      // Color when hovered
+                        )
+                    )
                 }
 
-                // Vertical scrollbar on the right side
-                VerticalScrollbar(
+                // Input field at the bottom of the screen
+                Box(
                     modifier = Modifier
-                        .padding(end = 4.dp).fillMaxHeight()
-                        .width(8.dp)      // Set a sensible width for the scrollbar
-                        .padding(end = 4.dp), // Add padding between the scrollbar and content
-                    adapter = rememberScrollbarAdapter(listState),
-                    style = androidx.compose.foundation.ScrollbarStyle(
-                        minimalHeight = 16.dp,
-                        thickness = 8.dp,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                        hoverDurationMillis = 300,
-                        unhoverColor = Color.Gray,    // Color when not hovered
-                        hoverColor = Color.White      // Color when hovered
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                        //.padding(1.dp),
+                    contentAlignment = Alignment.BottomCenter // Center TextField horizontally
+                ) {
+                    TextField(
+                        value = textFieldValue,
+                        onValueChange = { textFieldValue = it },
+                        modifier = Modifier
+                            .width(600.dp)
+                            //.height(40.dp)
+                            .focusRequester(focusRequester)
+                            .background(Color.Transparent)
+                            .focusable(),
+                        textStyle = TextStyle(
+                            //color = Color.White, // Set typed text color to white
+                            fontSize = 16.sp
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = TextFieldDefaults.textFieldColors(
+                            backgroundColor = Color(0xFF424242), // Use this color for the background and it will clip to the rounded shape
+                            cursorColor = Color.White,          // Change the caret (cursor) color to white
+                            focusedIndicatorColor = Color.Transparent, // Remove the purple focus underline when focused
+                            unfocusedIndicatorColor = Color.Transparent, // Remove the purple underline when unfocused
+                            textColor = Color.White,           // White text color inside the field
+                            placeholderColor = Color.LightGray // Grey color for the placeholder
+                        ),
+                        //contentPadding = PaddingValues(vertical = 4.dp),
+                        singleLine = true, // Make the input handle a single line
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            imeAction = ImeAction.Done // Keyboard Action to "Done"
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                // Optional: Handle submit action if IME "Done" button is pressed
+                                textFieldValue = textFieldValue.copy(
+                                    selection = TextRange(0, textFieldValue.text.length) // Select all text
+                                )
+                                viewModel.sendMessage(textFieldValue.text)
+                            }
+                        )
                     )
-                )
+                }
             }
         }
     }
@@ -110,12 +153,4 @@ fun MainWindow(viewModel: MainViewModel) {
         }
         onDispose { }
     }
-}
-
-private fun generateRandomString(): String {
-    val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    val length = (10..20).random()
-    return (1..length)
-        .map { chars.random() }
-        .joinToString("")
 }

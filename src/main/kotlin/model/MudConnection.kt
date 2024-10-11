@@ -15,9 +15,9 @@ class MudConnection(private val host: String, private val port: Int) {
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
 
-    // Flow to emit received data to whoever is listening (ViewModel in this case)
+    // Flow to emit received data to whoever is listening (MainViewModel in this case)
     private val _dataFlow = MutableSharedFlow<String>()
-    val dataFlow = _dataFlow.asSharedFlow()  // Expose as immutable flow to ViewModel
+    val dataFlow = _dataFlow.asSharedFlow()  // Expose as immutable flow to MainViewModel
 
     private val charset = Charset.forName("Windows-1251")
 
@@ -25,6 +25,7 @@ class MudConnection(private val host: String, private val port: Int) {
     private var _customProtocolEnabled = false
     private var _compressionInProgress = false
     private var _zlibDecompressionStream: InflaterInputStream? = null
+    private var _readingCustomProtocol = false
 
     private val clientScope = CoroutineScope(Dispatchers.IO)
     private var clientJob: Job? = null
@@ -215,6 +216,7 @@ class MudConnection(private val host: String, private val port: Int) {
         else if (iacPosition == -1) {
             val byteMsg = data.copyOfRange(startOffset, byteLength)
             val message = String(byteMsg, charset)
+            // @TODO: if _readingCustomProtocol
             _dataFlow.emit(message)
             println("Received String length ${byteLength - startOffset} (no iac): $message")
 
@@ -224,6 +226,7 @@ class MudConnection(private val host: String, private val port: Int) {
         // if the message has an IAC command down the line, process anything before it as text
         val byteMsg = data.copyOfRange(startOffset, iacPosition)
         val message = String(byteMsg, charset)
+        // @TODO: if _readingCustomProtocol
         _dataFlow.emit(message)
         println("Received String length ${iacPosition - startOffset} (until iac $iacPosition): $message")
 
@@ -279,7 +282,7 @@ class MudConnection(private val host: String, private val port: Int) {
     // Process commands for negotiation
     // Send back appropriate response
     // Return the number of processed bytes
-    private fun processIAC(data: ByteArray, offset: Int, byteLength: Int): Int {
+    private suspend fun processIAC(data: ByteArray, offset: Int, byteLength: Int): Int {
         val bytesCount = byteLength - offset
         // Are we receiving IAC WILL MCCP (Compression)?
         if (!_compressionEnabled && bytesCount >= 3
@@ -325,9 +328,12 @@ class MudConnection(private val host: String, private val port: Int) {
             && data[offset] == TelnetConstants.InterpretAsCommandCode
             && data[offset + 1] == TelnetConstants.SubNegotiationStartCode
             && data[offset + 2] == TelnetConstants.CustomProtocolCode) {
-            // 4th byte is supposed to mean message type, it's always '3'
-            println("Custom protocol start")
-            // @TODO: start reading custom protocol code
+            // 4th byte is supposed to mean message type
+            // 11 is ProtocolVersionMessage
+            // @TODO: 3 is anything else, I assume?
+            println("Custom protocol start: ${data[offset + 3]}")
+            _readingCustomProtocol = true
+            _dataFlow.emit("Custom protocol begin: ${data[offset + 3]}")
             return 4
         }
 
@@ -336,7 +342,8 @@ class MudConnection(private val host: String, private val port: Int) {
             && data[offset] == TelnetConstants.InterpretAsCommandCode
             && data[offset + 1] == TelnetConstants.SubNegotiationEndCode) {
             println("Custom protocol end")
-            // @TODO: stop reading custom protocol code
+            _readingCustomProtocol = false
+            _dataFlow.emit("Custom protocol end")
             return 2
         }
 
