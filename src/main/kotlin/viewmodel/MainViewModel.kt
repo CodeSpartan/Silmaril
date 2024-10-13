@@ -40,9 +40,9 @@ class MainViewModel(private val client: MudConnection) {
 
     // Function to send a message via TCP
     fun sendMessage(message: String) {
-        println("Sending: $message")
+        // println("Sending: $message")
         // Adding the sent message to the list locally
-        _messages.value += TextMessageData(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
+        _messages.value += TextMessageData(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, ">$message")))
 
         // Send the message over TCP asynchronously
         client.sendMessage(message)

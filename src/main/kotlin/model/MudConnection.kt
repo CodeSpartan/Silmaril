@@ -176,11 +176,8 @@ class MudConnection(private val host: String, private val port: Int) {
 
     // Start receiving messages asynchronously using a coroutine
     private fun startReadingData() {
-        println("trying to launch a couroutine")
-
         clientJob = clientScope.launch {
             try {
-                println("coroutine launched")
                 val buffer = ByteArray(32767)
                 while (true) {
                     // Choose the input stream based on whether compression is on or off
@@ -271,7 +268,7 @@ class MudConnection(private val host: String, private val port: Int) {
                 _customMessageType = data[offset + 3].toInt() // 4th byte carries the message type
                 if (debug)
                     println("Detected command: custom message start ${data[offset + 3]}")
-                //_dataFlow.emit("Custom protocol begin: ${data[offset + 3]}")
+                // _textMessages.emit(whiteTextMessage("Custom protocol begin: ${data[offset + 3]}"))
                 skipCount = 3
                 //flushMainBuffer()
                 continue
@@ -463,14 +460,17 @@ class MudConnection(private val host: String, private val port: Int) {
     private suspend fun flushMainBuffer() {
         if (_customMessageType != -1) {
             val byteMsg = mainBuffer.copyOfRange(0, mainBufferPointer)
-            _customMessages.emit(String(byteMsg, charset))
+            val msg = String(byteMsg, charset)
+            _customMessages.emit(msg)
+            // println(msg)
+            //_textMessages.emit(whiteTextMessage(msg)) // print custom message into main window
         } else {
             val gluedMessage = bufferToColorfulText()
             if (gluedMessage.chunks.isNotEmpty()) {
-                for (chunk in gluedMessage.chunks) {
-                    print(chunk.text)
-                }
-                print('\n')
+//                for (chunk in gluedMessage.chunks) {
+//                    print(chunk.text)
+//                }
+//                print('\n')
                 _textMessages.emit(gluedMessage)
             } else {
                 _textMessages.emit(emptyTextMessage())
@@ -481,5 +481,9 @@ class MudConnection(private val host: String, private val port: Int) {
 
     private fun emptyTextMessage() : TextMessageData {
         return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.None, AnsiColor.None, false, "")))
+    }
+
+    private fun whiteTextMessage(text : String) : TextMessageData {
+        return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, false, text)))
     }
 }
