@@ -16,8 +16,8 @@ class MudConnection(private val host: String, private val port: Int) {
     private var outputStream: OutputStream? = null
 
     // Flow to emit received data to whoever is listening (MainViewModel in this case)
-    private val _dataFlow = MutableSharedFlow<String>()
-    val dataFlow = _dataFlow.asSharedFlow()  // Expose as immutable flow to MainViewModel
+    private val _textMessages = MutableSharedFlow<String>()
+    val textMessages = _textMessages.asSharedFlow()  // Expose as immutable flow to MainViewModel
 
     // when we receive a custom message, read its type and store it in this variable
     // when we get out of a custom message, set it back to -1
@@ -28,7 +28,8 @@ class MudConnection(private val host: String, private val port: Int) {
     val customMessages = _customMessages.asSharedFlow()
 
     private var gluedMessage : String = ""
-    val mainBuffer = ByteArray(32767)
+    private var mainBufferPointer = 0
+    private val mainBuffer = ByteArray(32767)
 
     private val charset = Charset.forName("Windows-1251")
 
@@ -55,21 +56,27 @@ class MudConnection(private val host: String, private val port: Int) {
         const val Echo: Byte = 0x01.toByte()    // Echo
     }
 
+    object ControlCharacters {
+        const val CarriageReturn : Byte = 0x0D.toByte() // \r
+        const val LineFeed : Byte = 0x0A.toByte() // \n
+        const val Escape : Byte = 0x1B.toByte() // escape
+    }
+
     // Attempt to establish the connection
     fun connect(): Boolean {
         return try {
             println("Connecting to $host:$port (thread: ${Thread.currentThread().name})")
-            socket = Socket(host, port)  // Try to connect to the host, blocking call?
+            socket = Socket(host, port)  // Try to connect to the host, a blocking call
             println("Connection established to $host:$port")
-            inputStream = socket?.getInputStream()  // Get the input stream
-            outputStream = socket?.getOutputStream()  // Get the output stream
+            inputStream = socket?.getInputStream()
+            outputStream = socket?.getOutputStream()
             startReadingData()
             true  // Connection successful, return true
         } catch (e: UnknownHostException) {
-            println("Unknown host: ${e.message}")  // Handle unknown host error
+            println("Unknown host: ${e.message}")
             false  // Connection failed, return false
         } catch (e: IOException) {
-            println("Connection failed: ${e.message}")  // Handle connection failure
+            println("Connection failed: ${e.message}")
             false  // Connection failed, return false
         }
     }
@@ -81,7 +88,7 @@ class MudConnection(private val host: String, private val port: Int) {
     }
 
     // Close the connection during reconnect
-    fun close() {
+    private fun close() {
         inputStream?.close()
         outputStream?.close()
         socket?.close()
@@ -147,22 +154,17 @@ class MudConnection(private val host: String, private val port: Int) {
         var currentInProcessingBuffer = 0
         var currentInBuffer = 0
 
-        // Loop through the buffer and duplicate any 255 (IAC) bytes
         while (currentInBuffer < buffer.size) {
-            // Check if byte is an IAC (255)
             if (buffer[currentInBuffer] == TelnetConstants.InterpretAsCommand) {
-                // Duplicate IAC byte (as per Telnet ToS)
                 processingBuffer[currentInProcessingBuffer] = TelnetConstants.InterpretAsCommand
                 currentInProcessingBuffer++
             }
 
-            // Copy the buffer byte to processing buffer
             processingBuffer[currentInProcessingBuffer] = buffer[currentInBuffer]
             currentInProcessingBuffer++
             currentInBuffer++
         }
 
-        // Return only the portion of the buffer used
         return processingBuffer.copyOf(currentInProcessingBuffer)
     }
 
@@ -185,12 +187,8 @@ class MudConnection(private val host: String, private val port: Int) {
                     }
                     val bytesRead = currentStream?.read(buffer)
                     if (bytesRead == -1) break // Connection closed
-                    val newBytes = fixDoubleYa(buffer, bytesRead!!) // in-place fix of letter 'ya'
-                    var processedBytes = 0
-                    while (processedBytes < newBytes)
-                        processedBytes = processData(buffer, processedBytes, newBytes)
+                    processData(buffer, bytesRead!!)
                 }
-
             } catch (e: IOException) {
                 println("Error while receiving: ${e.message}")
             } finally {
@@ -203,219 +201,178 @@ class MudConnection(private val host: String, private val port: Int) {
         }
     }
 
-    // This can be telnet commands, XML or text. We'll detect & treat each type here.
-    private suspend fun processData(data : ByteArray, startOffset: Int, byteLength: Int) : Int {
-        println("Processing data of length: $byteLength")
-        var iacPosition = findIAC(data, startOffset, byteLength)
-        // if we're directly in front of an IAC command, process it
-        if (iacPosition == startOffset) {
-            val commandLength = processIAC(data, startOffset, byteLength)
-            println("Processed command bytes $commandLength")
-            // Debug: Build a string from the byte array representation in hex
-            if (commandLength > 0) {
-                val hexString = data.copyOfRange(startOffset, startOffset + commandLength)
-                    .joinToString(separator = " ") { byte -> "%02X".format(byte) }
-                // _dataFlow.emit(hexString)
-                println("Received Bytes (Hex): $hexString")
+    /**************** PROCESS ****************/
+
+    private suspend fun processData(data : ByteArray, byteLength: Int)
+    {
+        val debug = false
+        var skipCount = 0
+        for (offset in 0 until byteLength) {
+            if (skipCount > 0) {
+                skipCount--
+                continue
             }
 
-            if (commandLength > 0) {
-                return startOffset + commandLength
-            } else {
-                iacPosition = findIAC(data, startOffset+1, byteLength)
+            // Hamdle IAC WILL COMPRESS
+            if (!_compressionEnabled && offset + 2 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.Will
+                && data[offset + 2] == TelnetConstants.Compress) {
+                // Respond with IAC DO COMPRESS
+                _compressionEnabled = true
+                if (debug)
+                    println("Detected command: IAC WILL COMPRESS")
+                sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
+                skipCount = 2
+                //flushMainBuffer()
+                continue
             }
+
+            // Handle IAC WILL Custom Protocol
+            if (!_customProtocolEnabled && offset + 2 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.Will
+                && data[offset + 2] == TelnetConstants.CustomProtocol) {
+                // Enable the custom protocol and respond with IAC DO CUSTOM_PROTOCOL
+                _customProtocolEnabled = true
+                if (debug)
+                    println("Detected command: IAC WILL CUSTOM")
+                sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
+                skipCount = 2
+                //flushMainBuffer()
+                continue
+            }
+
+            // Beginning of MCCP Compression negotiation: IAC SB COMPRESS2 WILL SE
+            if (_compressionEnabled && offset + 4 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.SubNegotiationStart
+                && data[offset + 2] == TelnetConstants.Compress
+                && data[offset + 3] == TelnetConstants.Will
+                && data[offset + 4] == TelnetConstants.SubNegotiationEnd) {
+                if (debug)
+                    println("Detected command: IAC SUB_START COMPRESS WILL SUB_STOP")
+                _compressionInProgress = true
+                _zlibDecompressionStream = InflaterInputStream(inputStream)  // Start decompression
+                skipCount = 4
+                //flushMainBuffer()
+                continue
+            }
+
+            // Detect beginning of custom protocol message
+            if (_customProtocolEnabled && _customMessageType == -1 && offset + 3 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.SubNegotiationStart
+                && data[offset + 2] == TelnetConstants.CustomProtocol) {
+                _customMessageType = data[offset + 3].toInt() // 4th byte carries the message type
+                if (debug)
+                    println("Detected command: custom message start ${data[offset + 3]}")
+                //_dataFlow.emit("Custom protocol begin: ${data[offset + 3]}")
+                skipCount = 3
+                //flushMainBuffer()
+                continue
+            }
+
+            // Detect end of custom protocol
+            if (_customProtocolEnabled && _customMessageType != -1 && offset + 1 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.SubNegotiationEnd) {
+                if (debug)
+                    println("Detected command: custom message end")
+                flushMainBuffer()
+                _customMessageType = -1
+                //_dataFlow.emit("Custom protocol end")
+                skipCount = 1
+                continue
+            }
+
+            // ignore echo mode for now
+            if (offset + 2 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.Will
+                && data[offset + 2] == TelnetConstants.Echo)
+            {
+                if (debug)
+                    println("Detected command: IAC WILL ECHO")
+                skipCount = 2
+                //flushMainBuffer()
+                continue
+            }
+
+            // ignore echo mode for now
+            if (offset + 2 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.WillNot
+                && data[offset + 2] == TelnetConstants.Echo)
+            {
+                if (debug)
+                    println("Detected command: IAC WONT ECHO")
+                skipCount = 2
+                //flushMainBuffer()
+                continue
+            }
+
+            // if encountering IAC GA (at the beginning of the message), flush the buffer
+            if (offset == 0
+                && 1 < byteLength
+                && data[0] == TelnetConstants.InterpretAsCommand
+                && data[1] == TelnetConstants.GoAhead) {
+                if (debug)
+                    println("Detected command: IAC GA")
+                skipCount = 1
+                flushMainBuffer()
+                continue
+            }
+
+            // if encountering IAC GA (not at the beginning of the message), flush the buffer
+            if (offset > 0
+                && offset + 1 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.GoAhead
+                && data[offset - 1] != TelnetConstants.InterpretAsCommand) {
+                if (debug)
+                    println("Detected command: IAC GA")
+                skipCount = 1
+                flushMainBuffer()
+                continue
+            }
+
+            // end of telnet commands
+
+            // remove double 255,255
+            // reason: the letter 'я' in cp1251 is FF, but in Telnet FF is reserved for IAC, so Mud sends us FFFF for letter 'я'
+            // at this point we've treated all known IAC commands, so it's safe to assume the rest is part of normal strings
+            if (offset + 1 < byteLength
+                && data[offset] == TelnetConstants.InterpretAsCommand
+                && data[offset + 1] == TelnetConstants.InterpretAsCommand) {
+                mainBuffer[mainBufferPointer] = data[offset]
+                mainBufferPointer++
+                skipCount = 1
+                continue
+            }
+
+            // if encountering \r\n, flush the buffer
+            if (offset + 1 < byteLength
+                && data[offset] == ControlCharacters.CarriageReturn
+                && data[offset + 1] == ControlCharacters.LineFeed) {
+                skipCount = 1
+                flushMainBuffer()
+                continue
+            }
+
+            mainBuffer[mainBufferPointer] = data[offset]
+            mainBufferPointer++
         }
-        // if the message doesn't have an IAC command, process it all as text
-        if (iacPosition == -1) {
-            val byteMsg = data.copyOfRange(startOffset, byteLength)
+    }
 
-            if (byteLength - startOffset >= 2) {
-                val hexString = byteMsg.copyOfRange(0, 2).joinToString(separator = " ") { byte -> "%02X".format(byte) }
-                println("First bytes: $hexString")
-            }
-
-            val message = String(byteMsg, charset)
-            if (_customMessageType != -1) {
-                _customMessages.emit(message)
-            } else {
-                _dataFlow.emit(message)
-            }
-            println("Received String length ${byteLength - startOffset} (no iac): $message")
-
-            return byteLength
-        }
-
-        // if the message has an IAC command down the line, process anything before it as text
-        val byteMsg = data.copyOfRange(startOffset, iacPosition)
-
-        if (iacPosition - startOffset >= 2) {
-            val hexString = byteMsg.copyOfRange(0, 2).joinToString(separator = " ") { byte -> "%02X".format(byte) }
-            println("First bytes: $hexString")
-        }
-
+    private suspend fun flushMainBuffer() {
+        val byteMsg = mainBuffer.copyOfRange(0, mainBufferPointer)
         val message = String(byteMsg, charset)
         if (_customMessageType != -1) {
             _customMessages.emit(message)
         } else {
-            _dataFlow.emit(message)
+            _textMessages.emit(message)
         }
-        println("Received String length ${iacPosition - startOffset} (until iac $iacPosition): $message")
-
-        // keep processing data recursively
-        return iacPosition
-
-
-    }
-
-    // the letter 'я' in cp1251 is FF, but in Telnet FF is reserved for IAC, so Mud sends us FFFF for letter 'я'
-    // we go over the ByteArray and replace all occurrences of 'яя' with 'я'
-    private fun fixDoubleYa(data: ByteArray, byteLength: Int): Int {
-        var writeIndex = 0  // Destination index for writing non-duplicate 'я' (0xFF)
-        var readIndex = 0   // Current position in the input byte array
-
-        while (readIndex < byteLength) {
-            val currentByte = data[readIndex]  // Read the current byte
-
-            // Check if current byte is 'я' (0xFF) and the next one is 'я' too
-            if (currentByte == 0xFF.toByte() && readIndex + 1 < byteLength && data[readIndex + 1] == 0xFF.toByte()) {
-                data[writeIndex] = 0xFF.toByte()   // Write one instance of 0xFF
-                writeIndex++                       // Move the write pointer
-                readIndex += 2                     // Skip the next byte (duplicate 'я')
-            } else {
-                data[writeIndex] = data[readIndex]  // Otherwise copy the byte
-                writeIndex++                        // Move both pointers
-                readIndex++
-            }
-        }
-
-        // Return new length, which is where the writeIndex stopped
-        return writeIndex
-    }
-
-    private fun findIAC(data: ByteArray, offset: Int, bytesLength: Int): Int {
-        // Search for Interpret As Command (255 / 0xFF) in the buffer
-        for (i in offset until bytesLength) {
-            if(data[i] == TelnetConstants.InterpretAsCommand) {
-                if (i + 1 <= bytesLength && (
-                        data[i + 1] == TelnetConstants.Will ||
-                        data[i + 1] == TelnetConstants.WillNot ||
-                        data[i + 1] == TelnetConstants.SubNegotiationStart ||
-                        data[i + 1] == TelnetConstants.SubNegotiationEnd ||
-                        data[i + 1] == TelnetConstants.GoAhead
-                        )) {
-                    return i
-                }
-            }
-        }
-        return -1 // Return -1 if IAC not found
-    }
-
-    // Process commands for negotiation
-    // Send back appropriate response
-    // Return the number of processed bytes
-    private suspend fun processIAC(data: ByteArray, offset: Int, byteLength: Int): Int {
-        val bytesCount = byteLength - offset
-
-        // remove double IAC
-        if (byteLength >= 2
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.InterpretAsCommand) {
-            return 1
-        }
-
-        // Are we receiving IAC WILL MCCP (Compression)?
-        if (!_compressionEnabled && bytesCount >= 3
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.Will
-            && data[offset + 2] == TelnetConstants.Compress) {
-
-            // Respond to IAC WILL COMPRESS with IAC DO COMPRESS
-            _compressionEnabled = true
-            println("Detected command: IAC WILL COMPRESS")
-            sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
-            return 3
-        }
-
-        // Handle IAC WILL Custom Protocol
-        if (!_customProtocolEnabled && bytesCount >= 3
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.Will
-            && data[offset + 2] == TelnetConstants.CustomProtocol) {
-
-            // Enable the custom protocol and respond with IAC DO CUSTOM_PROTOCOL
-            _customProtocolEnabled = true
-            println("Detected command: IAC WILL CUSTOM")
-            sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
-            return 3
-        }
-
-        // Beginning of MCCP Compression negotiation: IAC SB COMPRESS2 WILL SE
-        if (_compressionEnabled && bytesCount >= 5
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.SubNegotiationStart
-            && data[offset + 2] == TelnetConstants.Compress
-            && data[offset + 3] == TelnetConstants.Will
-            && data[offset + 4] == TelnetConstants.SubNegotiationEnd) {
-            println("Detected command: IAC SUB_START COMPRESS WILL SUB_STOP")
-
-            _compressionInProgress = true
-            _zlibDecompressionStream = InflaterInputStream(inputStream)  // Start decompression
-            return 5
-        }
-
-        // Detect beginning of custom protocol message
-        if (_customProtocolEnabled && _customMessageType == -1 && bytesCount >= 4
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.SubNegotiationStart
-            && data[offset + 2] == TelnetConstants.CustomProtocol) {
-            _customMessageType = data[offset + 3].toInt() // 4th byte is supposed to mean message type
-            println("Detected command: custom message start ${data[offset + 3]}")
-            //_dataFlow.emit("Custom protocol begin: ${data[offset + 3]}")
-            return 4
-        }
-
-        // Detect end of custom protocol
-        if (_customProtocolEnabled && _customMessageType != -1 && bytesCount >= 2
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.SubNegotiationEnd) {
-            println("Detected command: custom message end")
-            _customMessageType = -1
-            //_dataFlow.emit("Custom protocol end")
-            return 2
-        }
-
-        // process IAC GA as new line
-        // only process IAC GA at the end of the message
-        if (byteLength >= 2 && offset + 2 == byteLength
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.GoAhead)
-        {
-            println("Detected command: IAC GA")
-            // new line ? or ignore it?
-            data[offset + 1] = 0xA.toByte()
-            return 2
-        }
-
-        // ignore echo mode for now
-        if (byteLength >= 3
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.Will
-            && data[offset + 2] == TelnetConstants.Echo)
-        {
-            println("Detected command: IAC WILL ECHO")
-            return 3
-        }
-
-        // ignore echo mode for now
-        if (byteLength >= 3
-            && data[offset] == TelnetConstants.InterpretAsCommand
-            && data[offset + 1] == TelnetConstants.WillNot
-            && data[offset + 2] == TelnetConstants.Echo)
-        {
-            println("Detected command: IAC WONT ECHO")
-            return 3
-        }
-
-        return 0 // If it doesn't match any known IAC patterns
+        mainBufferPointer = 0
     }
 }

@@ -27,7 +27,7 @@ class MainViewModel(private val client: MudConnection) {
             connected = client.connect()
         viewModelScope.launch {
             // Collect the model's flow of received bytes
-            client.dataFlow.collect { message ->
+            client.textMessages.collect { message ->
                 //val message = dataToString(data)  // Convert the data (bytes) to String
 
                 // Append the received message to the list and expose it via StateFlow
