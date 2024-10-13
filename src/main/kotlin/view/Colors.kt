@@ -1,0 +1,36 @@
+package view
+
+import AnsiColor
+import androidx.compose.ui.graphics.Color
+
+
+//DefaultTextColor = Color.FromRgb(192, 192, 192);
+//DefaultBackGroundColor = Color.FromRgb(0, 0, 0);
+
+fun ansiColorToTextColor(ansiColor: AnsiColor, isBright: Boolean): Color {
+    return if (isBright) {
+        when (ansiColor) {
+            AnsiColor.Black -> Color(96, 96, 96)
+            AnsiColor.Blue -> Color(0, 0, 255)
+            AnsiColor.Cyan -> Color(0, 255, 255)
+            AnsiColor.Green -> Color(0, 255, 0)
+            AnsiColor.Magenta -> Color(255, 0, 255)
+            AnsiColor.Red -> Color(255, 0, 0)
+            AnsiColor.White -> Color(255, 255, 255)
+            AnsiColor.Yellow -> Color(255, 255, 0)
+            AnsiColor.None -> Color(192, 192, 192)
+        }
+    } else {
+        when (ansiColor) {
+            AnsiColor.Black -> Color(0, 0, 0)
+            AnsiColor.Blue -> Color(0, 0, 128)
+            AnsiColor.Cyan -> Color(0, 128, 128)
+            AnsiColor.Green -> Color(0, 128, 0)
+            AnsiColor.Magenta -> Color(128, 0, 128)
+            AnsiColor.Red -> Color(128, 0, 0)
+            AnsiColor.White -> Color(128, 128, 128)
+            AnsiColor.Yellow -> Color(128, 128, 0)
+            AnsiColor.None -> Color(192, 192, 192)
+        }
+    }
+}
