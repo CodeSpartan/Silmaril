@@ -63,12 +63,19 @@ fun MainWindow(viewModel: MainViewModel) {
                         verticalArrangement = Arrangement.Bottom,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        items(messages) { item ->
-                            Text(
-                                text = item,
-                                color = Color.White,
-                                fontSize = 18.sp
-                            )
+                        items(messages) { message ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                message.chunks.forEach { chunk ->
+                                    Text(
+                                        text = chunk.text,
+                                        color = ansiColorToTextColor(chunk.foregroundColor, chunk.isBright),
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
                         }
                     }
 

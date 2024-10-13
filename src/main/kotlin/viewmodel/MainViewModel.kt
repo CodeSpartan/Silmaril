@@ -4,13 +4,15 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import model.MudConnection
+import model.TextMessageChunk
+import model.TextMessageData
 
 // ViewModel that holds the list of strings and manages the TCP connection
 class MainViewModel(private val client: MudConnection) {
 
     // Expose the list of messages as a StateFlow for UI to observe
-    private val _messages = MutableStateFlow<List<String>>(emptyList())
-    val messages: StateFlow<List<String>> get() = _messages
+    private val _messages = MutableStateFlow<List<TextMessageData>>(emptyList())
+    val messages: StateFlow<List<TextMessageData>> get() = _messages
 
     // Coroutine scope tied to the lifecycle of the ViewModel
     private val viewModelScope = CoroutineScope(Dispatchers.IO)
@@ -40,7 +42,7 @@ class MainViewModel(private val client: MudConnection) {
     fun sendMessage(message: String) {
         println("Sending: $message")
         // Adding the sent message to the list locally
-        _messages.value += "> $message"
+        _messages.value += TextMessageData(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
 
         // Send the message over TCP asynchronously
         client.sendMessage(message)

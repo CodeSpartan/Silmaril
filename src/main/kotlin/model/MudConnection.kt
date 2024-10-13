@@ -1,5 +1,6 @@
 package model
 
+import AnsiColor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -16,7 +17,7 @@ class MudConnection(private val host: String, private val port: Int) {
     private var outputStream: OutputStream? = null
 
     // Flow to emit received data to whoever is listening (MainViewModel in this case)
-    private val _textMessages = MutableSharedFlow<String>()
+    private val _textMessages = MutableSharedFlow<TextMessageData>()
     val textMessages = _textMessages.asSharedFlow()  // Expose as immutable flow to MainViewModel
 
     // when we receive a custom message, read its type and store it in this variable
@@ -27,9 +28,12 @@ class MudConnection(private val host: String, private val port: Int) {
     private val _customMessages = MutableSharedFlow<String>()
     val customMessages = _customMessages.asSharedFlow()
 
-    private var gluedMessage : String = ""
     private var mainBufferPointer = 0
     private val mainBuffer = ByteArray(32767)
+    private var colorTreatmentPointer = 0
+    private val colorTreatmentBuffer = ByteArray(32767)
+    private var currentColor : AnsiColor = AnsiColor.None
+    private var isColorBright : Boolean = false
 
     private val charset = Charset.forName("Windows-1251")
 
@@ -365,14 +369,117 @@ class MudConnection(private val host: String, private val port: Int) {
         }
     }
 
-    private suspend fun flushMainBuffer() {
-        val byteMsg = mainBuffer.copyOfRange(0, mainBufferPointer)
-        val message = String(byteMsg, charset)
-        if (_customMessageType != -1) {
-            _customMessages.emit(message)
+    private fun bufferToColorfulText() : TextMessageData {
+        colorTreatmentPointer = 0
+
+        val gatheredChunks : MutableList<TextMessageChunk> = mutableListOf()
+
+        var parsingFirstParam: Boolean = false
+        var parsingSecondParam: Boolean = false
+        var firstParam: String = ""
+        var secondParam: String = ""
+
+        var skipNextByte: Boolean = false
+        for (offset in 0 until mainBufferPointer) {
+            if (skipNextByte) {
+                skipNextByte = false
+                continue
+            }
+
+            // the color can be serialized in two ways
+            // A one param color: '\033'[<color>m -- this always means the <color> isn't bright
+            // A two param color: '\033'[<bright>;<color>m
+            // The color is sent not by bytes, but by string, which needs to be converted into int
+            // And then you subtract 30 from it, and you get the color from the AnsiColor enum by order
+            // So for example, color "31" sent as two bytes is red because AnsiColor[1] is red
+            if (mainBuffer[offset] == ControlCharacters.Escape && offset + 1 < mainBufferPointer
+                && mainBuffer[offset + 1] == 0x5B.toByte()) {
+                // when we hit a new color, flush any text
+                if (colorTreatmentPointer > 0) {
+                    val byteMsg = colorTreatmentBuffer.copyOfRange(0, colorTreatmentPointer)
+                    gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, String(byteMsg, charset)))
+                    colorTreatmentPointer = 0
+                }
+                parsingFirstParam = true
+                skipNextByte = true
+                continue
+            }
+
+            if (parsingFirstParam || parsingSecondParam) {
+                // when we hit 'm', we're done parsing color
+                if (mainBuffer[offset] == 0x6D.toByte()) {
+                    parsingFirstParam = false
+                    parsingSecondParam = false
+                    updateCurrentColor(firstParam, secondParam)
+                    firstParam = ""
+                    secondParam = ""
+                }
+                // when we hit ';', it means we're done parsing the first param and we're now parsing the second param
+                else if (mainBuffer[offset] == 0x3B.toByte()) {
+                    parsingFirstParam = false
+                    parsingSecondParam = true
+                }
+                else {
+                    if (parsingFirstParam){
+                        firstParam += mainBuffer[offset].toInt().toChar()
+                    } else {
+                        secondParam += mainBuffer[offset].toInt().toChar()
+                    }
+                }
+                continue
+            }
+            // if we're not dealing with a color, just copy the string bytes
+            colorTreatmentBuffer[colorTreatmentPointer] = mainBuffer[offset]
+            colorTreatmentPointer++
+        }
+        // once we're done with the message, flush any remaining bytes
+        if (colorTreatmentPointer > 0) {
+            val byteMsg = colorTreatmentBuffer.copyOfRange(0, colorTreatmentPointer)
+            gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, String(byteMsg, charset)))
+            colorTreatmentPointer = 0
+        }
+
+        return TextMessageData(chunks = gatheredChunks.toTypedArray())
+    }
+
+    // returns a TextMessageChunk without text, but with correctly set color information
+    private fun updateCurrentColor(param1 : String, param2: String)
+    {
+        var col = 0
+        if (param1.isNotEmpty() && param2.isNotEmpty()) {
+            isColorBright = param1.toInt() == 1
+            col = param2.toInt()
         } else {
-            _textMessages.emit(message)
+            isColorBright = false
+            col = param1.toInt()
+        }
+        if (col != 0)
+            currentColor = AnsiColor.entries.toTypedArray()[col - 30]
+        else
+            currentColor = AnsiColor.None
+    }
+
+
+    private suspend fun flushMainBuffer() {
+        if (_customMessageType != -1) {
+            val byteMsg = mainBuffer.copyOfRange(0, mainBufferPointer)
+            _customMessages.emit(String(byteMsg, charset))
+        } else {
+            val gluedMessage = bufferToColorfulText()
+            if (gluedMessage.chunks.isNotEmpty()) {
+                for (chunk in gluedMessage.chunks) {
+                    print(chunk.text)
+                }
+                print('\n')
+                _textMessages.emit(gluedMessage)
+            } else {
+                _textMessages.emit(emptyTextMessage())
+            }
         }
         mainBufferPointer = 0
+    }
+
+    private fun emptyTextMessage() : TextMessageData {
+        return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.None, AnsiColor.None, false, "")))
     }
 }
