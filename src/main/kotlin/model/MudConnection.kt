@@ -484,6 +484,6 @@ class MudConnection(private val host: String, private val port: Int) {
     }
 
     private fun whiteTextMessage(text : String) : TextMessageData {
-        return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, false, text)))
+        return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, true, text)))
     }
 }

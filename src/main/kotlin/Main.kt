@@ -9,6 +9,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import model.MudConnection
 import view.MainWindow
@@ -17,7 +18,11 @@ import viewmodel.MainViewModel
 fun main() = application {
     val client = MudConnection("adan.ru", 4000)
     val mainViewModel = MainViewModel(client)
-    Window(onCloseRequest = ::exitApplication) {
+    Window(
+        onCloseRequest = ::exitApplication,
+        title = "Silmaril",
+        icon = painterResource("icon.png")
+        ) {
         MainWindow(mainViewModel)
     }
     mainViewModel.connect()
