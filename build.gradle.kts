@@ -26,6 +26,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.0")
     // json
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    // jackson xml
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.1")
+
+    // simple xml
+    // implementation("org.simpleframework:simple-xml:2.7.1")
 }
 
 compose.desktop {

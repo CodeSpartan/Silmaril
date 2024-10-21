@@ -1,9 +1,12 @@
 package model
 
 import AnsiColor
+import mud_messages.CurrentRoomMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import mud_messages.TextMessageChunk
+import mud_messages.ColorfulTextMessage
 import java.io.*
 import java.net.Socket
 import java.net.UnknownHostException
@@ -16,17 +19,16 @@ class MudConnection(private val host: String, private val port: Int) {
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
 
-    // Flow to emit received data to whoever is listening (MainViewModel in this case)
-    private val _textMessages = MutableSharedFlow<TextMessageData>()
-    val textMessages = _textMessages.asSharedFlow()  // Expose as immutable flow to MainViewModel
+    // Flow to emit received text messages to whoever is listening (MainViewModel in this case)
+    private val _colorfulTextMessages = MutableSharedFlow<ColorfulTextMessage>()
+    val colorfulTextMessages = _colorfulTextMessages.asSharedFlow()  // Expose as immutable flow to MainViewModel
+
+    private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>()
+    val currentRoomMessages = _currentRoomMessages.asSharedFlow() // Expose as immutable flow to MapViewModel
 
     // when we receive a custom message, read its type and store it in this variable
     // when we get out of a custom message, set it back to -1
     private var _customMessageType : Int = -1
-
-    // messages of custom protocol
-    private val _customMessages = MutableSharedFlow<String>()
-    val customMessages = _customMessages.asSharedFlow()
 
     private var mainBufferPointer = 0
     private val mainBuffer = ByteArray(32767)
@@ -366,7 +368,7 @@ class MudConnection(private val host: String, private val port: Int) {
         }
     }
 
-    private fun bufferToColorfulText() : TextMessageData {
+    private fun bufferToColorfulText() : ColorfulTextMessage {
         colorTreatmentPointer = 0
 
         val gatheredChunks : MutableList<TextMessageChunk> = mutableListOf()
@@ -436,7 +438,7 @@ class MudConnection(private val host: String, private val port: Int) {
             colorTreatmentPointer = 0
         }
 
-        return TextMessageData(chunks = gatheredChunks.toTypedArray())
+        return ColorfulTextMessage(chunks = gatheredChunks.toTypedArray())
     }
 
     // returns a TextMessageChunk without text, but with correctly set color information
@@ -461,7 +463,9 @@ class MudConnection(private val host: String, private val port: Int) {
         if (_customMessageType != -1) {
             val byteMsg = mainBuffer.copyOfRange(0, mainBufferPointer)
             val msg = String(byteMsg, charset)
-            _customMessages.emit(msg)
+            when (_customMessageType) {
+                14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
+            }
             // println(msg)
             //_textMessages.emit(whiteTextMessage(msg)) // print custom message into main window
         } else {
@@ -471,19 +475,19 @@ class MudConnection(private val host: String, private val port: Int) {
 //                    print(chunk.text)
 //                }
 //                print('\n')
-                _textMessages.emit(gluedMessage)
+                _colorfulTextMessages.emit(gluedMessage)
             } else {
-                _textMessages.emit(emptyTextMessage())
+                _colorfulTextMessages.emit(emptyTextMessage())
             }
         }
         mainBufferPointer = 0
     }
 
-    private fun emptyTextMessage() : TextMessageData {
-        return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.None, AnsiColor.None, false, "")))
+    private fun emptyTextMessage() : ColorfulTextMessage {
+        return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.None, AnsiColor.None, false, "")))
     }
 
-    private fun whiteTextMessage(text : String) : TextMessageData {
-        return TextMessageData(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, true, text)))
+    private fun whiteTextMessage(text : String) : ColorfulTextMessage {
+        return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, true, text)))
     }
 }
