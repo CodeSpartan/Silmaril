@@ -48,6 +48,10 @@ class MainViewModel(private val client: MudConnection) {
         client.sendMessage(message)
     }
 
+    fun displaySystemMessage(message: String) {
+        _messages.value += TextMessageData(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.Black, true, message)))
+    }
+
     // Clean up when needed
     fun close() {
         viewModelScope.cancel()

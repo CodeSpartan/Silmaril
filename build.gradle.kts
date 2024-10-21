@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    kotlin("plugin.serialization") version "2.0.20"
 }
 
 group = "ru.adan"
@@ -23,6 +24,8 @@ dependencies {
     implementation(compose.desktop.currentOs)
     // Add the kotlinx-coroutines-swing dependency for enabling Dispatchers.Main on Compose Desktop
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.0")
+    // json
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 }
 
 compose.desktop {
