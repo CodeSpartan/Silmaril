@@ -1,6 +1,5 @@
-package view
+package misc
 
-import AnsiColor
 import androidx.compose.ui.graphics.Color
 
 

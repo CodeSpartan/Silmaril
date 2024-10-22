@@ -1,6 +1,6 @@
 package model
 
-import AnsiColor
+import misc.AnsiColor
 import mud_messages.CurrentRoomMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow

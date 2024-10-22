@@ -9,17 +9,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
-import androidx.compose.ui.window.DialogWindow
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.awt.ComposeDialog
+import androidx.compose.ui.awt.ComposeWindow
+import view.AdditionalOutputWindow
+import view.MapWindow
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
@@ -58,67 +56,18 @@ fun main() = application {
             }
         }
 
-
         MainWindow(mainViewModel)
 
-        if (showMapWindow.value) {
-            DialogWindow(
-                create = {
-                    ComposeDialog(owner = window).apply {
-                        size = Dimension(300, 200)
-                        isFocusable = true
-                        isUndecorated = true
-                        setLocation(300, 300)
-
-                        addWindowListener(object : WindowAdapter() {
-                            override fun windowClosing(e: WindowEvent) {
-                                showMapWindow.value = false
-                                println("Dialog is closing")
-                            }
-                        })
-                    }
-                },
-                dispose = ComposeDialog::dispose
-            ) {
-                Column(Modifier.background(Color(0xFFEEEEEE))) {
-                    AppWindowTitleBar()
-                    Row {
-                        Text("label 1", Modifier.size(100.dp, 100.dp).padding(10.dp).background(Color.White))
-                        Text("label 2", Modifier.size(150.dp, 200.dp).padding(5.dp).background(Color.White))
-                        Text("label 3", Modifier.size(200.dp, 300.dp).padding(25.dp).background(Color.White))
-                    }
-                }
-            }
+        // Map widget
+        FloatingWindow(showMapWindow, 600, 300, window)
+        {
+            MapWindow(mapViewModel)
         }
 
-        if (showAdditionalOutputWindow.value) {
-            DialogWindow(
-                create = {
-                    ComposeDialog(owner = window).apply {
-                        size = Dimension(300, 200)
-                        isFocusable = true
-                        isUndecorated = true
-                        setLocation(300, 500)
-
-                        addWindowListener(object : WindowAdapter() {
-                            override fun windowClosing(e: WindowEvent) {
-                                showAdditionalOutputWindow.value = false
-                                println("Dialog is closing")
-                            }
-                        })
-                    }
-                },
-                dispose = ComposeDialog::dispose,
-            ) {
-                Column(Modifier.background(Color(0xFFEEEEEE))) {
-                    AppWindowTitleBar()
-                    Row {
-                        Text("label 1", Modifier.size(100.dp, 100.dp).padding(10.dp).background(Color.White))
-                        Text("label 2", Modifier.size(150.dp, 200.dp).padding(5.dp).background(Color.White))
-                        Text("label 3", Modifier.size(200.dp, 300.dp).padding(25.dp).background(Color.White))
-                    }
-                }
-            }
+        // Additional output widget
+        FloatingWindow(showAdditionalOutputWindow, 600, 500, window)
+        {
+            AdditionalOutputWindow(mainViewModel)
         }
     }
 
@@ -132,4 +81,39 @@ fun main() = application {
 @Composable
 private fun WindowScope.AppWindowTitleBar() = WindowDraggableArea {
     Box(Modifier.fillMaxWidth().height(15.dp).background(Color.DarkGray))
+}
+
+@Composable
+fun FloatingWindow(
+    show: MutableState<Boolean>,
+    positionX: Int,
+    positionY: Int,
+    owner: ComposeWindow, // owner is necessary for correct focus behavior
+    content: @Composable () -> Unit // Custom content as a composable lambda
+) {
+    if (show.value) {
+        DialogWindow(
+            create = {
+                ComposeDialog(owner = owner).apply { // Set the owner as the window
+                    size = Dimension(300, 200)
+                    isFocusable = true
+                    isUndecorated = true
+                    setLocation(positionX, positionY)
+
+                    addWindowListener(object : WindowAdapter() {
+                        override fun windowClosing(e: WindowEvent) {
+                            show.value = false
+                            println("Dialog is closing")
+                        }
+                    })
+                }
+            },
+            dispose = ComposeDialog::dispose,
+        ) {
+            Column(Modifier.background(Color.Black)) {
+                AppWindowTitleBar()
+                content()
+            }
+        }
+    }
 }

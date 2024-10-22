@@ -24,5 +24,9 @@ data class CurrentRoomMessage(
                 null
             }
         }
+
+        fun empty(): CurrentRoomMessage? {
+            return null
+        }
     }
 }

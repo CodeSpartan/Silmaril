@@ -1,6 +1,6 @@
 package mud_messages
 
-import AnsiColor
+import misc.AnsiColor
 
 data class ColorfulTextMessage(
     val chunks: Array<TextMessageChunk>

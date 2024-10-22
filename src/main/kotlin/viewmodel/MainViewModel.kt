@@ -3,6 +3,7 @@ package viewmodel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import misc.AnsiColor
 import model.MudConnection
 import mud_messages.TextMessageChunk
 import mud_messages.ColorfulTextMessage
