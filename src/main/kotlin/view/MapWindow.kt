@@ -20,13 +20,29 @@ import viewmodel.MapViewModel
 @Preview
 fun MapWindow(viewModel: MapViewModel) {
 
-    var currentRoom by remember { mutableStateOf(CurrentRoomMessage.empty()) }
+    var lastZone = -1;
+    var lastRoom = -1;
+
+    var lastCurrentRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
     // Collect SharedFlow in a LaunchedEffect
     LaunchedEffect(viewModel) {
         viewModel.currentRoomMessages.collect { message ->
             // Update the state with the new message to trigger recomposition
-            currentRoom = message
+            lastCurrentRoomMessage = message
+        }
+    }
+
+    // React to changes in currentRoom
+    LaunchedEffect(lastCurrentRoomMessage) {
+        lastCurrentRoomMessage?.let { roomMessage ->
+            if (roomMessage.zoneId != lastZone) {
+
+            } else if (roomMessage.roomId != lastRoom) {
+
+            }
+            lastZone = roomMessage.zoneId
+            lastRoom = roomMessage.roomId
         }
     }
 
@@ -50,14 +66,14 @@ fun MapWindow(viewModel: MapViewModel) {
 
         // Overlay two texts at the bottom left corner of the Box
         Text(
-            text = currentRoom?.let { "Комната: ${it.roomId}" } ?: "",
+            text = lastCurrentRoomMessage?.let { "Комната: ${it.roomId}" } ?: "",
             color = Color.White,
             modifier = Modifier
                 .padding(start = 8.dp, bottom = 32.dp) // adjustments for positioning
                 .align(Alignment.BottomStart)
         )
         Text(
-            text = currentRoom?.let { "Зона: ${it.zoneId}" } ?: "",
+            text = lastCurrentRoomMessage?.let { "Зона: ${it.zoneId}" } ?: "",
             color = Color.White,
             modifier = Modifier
                 .padding(start = 8.dp, bottom = 8.dp) // further down

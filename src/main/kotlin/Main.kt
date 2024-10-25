@@ -74,6 +74,7 @@ fun main() = application {
     mainViewModel.displaySystemMessage("Проверяю карты...")
     val mapsUpdated : Boolean = SettingsManager.updateMaps()
     mainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
+    mapViewModel.loadAllMaps()
 
     mainViewModel.connect()
 }

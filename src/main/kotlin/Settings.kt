@@ -18,9 +18,11 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
 
+// This class is saved as json in getProgramDirectory()/settings.ini
 @Serializable
 data class Settings(
     var mapsUrl: String = "http://adan.ru/files/Maps.zip",
+
     @Serializable(with = InstantSerializer::class)
     var lastMapsUpdateDate: Instant = Instant.EPOCH
 )
@@ -44,7 +46,7 @@ object SettingsManager {
         }
     }
 
-    private fun getProgramDirectory(): String {
+    fun getProgramDirectory(): String {
         val userHome = System.getProperty("user.home")
         val os = getOperatingSystem()
         val programPath: String = when {
