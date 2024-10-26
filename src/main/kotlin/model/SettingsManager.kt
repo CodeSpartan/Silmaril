@@ -1,3 +1,7 @@
+package model
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 import java.io.File
@@ -17,6 +21,7 @@ import kotlinx.serialization.encoding.Encoder
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
+import kotlinx.serialization.Serializable
 
 // This class is saved as json in getProgramDirectory()/settings.ini
 @Serializable
@@ -24,13 +29,22 @@ data class Settings(
     var mapsUrl: String = "http://adan.ru/files/Maps.zip",
 
     @Serializable(with = InstantSerializer::class)
-    var lastMapsUpdateDate: Instant = Instant.EPOCH
+    var lastMapsUpdateDate: Instant = Instant.EPOCH,
+
+    var font: String = "Fira",
+    var fontSize: Int = 15,
 )
 
-object SettingsManager {
+class SettingsManager {
     private val settingsFile: File = File(getProgramDirectory(), "settings.json")
     private var settings: Settings = Settings()
-    val jsonFormat = Json { prettyPrint = true }
+    private val jsonFormat = Json {
+        prettyPrint = true
+        encodeDefaults = true
+    }
+
+    private val _font = MutableStateFlow(settings.font)
+    val font: StateFlow<String> get() = _font
 
     init {
         loadSettings()
@@ -71,6 +85,7 @@ object SettingsManager {
         if (settingsFile.exists()) {
             val json = settingsFile.readText()
             settings = Json.decodeFromString(json)
+            _font.value = settings.font
         }
     }
 
@@ -133,19 +148,11 @@ object SettingsManager {
             urlConnection.disconnect()
         }
     }
-}
 
-// A custom serializer for type 'Instant'
-object InstantSerializer : KSerializer<Instant> {
-    override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
-
-    override fun serialize(encoder: Encoder, value: Instant) {
-        encoder.encodeString(value.toString())  // ISO-8601 format by default
-    }
-
-    override fun deserialize(decoder: Decoder): Instant {
-        return Instant.parse(decoder.decodeString())
+    fun updateFont(newFont : String) {
+        settings.font = newFont
+        _font.value = newFont
+        saveSettings()
     }
 }
 
@@ -171,3 +178,18 @@ fun unzipFile(zipFilePath: String, destDirectory: String) {
         zipStream.closeEntry()
     }
 }
+
+// A custom serializer for type 'Instant'
+object InstantSerializer : KSerializer<Instant> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Instant) {
+        encoder.encodeString(value.toString())  // ISO-8601 format by default
+    }
+
+    override fun deserialize(decoder: Decoder): Instant {
+        return Instant.parse(decoder.decodeString())
+    }
+}
+

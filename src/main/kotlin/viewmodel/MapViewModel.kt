@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import misc.decryptFile
 import model.MudConnection
+import model.SettingsManager
 import xml_schemas.*
 import java.io.File
 import java.nio.file.Paths
 
 
-class MapViewModel(private val client: MudConnection) {
+class MapViewModel(private val client: MudConnection, private val settings: SettingsManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
 
     private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>(replay = 1)
@@ -55,7 +56,7 @@ class MapViewModel(private val client: MudConnection) {
     // called from main() after new maps have been downloaded and unzipped (or didn't need an update)
     fun loadAllMaps() {
         if (loadMapsJob == null || loadMapsJob?.isActive == false) {
-            val sourceDirPath = Paths.get(SettingsManager.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
+            val sourceDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
             loadMapsJob = loadMapsScope.launch {
                 val xmlMapper = XmlMapper()
 
@@ -84,8 +85,8 @@ class MapViewModel(private val client: MudConnection) {
 
     // Decrypt all maps for debugging purpose
     private fun decryptAllMaps() {
-        val sourceDirPath = Paths.get(SettingsManager.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
-        val targetDirPath = Paths.get(SettingsManager.getProgramDirectory(), "maps", "MapGenerator", "MapDecrypted").toString()
+        val sourceDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
+        val targetDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapDecrypted").toString()
         File(targetDirPath).mkdirs()
 
         // Get the list of all .xml files in the source directory

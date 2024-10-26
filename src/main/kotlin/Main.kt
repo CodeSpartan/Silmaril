@@ -16,16 +16,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.awt.ComposeDialog
 import androidx.compose.ui.awt.ComposeWindow
+import model.SettingsManager
 import view.AdditionalOutputWindow
 import view.MapWindow
+import viewmodel.SettingsViewModel
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 
 fun main() = application {
     val client = MudConnection("adan.ru", 4000)
+    val settings = SettingsManager()
     val mainViewModel = MainViewModel(client)
-    val mapViewModel = MapViewModel(client)
+    val mapViewModel = MapViewModel(client, settings)
+    val settingsViewModel = SettingsViewModel(settings)
 
     val showMapWindow = remember { mutableStateOf(true) }
     val showAdditionalOutputWindow = remember { mutableStateOf(true) }
@@ -48,6 +52,9 @@ fun main() = application {
                 Item("Toggle Additional Output") {
                     showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value
                 }
+                Item("Toggle Font") {
+                    settingsViewModel.toggleFont()
+                }
                 Item("Exit") {
                     mainViewModel.cleanup()
                     mapViewModel.cleanup()
@@ -56,7 +63,7 @@ fun main() = application {
             }
         }
 
-        MainWindow(mainViewModel)
+        MainWindow(mainViewModel, settingsViewModel)
 
         // Map widget
         FloatingWindow(showMapWindow, 600, 300, window)
@@ -72,7 +79,7 @@ fun main() = application {
     }
 
     mainViewModel.displaySystemMessage("Проверяю карты...")
-    val mapsUpdated : Boolean = SettingsManager.updateMaps()
+    val mapsUpdated : Boolean = settings.updateMaps()
     mainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
     mapViewModel.loadAllMaps()
 

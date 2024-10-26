@@ -27,17 +27,21 @@ import viewmodel.MainViewModel
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import misc.FontManager
 import misc.ansiColorToTextColor
+import viewmodel.SettingsViewModel
 
 @Composable
 @Preview
-fun MainWindow(viewModel: MainViewModel) {
+fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
     // Observe messages from the ViewModel
-    val messages by viewModel.messages.collectAsState()
+    val messages by mainViewModel.messages.collectAsState()
+
+    // Observe currentFontFamily from the SettingsViewModel
+    val currentFontFamily by settingsViewModel.currentFontFamily.collectAsState()
+    val currentFontSize by settingsViewModel.currentFontSize.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -72,8 +76,8 @@ fun MainWindow(viewModel: MainViewModel) {
                                     Text(
                                         text = chunk.text,
                                         color = ansiColorToTextColor(chunk.foregroundColor, chunk.isBright),
-                                        fontSize = 15.sp,
-                                        fontFamily = FontManager.consolas,
+                                        fontSize = currentFontSize.sp,
+                                        fontFamily = FontManager.getFont(currentFontFamily),
                                         // fontWeight = FontWeight.Bold,
                                     )
                                 }
@@ -129,7 +133,7 @@ fun MainWindow(viewModel: MainViewModel) {
                                 textFieldValue = textFieldValue.copy(
                                     selection = TextRange(0, textFieldValue.text.length) // Select all text
                                 )
-                                viewModel.sendMessage(textFieldValue.text)
+                                mainViewModel.sendMessage(textFieldValue.text)
                             }
                         ),
                         decorationBox = { innerTextField ->
@@ -146,6 +150,17 @@ fun MainWindow(viewModel: MainViewModel) {
         }
     }
 
+    suspend fun scrollDown() {
+        if (messages.isNotEmpty()) {
+            listState.scrollToItem(messages.size - 1)
+        }
+    }
+
+    // When font changes, scroll down
+    LaunchedEffect(currentFontFamily) {
+        scrollDown()
+    }
+
     // Request focus after the first composition
     DisposableEffect(Unit) {
         focusRequester.requestFocus()
@@ -155,9 +170,7 @@ fun MainWindow(viewModel: MainViewModel) {
     // Scroll to the bottom when a new string is added
     DisposableEffect(messages) {
         scope.launch {
-            if (messages.isNotEmpty()) {
-                listState.scrollToItem(messages.size - 1)
-            }
+            scrollDown()
         }
         onDispose { }
     }
