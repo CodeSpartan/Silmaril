@@ -27,8 +27,10 @@ import viewmodel.MainViewModel
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import misc.FontManager
 import misc.ansiColorToTextColor
 
 @Composable
@@ -70,7 +72,9 @@ fun MainWindow(viewModel: MainViewModel) {
                                     Text(
                                         text = chunk.text,
                                         color = ansiColorToTextColor(chunk.foregroundColor, chunk.isBright),
-                                        fontSize = 18.sp
+                                        fontSize = 15.sp,
+                                        fontFamily = FontManager.consolas,
+                                        // fontWeight = FontWeight.Bold,
                                     )
                                 }
                             }

@@ -20,7 +20,7 @@ import viewmodel.MapViewModel
 @Preview
 fun MapWindow(viewModel: MapViewModel) {
 
-    var lastZone = -1;
+    var lastZone = -100; // -1 is reserved for roads
     var lastRoom = -1;
 
     var lastCurrentRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
