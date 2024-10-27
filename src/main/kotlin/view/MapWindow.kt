@@ -13,12 +13,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import misc.StyleManager
+import misc.UiColor
 import mud_messages.CurrentRoomMessage
 import viewmodel.MapViewModel
+import viewmodel.SettingsViewModel
 
 @Composable
 @Preview
-fun MapWindow(viewModel: MapViewModel) {
+fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) {
+
+    val currentColorStyle by settingsViewModel.currentColorStyle.collectAsState()
 
     var lastZone = -100; // -1 is reserved for roads
     var lastRoom = -1;
@@ -26,8 +31,8 @@ fun MapWindow(viewModel: MapViewModel) {
     var lastCurrentRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
     // Collect SharedFlow in a LaunchedEffect
-    LaunchedEffect(viewModel) {
-        viewModel.currentRoomMessages.collect { message ->
+    LaunchedEffect(mapViewModel) {
+        mapViewModel.currentRoomMessages.collect { message ->
             // Update the state with the new message to trigger recomposition
             lastCurrentRoomMessage = message
         }
@@ -49,7 +54,7 @@ fun MapWindow(viewModel: MapViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
     ) {
         // Draw something on the Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {

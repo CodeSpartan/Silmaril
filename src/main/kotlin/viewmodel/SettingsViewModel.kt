@@ -6,9 +6,8 @@ import model.SettingsManager
 
 class SettingsViewModel (private val settingsManager: SettingsManager) {
     val currentFontFamily: StateFlow<String> = settingsManager.font
-
-    private val _currentFontSize = MutableStateFlow(15)
-    val currentFontSize: StateFlow<Int> = _currentFontSize
+    val currentFontSize: StateFlow<Int> = settingsManager.fontSize
+    val currentColorStyle: StateFlow<String> = settingsManager.colorStyle
 
     // temp method to toggle font
     fun toggleFont() {
@@ -16,5 +15,12 @@ class SettingsViewModel (private val settingsManager: SettingsManager) {
             settingsManager.updateFont("Roboto" )
         else
             settingsManager.updateFont("Fira")
+    }
+
+    fun toggleColorStyle() {
+        if (currentColorStyle.value == "Black")
+            settingsManager.updateColorStyle("DarkRed")
+        else
+            settingsManager.updateColorStyle("Black")
     }
 }

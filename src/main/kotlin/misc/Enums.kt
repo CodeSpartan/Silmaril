@@ -11,3 +11,8 @@ enum class AnsiColor {
     White,
     None
 }
+
+enum class UiColor {
+    MainWindowBackground,
+    AdditionalWindowBackground,
+}

@@ -33,6 +33,7 @@ data class Settings(
 
     var font: String = "Fira",
     var fontSize: Int = 15,
+    var colorStyle: String = "Black",
 )
 
 class SettingsManager {
@@ -45,6 +46,12 @@ class SettingsManager {
 
     private val _font = MutableStateFlow(settings.font)
     val font: StateFlow<String> get() = _font
+
+    private val _fontSize = MutableStateFlow(settings.fontSize)
+    val fontSize: StateFlow<Int> get() = _fontSize
+
+    private val _colorStyle = MutableStateFlow(settings.colorStyle)
+    val colorStyle: StateFlow<String> get() = _colorStyle
 
     init {
         loadSettings()
@@ -86,6 +93,8 @@ class SettingsManager {
             val json = settingsFile.readText()
             settings = Json.decodeFromString(json)
             _font.value = settings.font
+            _fontSize.value = settings.fontSize
+            _colorStyle.value = settings.colorStyle
         }
     }
 
@@ -152,6 +161,12 @@ class SettingsManager {
     fun updateFont(newFont : String) {
         settings.font = newFont
         _font.value = newFont
+        saveSettings()
+    }
+
+    fun updateColorStyle(newColorStyle : String) {
+        settings.colorStyle = newColorStyle
+        _colorStyle.value = newColorStyle
         saveSettings()
     }
 }

@@ -8,10 +8,10 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
  * <CurrentRoomMessage RoomId="2044" ZoneId="20" />
  */
 data class CurrentRoomMessage(
-    @field:JacksonXmlProperty(isAttribute = true, localName = "RoomId")
+    @JacksonXmlProperty(isAttribute = true, localName = "RoomId")
     val roomId: Int,
 
-    @field:JacksonXmlProperty(isAttribute = true, localName = "ZoneId")
+    @JacksonXmlProperty(isAttribute = true, localName = "ZoneId")
     val zoneId: Int
 ) {
     companion object {
@@ -20,6 +20,7 @@ data class CurrentRoomMessage(
             return try {
                 xmlMapper.readValue(xml, CurrentRoomMessage::class.java)
             } catch (e: Exception) {
+                println(xml)
                 e.printStackTrace()
                 null
             }

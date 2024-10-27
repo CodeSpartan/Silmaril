@@ -2,10 +2,6 @@ package misc
 
 import androidx.compose.ui.graphics.Color
 
-
-//DefaultTextColor = Color.FromRgb(192, 192, 192);
-//DefaultBackGroundColor = Color.FromRgb(0, 0, 0);
-
 fun ansiColorToTextColor(ansiColor: AnsiColor, isBright: Boolean): Color {
     return if (isBright) {
         when (ansiColor) {

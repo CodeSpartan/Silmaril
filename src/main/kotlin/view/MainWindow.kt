@@ -30,7 +30,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import misc.FontManager
-import misc.ansiColorToTextColor
+import misc.StyleManager
+import misc.UiColor
 import viewmodel.SettingsViewModel
 
 @Composable
@@ -42,6 +43,7 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
     // Observe currentFontFamily from the SettingsViewModel
     val currentFontFamily by settingsViewModel.currentFontFamily.collectAsState()
     val currentFontSize by settingsViewModel.currentFontSize.collectAsState()
+    val currentColorStyle by settingsViewModel.currentColorStyle.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -51,14 +53,17 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color.Black
+        color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.MainWindowBackground)
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.BottomCenter
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Row(modifier = Modifier.weight(1f)) {
+                Row(modifier = Modifier
+                    // .padding(start=630.dp)
+                    .weight(1f)
+                ) {
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f, true) // true = take up all remaining space horizontally
@@ -75,7 +80,7 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
                                 message.chunks.forEach { chunk ->
                                     Text(
                                         text = chunk.text,
-                                        color = ansiColorToTextColor(chunk.foregroundColor, chunk.isBright),
+                                        color = StyleManager.getStyle(currentColorStyle).getAnsiColor(chunk.foregroundColor, chunk.isBright),
                                         fontSize = currentFontSize.sp,
                                         fontFamily = FontManager.getFont(currentFontFamily),
                                         // fontWeight = FontWeight.Bold,

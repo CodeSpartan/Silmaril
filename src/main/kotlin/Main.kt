@@ -55,6 +55,9 @@ fun main() = application {
                 Item("Toggle Font") {
                     settingsViewModel.toggleFont()
                 }
+                Item("Toggle Color Style") {
+                    settingsViewModel.toggleColorStyle()
+                }
                 Item("Exit") {
                     mainViewModel.cleanup()
                     mapViewModel.cleanup()
@@ -68,13 +71,13 @@ fun main() = application {
         // Map widget
         FloatingWindow(showMapWindow, 600, 300, window)
         {
-            MapWindow(mapViewModel)
+            MapWindow(mapViewModel, settingsViewModel)
         }
 
         // Additional output widget
         FloatingWindow(showAdditionalOutputWindow, 600, 500, window)
         {
-            AdditionalOutputWindow(mainViewModel)
+            AdditionalOutputWindow(mainViewModel, settingsViewModel)
         }
     }
 
