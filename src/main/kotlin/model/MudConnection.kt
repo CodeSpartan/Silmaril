@@ -282,9 +282,9 @@ class MudConnection(private val host: String, private val port: Int) {
             if (_customProtocolEnabled && _customMessageType != -1 && offset + 1 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.SubNegotiationEnd) {
+                flushMainBuffer()
                 if (debug)
                     println("Detected command: custom message end")
-                flushMainBuffer()
                 _customMessageType = -1
                 //_dataFlow.emit("Custom protocol end")
                 skipCount = 1
@@ -365,13 +365,21 @@ class MudConnection(private val host: String, private val port: Int) {
                 continue
             }
 
+            // if encountering \n, we should normally flush the buffer (this happens rarely without the preceding \r, but it does)
+            // however, if this happens during a borked message (e.g. text message placed inside a custom message protocol),
+            // this would break up the xml line by line and we don't want that
+            if (_customMessageType == -1 && data[offset] == ControlCharacters.LineFeed) {
+                flushMainBuffer()
+                continue
+            }
+
             mainBuffer[mainBufferPointer] = data[offset]
             mainBufferPointer++
         }
     }
 
     private fun bufferToColorfulText(buffer: ByteArray, bufferEndPointer: Int) : ColorfulTextMessage {
-        val debug = true
+        val debug = false
         // print bytes
         if (debug) {
             val copiedBytes = buffer.copyOfRange(0, bufferEndPointer)
@@ -407,8 +415,7 @@ class MudConnection(private val host: String, private val port: Int) {
                 if (colorTreatmentPointer > 0) {
                     val byteMsg = colorTreatmentBuffer.copyOfRange(0, colorTreatmentPointer)
                     val text = String(byteMsg, charset)
-                    if (text.isNotEmpty())
-                        gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, text))
+                    gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, text))
                     colorTreatmentPointer = 0
                 }
                 parsingFirstParam = true
@@ -451,8 +458,7 @@ class MudConnection(private val host: String, private val port: Int) {
             //@TODO: move it to a substitute system
             if (text.startsWith('\u0007'))
                 text = text.replace("\u0007", "⚠")
-            if (text.isNotEmpty())
-                gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, text))
+            gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, text))
             colorTreatmentPointer = 0
         }
 
@@ -476,42 +482,29 @@ class MudConnection(private val host: String, private val port: Int) {
             currentColor = AnsiColor.None
     }
 
-
-    /*
-    Due to an ADAN bug, "новости" can arrive inside a custom message, e.g.
-    - "custom protocol begin" bytes
-    - новости: ....
-    - <GroupStatusMessage>...</GroupStatusMessage>
-    - "end of custom protocol" bytes
-    Because of this we need to extract новости from the message before letting xml deserializer process it
-     */
     private suspend fun flushMainBuffer() {
         if (_customMessageType != -1) {
             val debug = false
-            val xmlStartOffset = findStartOfXmlMessage()
-            // if xml message doesn't start right away, feed it to the text processor
-            // however, some custom messages start after some 4 bytes with newlines, so let's not feed that into the main window
-            if (xmlStartOffset > 0) {
-                if (debug) {
-                    println("Xml start offset: $xmlStartOffset")
-                    val byteMsg = mainBuffer.copyOfRange(0, mainBufferPointer)
-                    val hexString = byteMsg.joinToString(separator = " ") { byte -> String.format("%02X", byte) }
-                    println("Bytes: $hexString")
-                    val msg = String(byteMsg, charset)
-                    println(msg)
-                }
-                val msgBeforeXml = mainBuffer.copyOfRange(0, xmlStartOffset)
-                processTextMessage(msgBeforeXml, xmlStartOffset, false)
+            var skipBytes = 0
+
+            // Due to an ADAN bug, some messages can arrive inside a custom message, e.g.
+            //  - "custom protocol begin" bytes
+            //  - text message "Enter charset:" arrives
+            //  - <ProtocolVersionMessage ... />
+            //  - "end of custom protocol" bytes
+            // Because of this we need to extract any text from the message before letting xml deserializer process it
+            if (mainBuffer[0] != 0x3C.toByte()) { // if xml message doesn't start right away (with '<'), find text inside it and process it
+                skipBytes = processBorkedTextMessage(mainBuffer, mainBufferPointer)
             }
-            val byteMsg = mainBuffer.copyOfRange(xmlStartOffset, mainBufferPointer)
+            val byteMsg = mainBuffer.copyOfRange(skipBytes, mainBufferPointer)
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
             }
             if (debug) {
-                print("- Custom message: ${_customMessageType}\n")
-                print(msg)
-                print("\n- End of custom message\n")
+                println("- Custom message: ${_customMessageType}")
+                println(msg)
+                println("- End of custom message")
                 //_textMessages.emit(whiteTextMessage(msg)) // print custom message into main window
             }
         } else {
@@ -537,10 +530,40 @@ class MudConnection(private val host: String, private val port: Int) {
         }
     }
 
-    private fun findStartOfXmlMessage() : Int{
-        for (offset in 0 until mainBufferPointer) {
-            if (mainBuffer[offset] == 0x3C.toByte()) // 3C is char '<'
-                return offset
+    private suspend fun processBorkedTextMessage(buffer: ByteArray, bufferEndPointer: Int) : Int {
+        val debug = false
+        val xmlStartOffset = findXmlOffset(buffer, bufferEndPointer)
+        if (debug) {
+            println("Borked message detected")
+             println("Xml start offset: $xmlStartOffset")
+            val byteMsg = buffer.copyOfRange(0, bufferEndPointer)
+            val hexString = byteMsg.joinToString(separator = " ") { byte -> String.format("%02X", byte) }
+            println("Bytes of the borked message: $hexString")
+            val msg = String(byteMsg, charset)
+            println("Borked message: $msg")
+        }
+        if (xmlStartOffset > 0)
+            processTextMessage(buffer, xmlStartOffset, false)
+        return xmlStartOffset
+    }
+
+    private fun findXmlOffset(buffer: ByteArray, bufferEndPointer: Int) : Int {
+        // first three characters of custom xml messages
+        val strings = listOf("Lor", "Pro", "Gro", "Roo", "Cur")
+        val byteArrays = strings.map { str ->
+            str.toByteArray(Charset.forName("Windows-1251"))
+        }
+
+        // try to find "<Lor", "<Pro", "<Gro", "<Roo", "<Cur" in the buffer to find the beginning of xml message
+        for (offset in 0 until bufferEndPointer) {
+            if (buffer[offset] == 0x3C.toByte() && offset + 3 < bufferEndPointer) { // 0x3C is the '<' character
+                for (byteArray in byteArrays) {
+                    if (buffer[offset+1] == byteArray[0] &&
+                        buffer[offset+2] == byteArray[1] &&
+                        buffer[offset+3] == byteArray[2])
+                        return offset
+                }
+            }
         }
         return 0
     }
