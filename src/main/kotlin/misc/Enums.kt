@@ -15,4 +15,6 @@ enum class AnsiColor {
 enum class UiColor {
     MainWindowBackground,
     AdditionalWindowBackground,
+    InputField,
+    InputFieldText,
 }

@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.sp
@@ -29,14 +30,23 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import misc.FontManager
 import misc.StyleManager
 import misc.UiColor
 import viewmodel.SettingsViewModel
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 
 @Composable
 @Preview
-fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
+fun MainWindow(
+    mainViewModel: MainViewModel,
+    settingsViewModel: SettingsViewModel,
+    owner: ComposeWindow,
+) {
     // Observe messages from the ViewModel
     val messages by mainViewModel.messages.collectAsState()
 
@@ -51,6 +61,23 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
 
     var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
 
+    suspend fun scrollDown() {
+        if (messages.isNotEmpty()) {
+            listState.scrollToItem(messages.size - 1)
+        }
+    }
+
+    // Add a component listener to update padding of text in main window on window resize
+    var paddingLeft by remember { mutableStateOf((owner.width.dp - 680.dp) / 2) }
+    owner.addComponentListener(object : ComponentAdapter() {
+        override fun componentResized(e: ComponentEvent?) {
+            paddingLeft = (owner.width.dp - 680.dp) / 2
+            runBlocking {
+                scrollDown()
+            }
+        }
+    })
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.MainWindowBackground)
@@ -61,7 +88,7 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(modifier = Modifier
-                    // .padding(start=630.dp)
+                    .padding(start=paddingLeft)
                     .weight(1f)
                 ) {
                     LazyColumn(
@@ -113,7 +140,6 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 6.dp),
-                        //.padding(1.dp),
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
                     BasicTextField(
@@ -123,11 +149,14 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
                             .width(600.dp)
                             //.height(40.dp)
                             .focusRequester(focusRequester)
-                            .background(Color(0xFF424242), RoundedCornerShape(32.dp)) // Add background with clipping to the rounded shape
+                            .background(
+                                StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.InputField),
+                                RoundedCornerShape(32.dp)
+                            ) // Add background with clipping to the rounded shape
                             .focusable()
                             .padding(8.dp), // Apply padding as necessary
                         textStyle = TextStyle(
-                            color = Color.White,
+                            color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.InputFieldText),
                             fontSize = 16.sp
                         ),
                         cursorBrush = SolidColor(Color.White), // Change the caret (cursor) color to white
@@ -152,12 +181,6 @@ fun MainWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewMode
                     )
                 }
             }
-        }
-    }
-
-    suspend fun scrollDown() {
-        if (messages.isNotEmpty()) {
-            listState.scrollToItem(messages.size - 1)
         }
     }
 

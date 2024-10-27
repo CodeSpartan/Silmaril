@@ -66,7 +66,9 @@ fun main() = application {
             }
         }
 
-        MainWindow(mainViewModel, settingsViewModel)
+        window.minimumSize = Dimension(800, 400)
+
+        MainWindow(mainViewModel, settingsViewModel, window)
 
         // Map widget
         FloatingWindow(showMapWindow, 600, 300, window)
