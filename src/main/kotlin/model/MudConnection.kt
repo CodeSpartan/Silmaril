@@ -4,6 +4,8 @@ import misc.AnsiColor
 import mud_messages.CurrentRoomMessage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import mud_messages.TextMessageChunk
 import mud_messages.ColorfulTextMessage
@@ -27,6 +29,9 @@ class MudConnection(private val host: String, private val port: Int) {
 
     private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>()
     val currentRoomMessages = _currentRoomMessages.asSharedFlow() // Expose as immutable flow to MapViewModel
+
+    private val _isEchoOn = MutableStateFlow(false)
+    val isEchoOn: StateFlow<Boolean> get() = _isEchoOn
 
     // when we receive a custom message, read its type and store it in this variable
     // when we get out of a custom message, set it back to -1
@@ -291,7 +296,7 @@ class MudConnection(private val host: String, private val port: Int) {
                 continue
             }
 
-            // ignore echo mode for now
+            // when "will echo" is on, it means the next thing we enter will be a password, right?
             if (offset + 2 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.Will
@@ -300,11 +305,12 @@ class MudConnection(private val host: String, private val port: Int) {
                 if (debug)
                     println("Detected command: IAC WILL ECHO")
                 skipCount = 2
+                _isEchoOn.value = true
                 //flushMainBuffer()
                 continue
             }
 
-            // ignore echo mode for now
+            // when "will echo" is off, means we're no longer entering a password
             if (offset + 2 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.WillNot
@@ -313,6 +319,7 @@ class MudConnection(private val host: String, private val port: Int) {
                 if (debug)
                     println("Detected command: IAC WONT ECHO")
                 skipCount = 2
+                _isEchoOn.value = false
                 //flushMainBuffer()
                 continue
             }

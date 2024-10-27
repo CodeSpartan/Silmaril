@@ -15,6 +15,8 @@ class MainViewModel(private val client: MudConnection) {
     private val _messages = MutableStateFlow<List<ColorfulTextMessage>>(emptyList())
     val messages: StateFlow<List<ColorfulTextMessage>> get() = _messages
 
+    val isEnteringPassword: StateFlow<Boolean> = client.isEchoOn
+
     // Coroutine scope tied to the lifecycle of the ViewModel
     private val viewModelScope = CoroutineScope(Dispatchers.IO)
 
@@ -43,7 +45,10 @@ class MainViewModel(private val client: MudConnection) {
     fun sendMessage(message: String) {
         // println("Sending: $message")
         // Adding the sent message to the list locally
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, ">$message")))
+        if (!isEnteringPassword.value)
+            _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, ">$message")))
+        else
+            _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, ">********")))
 
         // Send the message over TCP asynchronously
         client.sendMessage(message)
