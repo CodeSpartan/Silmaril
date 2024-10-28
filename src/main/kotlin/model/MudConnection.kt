@@ -223,7 +223,7 @@ class MudConnection(private val host: String, private val port: Int) {
                 continue
             }
 
-            // Hamdle IAC WILL COMPRESS
+            // Handle IAC WILL COMPRESS
             if (!_compressionEnabled && offset + 2 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.Will

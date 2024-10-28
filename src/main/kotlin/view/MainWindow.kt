@@ -68,10 +68,12 @@ fun MainWindow(
     }
 
     // Add a component listener to update padding of text in main window on window resize
-    var paddingLeft by remember { mutableStateOf((owner.width.dp - 680.dp) / 2) }
+    var paddingLeft by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2, 0.dp)) }
+    var paddingRight by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)) }
     owner.addComponentListener(object : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent?) {
-            paddingLeft = (owner.width.dp - 680.dp) / 2
+            paddingLeft = maxOf((owner.width.dp - 680.dp) / 2, 0.dp)
+            paddingRight = maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)
             runBlocking {
                 scrollDown()
             }
@@ -94,6 +96,7 @@ fun MainWindow(
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f, true) // true = take up all remaining space horizontally
+                            .padding(end=paddingRight)
                             .fillMaxHeight(),
                         state = listState,
                         verticalArrangement = Arrangement.Bottom,
