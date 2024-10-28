@@ -23,6 +23,19 @@ import viewmodel.SettingsViewModel
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import androidx.compose.ui.window.Window
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 
 fun main() = application {
     val client = MudConnection("adan.ru", 4000)
@@ -33,6 +46,11 @@ fun main() = application {
 
     val showMapWindow = remember { mutableStateOf(true) }
     val showAdditionalOutputWindow = remember { mutableStateOf(true) }
+    val state = rememberWindowState(
+        placement = settings.windowPlacement,
+        position = settings.windowPosition,
+        size = settings.windowSize
+    )
 
     // Main Window
     Window(
@@ -41,6 +59,7 @@ fun main() = application {
             mapViewModel.cleanup()
             exitApplication()
         },
+        state = state,
         title = "Silmaril",
         icon = painterResource("icon.png"),
         ) {
@@ -65,8 +84,10 @@ fun main() = application {
                 }
             }
         }
+        window.minimumSize = Dimension(800, 600)
 
-        window.minimumSize = Dimension(800, 400)
+        // watch for resize, move, fullscreen toggle and save into settings
+        SignUpToWindowEvents(state, settings)
 
         MainWindow(mainViewModel, settingsViewModel, window)
 
@@ -89,6 +110,28 @@ fun main() = application {
     mapViewModel.loadAllMaps()
 
     mainViewModel.connect()
+}
+
+@Composable
+private fun SignUpToWindowEvents(state: WindowState, settings: SettingsManager) {
+    LaunchedEffect(state) {
+        snapshotFlow { state.size }
+            .onEach{ onWindowStateUpdated(state, settings)}
+            .launchIn(this)
+
+        snapshotFlow { state.position }
+            .filter { it.isSpecified }
+            .onEach{ onWindowStateUpdated(state, settings)}
+            .launchIn(this)
+
+        snapshotFlow { state.placement }
+            .onEach{ onWindowStateUpdated(state, settings)}
+            .launchIn(this)
+    }
+}
+
+private fun onWindowStateUpdated(state: WindowState, settings: SettingsManager) {
+    settings.updateWindowState(state)
 }
 
 @Composable

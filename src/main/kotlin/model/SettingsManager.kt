@@ -1,7 +1,14 @@
 package model
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.WindowState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 import java.io.File
@@ -12,28 +19,31 @@ import java.net.URI
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.ZoneId
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
 import kotlinx.serialization.Serializable
+import misc.*
 
 // This class is saved as json in getProgramDirectory()/settings.ini
 @Serializable
 data class Settings(
     var mapsUrl: String = "http://adan.ru/files/Maps.zip",
-
     @Serializable(with = InstantSerializer::class)
     var lastMapsUpdateDate: Instant = Instant.EPOCH,
-
     var font: String = "Fira",
     var fontSize: Int = 15,
     var colorStyle: String = "Black",
+    var windowSettings: WindowSettings = WindowSettings(),
+)
+
+@Serializable
+data class WindowSettings(
+    var windowPlacement: WindowPlacement = WindowPlacement.Maximized,
+    @Serializable(with = WindowPositionSerializer::class)
+    var windowPosition: WindowPosition = WindowPosition.Absolute(100.dp, 100.dp),
+    @Serializable(with = DpSizeSerializer::class)
+    var windowSize: DpSize = DpSize(800.dp, 600.dp),
 )
 
 class SettingsManager {
@@ -53,8 +63,16 @@ class SettingsManager {
     private val _colorStyle = MutableStateFlow(settings.colorStyle)
     val colorStyle: StateFlow<String> get() = _colorStyle
 
+    val windowPlacement: WindowPlacement get() = settings.windowSettings.windowPlacement
+    val windowPosition: WindowPosition get() = settings.windowSettings.windowPosition
+    val windowSize: DpSize get() = settings.windowSettings.windowSize
+    private val settingsFlow = MutableStateFlow(settings.windowSettings)
+
+    private val scope = CoroutineScope(Dispatchers.Default)
+
     init {
         loadSettings()
+        debounceSaveSettings()
     }
 
     private fun getOperatingSystem(): String {
@@ -101,6 +119,18 @@ class SettingsManager {
     private fun saveSettings() {
         val json = jsonFormat.encodeToString(settings)
         settingsFile.writeText(json)
+    }
+
+    // This function can observe very rapid state changes, but will actually only saveSettings after a delay of 500 ms
+    @OptIn(FlowPreview::class)
+    private fun debounceSaveSettings(debouncePeriod: Long = 500L) {
+        settingsFlow
+            .debounce(debouncePeriod)
+            .onEach {
+                settings.windowSettings = it
+                saveSettings()
+            }
+            .launchIn(scope) // Ensure to launch in a defined CoroutineScope
     }
 
     // Returns true if update happened
@@ -169,6 +199,15 @@ class SettingsManager {
         _colorStyle.value = newColorStyle
         saveSettings()
     }
+
+    fun updateWindowState(newWindowState: WindowState) {
+        settingsFlow.value = WindowSettings(
+            windowPlacement = newWindowState.placement,
+            windowSize = newWindowState.size,
+            windowPosition = newWindowState.position,
+        )
+        // no need to call saveSettings(), it's handled in debounceSaveSettings
+    }
 }
 
 fun unzipFile(zipFilePath: String, destDirectory: String) {
@@ -193,18 +232,3 @@ fun unzipFile(zipFilePath: String, destDirectory: String) {
         zipStream.closeEntry()
     }
 }
-
-// A custom serializer for type 'Instant'
-object InstantSerializer : KSerializer<Instant> {
-    override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
-
-    override fun serialize(encoder: Encoder, value: Instant) {
-        encoder.encodeString(value.toString())  // ISO-8601 format by default
-    }
-
-    override fun deserialize(decoder: Decoder): Instant {
-        return Instant.parse(decoder.decodeString())
-    }
-}
-
