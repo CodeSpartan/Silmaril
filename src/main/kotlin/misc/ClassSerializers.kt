@@ -2,8 +2,10 @@ package misc
 
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.CompositeDecoder
@@ -11,7 +13,16 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import java.time.Instant
 
-// This file contains serializers for classes that need to be saved into settings.json
+/** This file contains serializable classes and serializers for classes that need to be saved into settings.json */
+
+@Serializable
+data class WindowSettings(
+    var windowPlacement: WindowPlacement = WindowPlacement.Maximized,
+    @Serializable(with = WindowPositionSerializer::class)
+    var windowPosition: WindowPosition = WindowPosition.Absolute(100.dp, 100.dp),
+    @Serializable(with = DpSizeSerializer::class)
+    var windowSize: DpSize = DpSize(800.dp, 600.dp),
+)
 
 // A custom serializer for type 'Instant'
 object InstantSerializer : KSerializer<Instant> {

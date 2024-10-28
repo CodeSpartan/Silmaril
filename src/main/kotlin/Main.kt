@@ -38,8 +38,8 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 
 fun main() = application {
-    val client = MudConnection("adan.ru", 4000)
     val settings = SettingsManager()
+    val client = MudConnection(settings.gameServer, settings.gamePort)
     val mainViewModel = MainViewModel(client)
     val mapViewModel = MapViewModel(client, settings)
     val settingsViewModel = SettingsViewModel(settings)

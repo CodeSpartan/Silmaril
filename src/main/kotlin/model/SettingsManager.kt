@@ -28,6 +28,8 @@ import misc.*
 // This class is saved as json in getProgramDirectory()/settings.ini
 @Serializable
 data class Settings(
+    var gameServer: String = "adan.ru",
+    var gamePort: Int = 4000,
     var mapsUrl: String = "http://adan.ru/files/Maps.zip",
     @Serializable(with = InstantSerializer::class)
     var lastMapsUpdateDate: Instant = Instant.EPOCH,
@@ -35,15 +37,6 @@ data class Settings(
     var fontSize: Int = 15,
     var colorStyle: String = "Black",
     var windowSettings: WindowSettings = WindowSettings(),
-)
-
-@Serializable
-data class WindowSettings(
-    var windowPlacement: WindowPlacement = WindowPlacement.Maximized,
-    @Serializable(with = WindowPositionSerializer::class)
-    var windowPosition: WindowPosition = WindowPosition.Absolute(100.dp, 100.dp),
-    @Serializable(with = DpSizeSerializer::class)
-    var windowSize: DpSize = DpSize(800.dp, 600.dp),
 )
 
 class SettingsManager {
@@ -67,6 +60,9 @@ class SettingsManager {
     val windowPosition: WindowPosition get() = settings.windowSettings.windowPosition
     val windowSize: DpSize get() = settings.windowSettings.windowSize
     private val settingsFlow = MutableStateFlow(settings.windowSettings)
+
+    val gameServer: String get() = settings.gameServer
+    val gamePort: Int get() = settings.gamePort
 
     private val scope = CoroutineScope(Dispatchers.Default)
 
@@ -165,12 +161,20 @@ class SettingsManager {
                     settings.lastMapsUpdateDate = Instant.ofEpochMilli(urlConnection.lastModified)
                     saveSettings()
 
+                    // delete old .xml files (in case some area ceases to exist, so we don't keep loading it into memory)
+                    val oldFilesDir = File(Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString())
+                    if (oldFilesDir.exists()) {
+                        val xmlFiles = oldFilesDir.listFiles { file -> file.isFile && file.extension == "xml" }
+                        xmlFiles?.forEach { file -> file.delete()  }
+                    }
+
                     val unzippedMapsDirectory : String = Paths.get(getProgramDirectory(), "maps").toString()
                     val mapsDir = File(unzippedMapsDirectory)
                     if (!mapsDir.exists()) {
                         mapsDir.mkdir()
                     }
                     unzipFile(Paths.get(getProgramDirectory(), "maps.zip").toString(), unzippedMapsDirectory)
+                    destinationFile.delete()
 
                     return true
                 }
