@@ -1,13 +1,10 @@
 package model
 
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
@@ -24,8 +21,11 @@ import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
 import kotlinx.serialization.Serializable
 import misc.*
+import java.awt.Dimension
+import java.awt.Point
 
 // This class is saved as json in getProgramDirectory()/settings.ini
+// Below are its default values when not specified in the .ini
 @Serializable
 data class Settings(
     var gameServer: String = "adan.ru",
@@ -37,6 +37,18 @@ data class Settings(
     var fontSize: Int = 15,
     var colorStyle: String = "Black",
     var windowSettings: WindowSettings = WindowSettings(),
+    var floatWindows: MutableMap<String, FloatWindowSettings> = mutableMapOf(
+        "MapWindow" to FloatWindowSettings(
+            show = true,
+            windowPosition = Point(600, 300),
+            windowSize = Dimension(400, 400),
+            ),
+        "AdditionalOutput" to FloatWindowSettings(
+            show = true,
+            windowPosition = Point(600, 700),
+            windowSize = Dimension(400, 400),
+        ),
+    ),
 )
 
 class SettingsManager {
@@ -56,10 +68,21 @@ class SettingsManager {
     private val _colorStyle = MutableStateFlow(settings.colorStyle)
     val colorStyle: StateFlow<String> get() = _colorStyle
 
+    private val _settingsFlow = MutableStateFlow(settings.windowSettings)
     val windowPlacement: WindowPlacement get() = settings.windowSettings.windowPlacement
     val windowPosition: WindowPosition get() = settings.windowSettings.windowPosition
     val windowSize: DpSize get() = settings.windowSettings.windowSize
-    private val settingsFlow = MutableStateFlow(settings.windowSettings)
+
+    private val _floatWindowsFlow = MutableStateFlow(settings.floatWindows)
+    fun getFloatingWindowState(windowName: String) : FloatWindowSettings {
+        return _floatWindowsFlow.value[windowName]!!
+    }
+
+    private val _testFlow = MutableStateFlow(mutableMapOf("test" to FloatWindowSettings(
+        show = true,
+        windowPosition = Point(600, 700),
+        windowSize = Dimension(400, 400),
+    )))
 
     val gameServer: String get() = settings.gameServer
     val gamePort: Int get() = settings.gamePort
@@ -109,6 +132,8 @@ class SettingsManager {
             _font.value = settings.font
             _fontSize.value = settings.fontSize
             _colorStyle.value = settings.colorStyle
+            _settingsFlow.value = settings.windowSettings
+            _floatWindowsFlow.value = settings.floatWindows
         }
     }
 
@@ -117,13 +142,18 @@ class SettingsManager {
         settingsFile.writeText(json)
     }
 
+    fun cleanup() {
+        scope.cancel()
+    }
+
     // This function can observe very rapid state changes, but will actually only saveSettings after a delay of 500 ms
     @OptIn(FlowPreview::class)
     private fun debounceSaveSettings(debouncePeriod: Long = 500L) {
-        settingsFlow
+        combine(_settingsFlow, _floatWindowsFlow) { value1, value2 -> Pair(value1, value2) }
             .debounce(debouncePeriod)
-            .onEach {
-                settings.windowSettings = it
+            .onEach { (value1, value2) ->
+                settings.windowSettings = value1
+                settings.floatWindows = value2
                 saveSettings()
             }
             .launchIn(scope) // Ensure to launch in a defined CoroutineScope
@@ -205,12 +235,34 @@ class SettingsManager {
     }
 
     fun updateWindowState(newWindowState: WindowState) {
-        settingsFlow.value = WindowSettings(
+        _settingsFlow.value = WindowSettings(
             windowPlacement = newWindowState.placement,
             windowSize = newWindowState.size,
             windowPosition = newWindowState.position,
         )
         // no need to call saveSettings(), it's handled in debounceSaveSettings
+    }
+
+    fun updateFloatingWindowState(windowName: String, show: Boolean) {
+        // this is the only way I found to trigger an emit, by changing an instance of a value and a reference to the map
+        val updatedWindows = _floatWindowsFlow.value.toMutableMap()
+        updatedWindows[windowName] = FloatWindowSettings(
+            show = show,
+            windowPosition = updatedWindows[windowName]!!.windowPosition,
+            windowSize = updatedWindows[windowName]!!.windowSize
+        )
+        _floatWindowsFlow.value = updatedWindows
+    }
+
+    fun updateFloatingWindow(windowName: String, location: Point, size: Dimension) {
+        // this is the only way I found to trigger an emit, by changing an instance of a value and a reference to the map
+        val updatedWindows = _floatWindowsFlow.value.toMutableMap()
+        updatedWindows[windowName] = FloatWindowSettings(
+            show = updatedWindows[windowName]!!.show,
+            windowPosition = location,
+            windowSize = size
+        )
+        _floatWindowsFlow.value = updatedWindows
     }
 }
 

@@ -24,11 +24,8 @@ import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import androidx.compose.ui.window.Window
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.filter
@@ -44,8 +41,8 @@ fun main() = application {
     val mapViewModel = MapViewModel(client, settings)
     val settingsViewModel = SettingsViewModel(settings)
 
-    val showMapWindow = remember { mutableStateOf(true) }
-    val showAdditionalOutputWindow = remember { mutableStateOf(true) }
+    val showMapWindow = remember { mutableStateOf(settings.getFloatingWindowState("MapWindow").show) }
+    val showAdditionalOutputWindow = remember { mutableStateOf(settings.getFloatingWindowState("AdditionalOutput").show) }
     val state = rememberWindowState(
         placement = settings.windowPlacement,
         position = settings.windowPosition,
@@ -57,6 +54,7 @@ fun main() = application {
         onCloseRequest = {
             mainViewModel.cleanup()
             mapViewModel.cleanup()
+            settings.cleanup()
             exitApplication()
         },
         state = state,
@@ -67,9 +65,11 @@ fun main() = application {
             Menu("File") {
                 Item("Toggle Map") {
                     showMapWindow.value = !showMapWindow.value
+                    settings.updateFloatingWindowState("MapWindow", showMapWindow.value)
                 }
                 Item("Toggle Additional Output") {
                     showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value
+                    settings.updateFloatingWindowState("AdditionalOutput", showAdditionalOutputWindow.value)
                 }
                 Item("Toggle Font") {
                     settingsViewModel.toggleFont()
@@ -92,13 +92,13 @@ fun main() = application {
         MainWindow(mainViewModel, settingsViewModel, window)
 
         // Map widget
-        FloatingWindow(showMapWindow, 600, 300, window)
+        FloatingWindow(showMapWindow, window, settings, "MapWindow")
         {
             MapWindow(mapViewModel, settingsViewModel)
         }
 
         // Additional output widget
-        FloatingWindow(showAdditionalOutputWindow, 600, 500, window)
+        FloatingWindow(showAdditionalOutputWindow, window, settings,"AdditionalOutput")
         {
             AdditionalOutputWindow(mainViewModel, settingsViewModel)
         }
@@ -142,24 +142,36 @@ private fun WindowScope.AppWindowTitleBar() = WindowDraggableArea {
 @Composable
 fun FloatingWindow(
     show: MutableState<Boolean>,
-    positionX: Int,
-    positionY: Int,
     owner: ComposeWindow, // owner is necessary for correct focus behavior
+    settings: SettingsManager,
+    windowName: String,
     content: @Composable () -> Unit // Custom content as a composable lambda
 ) {
     if (show.value) {
         DialogWindow(
             create = {
                 ComposeDialog(owner = owner).apply { // Set the owner as the window
-                    size = Dimension(300, 200)
+                    val windowInitialState = settings.getFloatingWindowState(windowName)
+                    size = Dimension(windowInitialState.windowSize.width, windowInitialState.windowSize.height)
                     isFocusable = true
                     isUndecorated = true
-                    setLocation(positionX, positionY)
+                    setLocation(windowInitialState.windowPosition)
 
                     addWindowListener(object : WindowAdapter() {
                         override fun windowClosing(e: WindowEvent) {
                             show.value = false
-                            println("Dialog is closing")
+                            settings.updateFloatingWindowState(windowName, false)
+                        }
+                    })
+
+                    // Add a ComponentListener to track position changes
+                    addComponentListener(object : ComponentAdapter() {
+                        override fun componentMoved(e: ComponentEvent) {
+                            settings.updateFloatingWindow(windowName, location, size)
+                        }
+
+                        override fun componentResized(e: ComponentEvent) {
+                            settings.updateFloatingWindow(windowName, location, size)
                         }
                     })
                 }
@@ -173,3 +185,10 @@ fun FloatingWindow(
         }
     }
 }
+
+@Composable
+fun Dp.dpToPx() = with(LocalDensity.current) { this@dpToPx.toPx() }
+
+
+@Composable
+fun Int.pxToDp() = with(LocalDensity.current) { this@pxToDp.toDp() }

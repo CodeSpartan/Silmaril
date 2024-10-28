@@ -11,6 +11,8 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import java.awt.Dimension
+import java.awt.Point
 import java.time.Instant
 
 /** This file contains serializable classes and serializers for classes that need to be saved into settings.json */
@@ -22,6 +24,15 @@ data class WindowSettings(
     var windowPosition: WindowPosition = WindowPosition.Absolute(100.dp, 100.dp),
     @Serializable(with = DpSizeSerializer::class)
     var windowSize: DpSize = DpSize(800.dp, 600.dp),
+)
+
+@Serializable
+data class FloatWindowSettings(
+    var show: Boolean = true,
+    @Serializable(with = PointSerializer::class)
+    var windowPosition: Point = Point(100, 100),
+    @Serializable(with = DimensionSerializer::class)
+    var windowSize: Dimension = Dimension(400, 400),
 )
 
 // A custom serializer for type 'Instant'
@@ -101,5 +112,71 @@ object WindowPositionSerializer : KSerializer<WindowPosition> {
         }
         composite.endStructure(descriptor)
         return WindowPosition.Absolute(x.dp, y.dp)
+    }
+}
+
+// Custom serializer for Point
+object PointSerializer : KSerializer<Point> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Point") {
+        element<Int>("x")
+        element<Int>("y")
+    }
+
+    override fun serialize(encoder: Encoder, value: Point) {
+        val composite = encoder.beginStructure(descriptor)
+        composite.encodeIntElement(descriptor, 0, value.x)
+        composite.encodeIntElement(descriptor, 1, value.y)
+        composite.endStructure(descriptor)
+    }
+
+    override fun deserialize(decoder: Decoder): Point {
+        val composite = decoder.beginStructure(descriptor)
+        var x = 0
+        var y = 0
+
+        loop@ while (true) {
+            when (val index = composite.decodeElementIndex(descriptor)) {
+                CompositeDecoder.DECODE_DONE -> break@loop
+                0 -> x = composite.decodeIntElement(descriptor, index)
+                1 -> y = composite.decodeIntElement(descriptor, index)
+                else -> throw IllegalStateException("Unexpected index: $index")
+            }
+        }
+
+        composite.endStructure(descriptor)
+        return Point(x, y)
+    }
+}
+
+// Custom serializer for Dimension
+object DimensionSerializer : KSerializer<Dimension> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Dimension") {
+        element<Int>("width")
+        element<Int>("height")
+    }
+
+    override fun serialize(encoder: Encoder, value: Dimension) {
+        val composite = encoder.beginStructure(descriptor)
+        composite.encodeIntElement(descriptor, 0, value.width)
+        composite.encodeIntElement(descriptor, 1, value.height)
+        composite.endStructure(descriptor)
+    }
+
+    override fun deserialize(decoder: Decoder): Dimension {
+        val composite = decoder.beginStructure(descriptor)
+        var width = 0
+        var height = 0
+
+        loop@ while (true) {
+            when (val index = composite.decodeElementIndex(descriptor)) {
+                CompositeDecoder.DECODE_DONE -> break@loop
+                0 -> width = composite.decodeIntElement(descriptor, index)
+                1 -> height = composite.decodeIntElement(descriptor, index)
+                else -> throw IllegalStateException("Unexpected index: $index")
+            }
+        }
+
+        composite.endStructure(descriptor)
+        return Dimension(width, height)
     }
 }
