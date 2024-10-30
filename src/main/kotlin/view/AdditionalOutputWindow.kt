@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import misc.StyleManager
+import visual_styles.StyleManager
 import misc.UiColor
 import viewmodel.MainViewModel
 import viewmodel.SettingsViewModel
@@ -17,7 +17,7 @@ import viewmodel.SettingsViewModel
 @Preview
 fun AdditionalOutputWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
 
-    val currentColorStyle by settingsViewModel.currentColorStyle.collectAsState()
+    val currentColorStyle by settingsViewModel.currentColorStyleName.collectAsState()
 
     Box(
         modifier = Modifier

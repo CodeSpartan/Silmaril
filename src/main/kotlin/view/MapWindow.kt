@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import misc.StyleManager
+import visual_styles.StyleManager
 import misc.UiColor
 import mud_messages.CurrentRoomMessage
 import viewmodel.MapViewModel
@@ -23,7 +23,7 @@ import viewmodel.SettingsViewModel
 @Preview
 fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) {
 
-    val currentColorStyle by settingsViewModel.currentColorStyle.collectAsState()
+    val currentColorStyle by settingsViewModel.currentColorStyleName.collectAsState()
 
     var lastZone = -100; // -1 is reserved for roads
     var lastRoom = -1;

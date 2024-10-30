@@ -26,17 +26,14 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlinx.coroutines.runBlocking
 import misc.FontManager
-import misc.StyleManager
+import visual_styles.StyleManager
 import misc.UiColor
-import org.jetbrains.skia.ImageFilter
-import shaders.*
 import viewmodel.SettingsViewModel
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -54,7 +51,7 @@ fun MainWindow(
     // Observe currentFontFamily from the SettingsViewModel
     val currentFontFamily by settingsViewModel.currentFontFamily.collectAsState()
     val currentFontSize by settingsViewModel.currentFontSize.collectAsState()
-    val currentColorStyle by settingsViewModel.currentColorStyle.collectAsState()
+    val currentColorStyleName by settingsViewModel.currentColorStyleName.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -84,15 +81,17 @@ fun MainWindow(
     })
 
     // testing shaders
-    val filter = ImageFilter.makeImage(image = loadSkiaImage("icon.png"))
+    //val filter = ImageFilter.makeImage(image = loadSkiaImage("icon.png"))
+
+    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
 
     Surface(
         modifier = Modifier
             .fillMaxSize()
             // testing shaders
-            .exampleShaderWithImage(uniformNames=arrayOf("image"), imageFilters=arrayOf(filter), Color.Red, 0.25f)
+            //.exampleShaderWithImage(uniformNames=arrayOf("image"), imageFilters=arrayOf(filter), Color.Red, 0.25f)
         ,
-        color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.MainWindowBackground)
+        color = currentColorStyle.getUiColor(UiColor.MainWindowBackground)
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -120,7 +119,7 @@ fun MainWindow(
                                 message.chunks.forEach { chunk ->
                                     Text(
                                         text = chunk.text,
-                                        color = StyleManager.getStyle(currentColorStyle).getAnsiColor(chunk.foregroundColor, chunk.isBright),
+                                        color = currentColorStyle.getAnsiColor(chunk.foregroundColor, chunk.isBright),
                                         fontSize = currentFontSize.sp,
                                         fontFamily = FontManager.getFont(currentFontFamily),
                                         // fontWeight = FontWeight.Bold,
@@ -152,7 +151,7 @@ fun MainWindow(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 6.dp),
+                        .padding(bottom = 6.dp, top = 3.dp),
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
                     BasicTextField(
@@ -163,14 +162,14 @@ fun MainWindow(
                             //.height(40.dp)
                             .focusRequester(focusRequester)
                             .background(
-                                StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.InputField),
-                                RoundedCornerShape(32.dp)
+                                currentColorStyle.getUiColor(UiColor.InputField),
+                                RoundedCornerShape(currentColorStyle.inputFieldCornerRoundness().dp)
                             ) // Add background with clipping to the rounded shape
                             .focusable()
                             .padding(8.dp), // Apply padding as necessary
                         textStyle = TextStyle(
-                            color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.InputFieldText),
-                            fontSize = 16.sp
+                            color = currentColorStyle.getUiColor(UiColor.InputFieldText),
+                            fontSize = currentFontSize.sp
                         ),
                         cursorBrush = SolidColor(Color.White), // Change the caret (cursor) color to white
                         singleLine = true, // Handle single line input

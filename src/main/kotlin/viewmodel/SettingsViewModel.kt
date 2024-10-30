@@ -1,13 +1,12 @@
 package viewmodel
 
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import model.SettingsManager
 
 class SettingsViewModel (private val settingsManager: SettingsManager) {
     val currentFontFamily: StateFlow<String> = settingsManager.font
     val currentFontSize: StateFlow<Int> = settingsManager.fontSize
-    val currentColorStyle: StateFlow<String> = settingsManager.colorStyle
+    val currentColorStyleName: StateFlow<String> = settingsManager.colorStyle
 
     // temp method to toggle font
     fun toggleFont() {
@@ -18,9 +17,11 @@ class SettingsViewModel (private val settingsManager: SettingsManager) {
     }
 
     fun toggleColorStyle() {
-        if (currentColorStyle.value == "Black")
-            settingsManager.updateColorStyle("DarkRed")
-        else
-            settingsManager.updateColorStyle("Black")
+        settingsManager.updateColorStyle (when (currentColorStyleName.value) {
+            "ClassicBlack" -> "ModernBlack"
+            "ModernBlack" -> "ModernDarkRed"
+            "ModernDarkRed" -> "ClassicBlack"
+            else -> "ClassicBlack"
+        })
     }
 }

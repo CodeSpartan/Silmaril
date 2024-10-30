@@ -1,0 +1,28 @@
+package visual_styles
+
+import androidx.compose.ui.graphics.Color
+import misc.AnsiColor
+import misc.UiColor
+import misc.ansiColorToTextColor
+
+class ModernBlackColorStyle : ColorStyle() {
+    override fun getAnsiColor(color: AnsiColor, bright: Boolean): Color {
+        return when (color) {
+            AnsiColor.None -> Color(0xffbfb0ac)
+            else -> ansiColorToTextColor(color, bright)
+        }
+    }
+
+    override fun getUiColor(color: UiColor): Color {
+        return when (color) {
+            UiColor.MainWindowBackground -> Color(0xFF231917)
+            UiColor.AdditionalWindowBackground -> Color(0xFF1A110F)
+            UiColor.InputField -> Color(0xFF3D3230)
+            UiColor.InputFieldText -> Color(0xFFE7D6D1)
+        }
+    }
+
+    override fun inputFieldCornerRoundness(): Float {
+        return 32.0f
+    }
+}

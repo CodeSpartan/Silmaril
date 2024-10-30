@@ -14,6 +14,10 @@ import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
 import java.io.InputStream
 
+//@TODO: currently we can't pass array of vectors as uniform
+// Presumably this can be solved by transforming the array into an image and feeding that as uniform
+// Mor info on that here https://groups.google.com/g/skia-discuss/c/8l_y6zEteX8?pli=1
+
 // useful info https://github.com/drinkthestars/shady
 
 interface ShaderUniformProvider {
