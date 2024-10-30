@@ -36,6 +36,8 @@ import kotlinx.coroutines.runBlocking
 import misc.FontManager
 import misc.StyleManager
 import misc.UiColor
+import shaders.crtShader
+import shaders.tintShader
 import viewmodel.SettingsViewModel
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -81,7 +83,7 @@ fun MainWindow(
     })
 
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().crtShader(owner.width.toFloat(), owner.height.toFloat()),
         color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.MainWindowBackground)
     ) {
         Box(

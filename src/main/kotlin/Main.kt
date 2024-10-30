@@ -155,8 +155,9 @@ fun FloatingWindow(
                     size = Dimension(windowInitialState.windowSize.width, windowInitialState.windowSize.height)
                     isFocusable = true
                     isUndecorated = true
-                    setLocation(windowInitialState.windowPosition)
+                    location = windowInitialState.windowPosition
 
+                    // Listen to "x" button being pressed
                     addWindowListener(object : WindowAdapter() {
                         override fun windowClosing(e: WindowEvent) {
                             show.value = false
@@ -164,7 +165,7 @@ fun FloatingWindow(
                         }
                     })
 
-                    // Add a ComponentListener to track position changes
+                    // Listen to position/size changes
                     addComponentListener(object : ComponentAdapter() {
                         override fun componentMoved(e: ComponentEvent) {
                             settings.updateFloatingWindow(windowName, location, size)
