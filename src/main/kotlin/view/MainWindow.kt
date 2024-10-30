@@ -1,5 +1,4 @@
 package view
-import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -23,19 +22,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import misc.FontManager
 import misc.StyleManager
@@ -43,24 +38,8 @@ import misc.UiColor
 import org.jetbrains.skia.ImageFilter
 import shaders.*
 import viewmodel.SettingsViewModel
-import java.awt.Dimension
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
-import javax.imageio.ImageIO
-import kotlin.math.absoluteValue
-import org.jetbrains.skia.Image
-import org.jetbrains.skia.RuntimeShaderBuilder
-import java.io.InputStream
-
-fun loadResourceImageBitmap(resourcePath: String): ImageBitmap {
-    val inputStream: InputStream = Thread.currentThread().contextClassLoader.getResourceAsStream(resourcePath)
-        ?: throw IllegalArgumentException("Resource not found: $resourcePath")
-    return Image.makeFromEncoded(inputStream.readBytes()).toComposeImageBitmap()
-}
-
-fun skiaImageToImageBitmap(skiaImage: Image): ImageBitmap {
-    return skiaImage.toComposeImageBitmap()
-}
 
 @Composable
 @Preview
@@ -80,9 +59,8 @@ fun MainWindow(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
 
-    var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+    var inputTextField by remember { mutableStateOf(TextFieldValue("")) }
 
     suspend fun scrollDown() {
         if (messages.isNotEmpty()) {
@@ -92,17 +70,10 @@ fun MainWindow(
 
     var paddingLeft by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2, 0.dp)) }
     var paddingRight by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)) }
-    var windowRealSize by remember { mutableStateOf(Pair(800.0f, 600.0f))} // Useful for shaders
 
-    val time by produceDrawLoopCounter(speed = 1f)
-
+    //@TODO: can this be done in a modern way? Like in Main.kt
     owner.addComponentListener(object : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent?) {
-            // real size that depends on density
-            windowRealSize = Pair(owner.contentPane.width * density.density, owner.contentPane.height * density.density)
-            // println("Window size: ${windowRealSize.first} x ${windowRealSize.second}")
-            // println(time.absoluteValue)
-
             // owner size isn't real size, but oh well, this formula works
             paddingLeft = maxOf((owner.width.dp - 680.dp) / 2, 0.dp)
             paddingRight = maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)
@@ -110,27 +81,16 @@ fun MainWindow(
                 scrollDown()
             }
         }
-
-        override fun componentMoved(e: ComponentEvent?) {
-            windowRealSize = Pair(owner.contentPane.width * density.density, owner.contentPane.height * density.density)
-        }
     })
 
-    val skiaImage = remember {
-        loadSkiaImage("icon.png")
-    }
-
-    val imageBitmap = remember { skiaImageToImageBitmap(skiaImage) }
-
-    val filter = ImageFilter.makeImage(image = skiaImage)
+    // testing shaders
+    val filter = ImageFilter.makeImage(image = loadSkiaImage("icon.png"))
 
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            //.snowShader(windowRealSize.first, windowRealSize.second, time)
-            //.crtShader(windowRealSize.first, windowRealSize.second)
-            //.tintShader(uniformNames=arrayOf("image"), imageFilters=emptyArray<ImageFilter?>(), Color.Red, 0.75f)
-            .tintShader(uniformNames=arrayOf("image"), imageFilters=arrayOf(filter), Color.Red, 0.25f)
+            // testing shaders
+            .exampleShaderWithImage(uniformNames=arrayOf("image"), imageFilters=arrayOf(filter), Color.Red, 0.25f)
         ,
         color = StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.MainWindowBackground)
     ) {
@@ -196,8 +156,8 @@ fun MainWindow(
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
                     BasicTextField(
-                        value = textFieldValue,
-                        onValueChange = { textFieldValue = it },
+                        value = inputTextField,
+                        onValueChange = { inputTextField = it },
                         modifier = Modifier
                             .width(600.dp)
                             //.height(40.dp)
@@ -217,10 +177,10 @@ fun MainWindow(
                         keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                textFieldValue = textFieldValue.copy(
-                                    selection = TextRange(0, textFieldValue.text.length) // Select all text
+                                inputTextField = inputTextField.copy(
+                                    selection = TextRange(0, inputTextField.text.length) // Select all text
                                 )
-                                mainViewModel.sendMessage(textFieldValue.text)
+                                mainViewModel.sendMessage(inputTextField.text)
                             }
                         ),
                         decorationBox = { innerTextField ->
@@ -254,16 +214,5 @@ fun MainWindow(
             scrollDown()
         }
         onDispose { }
-    }
-}
-
-@Composable
-fun produceDrawLoopCounter(speed: Float = 1f): State<Float> {
-    return produceState(0f) {
-        while (true) {
-            withInfiniteAnimationFrameMillis {
-                value = it / 1000f * speed
-            }
-        }
     }
 }

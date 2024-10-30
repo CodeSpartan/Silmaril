@@ -4,8 +4,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageFilter
 import org.jetbrains.skia.RuntimeEffect
@@ -132,4 +134,9 @@ fun loadSkiaImage(resourcePath: String): Image {
         ?: throw IllegalArgumentException("Resource not found: $resourcePath")
     val imageBytes = inputStream.readBytes()
     return Image.makeFromEncoded(imageBytes)
+}
+
+// Could be useful to test the loaded skia image
+fun skiaImageToImageBitmap(skiaImage: Image): ImageBitmap {
+    return skiaImage.toComposeImageBitmap()
 }
