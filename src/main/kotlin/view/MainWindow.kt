@@ -10,7 +10,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -22,10 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -80,16 +80,13 @@ fun MainWindow(
         }
     })
 
-    // testing shaders
-    //val filter = ImageFilter.makeImage(image = loadSkiaImage("icon.png"))
-
     val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
 
     Surface(
         modifier = Modifier
             .fillMaxSize()
             // testing shaders
-            //.exampleShaderWithImage(uniformNames=arrayOf("image"), imageFilters=arrayOf(filter), Color.Red, 0.25f)
+            //.exampleShaderWithIntArray(Color.Red, intArrayOf(0, 1, -20, 300, 400, 5000, 9500, -700000))
         ,
         color = currentColorStyle.getUiColor(UiColor.MainWindowBackground)
     ) {

@@ -20,4 +20,3 @@ fun Modifier.templateShader(
 ) = this then runtimeShader(TEMPLATE_SHADER, "content") {
     //uniform("iResolution", width, height)
 }
-

@@ -4,10 +4,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.*
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageFilter
 import org.jetbrains.skia.RuntimeEffect
@@ -21,6 +18,7 @@ import java.io.InputStream
 // useful info https://github.com/drinkthestars/shady
 
 interface ShaderUniformProvider {
+    fun childShader(name: String, shader: Shader)
     fun updateResolution(size: Size)
     fun uniform(name: String, value: Int)
     fun uniform(name: String, value: Float)
@@ -109,6 +107,10 @@ fun Modifier.runtimeShader(
 private class ShaderUniformProviderImpl(
     private val runtimeShaderBuilder: RuntimeShaderBuilder,
 ) : ShaderUniformProvider {
+
+    override fun childShader(name: String, shader: Shader) {
+        runtimeShaderBuilder.child(name, shader)
+    }
 
     override fun updateResolution(size: Size) {
         uniform("resolution", size.width, size.height)
