@@ -4,8 +4,9 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### Kotlin runtim files
+### Kotlin runtime files
 .salive
+.kotlin/
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
