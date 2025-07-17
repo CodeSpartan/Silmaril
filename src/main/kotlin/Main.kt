@@ -37,7 +37,7 @@ import java.awt.event.ComponentEvent
 fun main() = application {
     val settings = SettingsManager()
     val client = MudConnection(settings.gameServer, settings.gamePort)
-    val mainViewModel = MainViewModel(client)
+    val mainViewModel = MainViewModel(client, settings)
     val mapViewModel = MapViewModel(client, settings)
     val settingsViewModel = SettingsViewModel(settings)
 

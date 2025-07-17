@@ -49,6 +49,8 @@ data class Settings(
             windowSize = Dimension(400, 400),
         ),
     ),
+    // Whether commands separated by a semicolon (e.g. "say hello;w") are written on separate lines or a single line
+    var splitCommands: Boolean = true,
 )
 
 class SettingsManager {
@@ -86,6 +88,9 @@ class SettingsManager {
 
     val gameServer: String get() = settings.gameServer
     val gamePort: Int get() = settings.gamePort
+
+    private val _splitCommands = MutableStateFlow(settings.splitCommands)
+    val splitCommands: StateFlow<Boolean> get() = _splitCommands
 
     private val scope = CoroutineScope(Dispatchers.Default)
 
@@ -263,6 +268,12 @@ class SettingsManager {
             windowSize = size
         )
         _floatWindowsFlow.value = updatedWindows
+    }
+
+    fun updateSplitSetting(newValue : Boolean) {
+        settings.splitCommands = newValue
+        _splitCommands.value = newValue
+        saveSettings()
     }
 }
 
