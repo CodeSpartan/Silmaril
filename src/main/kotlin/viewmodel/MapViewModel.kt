@@ -106,4 +106,13 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
             File(targetFilePath).writeText(decryptedContent)
         }
     }
+
+    fun getZone(zoneId: Int): Zone? {
+        return zonesMap[zoneId]
+    }
+
+    fun getRooms(zoneId: Int): Map<Int, Room> {
+        val zone = getZone(zoneId)
+        return zone?.roomsList?.associateBy { it.id } ?: emptyMap()
+    }
 }
