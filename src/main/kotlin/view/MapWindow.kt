@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.ExperimentalComposeUiApi
 
 @Composable
@@ -42,6 +43,10 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
 
     var lastCurrentRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
+
+    //  States for hover
+    var hoveredRoom by remember { mutableStateOf<Room?>(null) }
+    var tooltipPosition by remember { mutableStateOf(Offset.Zero) }
 
     // Collect SharedFlow in a LaunchedEffect
     LaunchedEffect(mapViewModel) {
@@ -72,19 +77,25 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             .fillMaxSize()
             .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
     ) {
-        RoomsCanvas(curZoneState)
-        // Draw something on the Canvas
-//        Canvas(modifier = Modifier.fillMaxSize()) {
-//            val canvasWidth = size.width
-//            val canvasHeight = size.height
-//
-//            // Example: Draw a simple circle at the center
-//            drawCircle(
-//                color = Color.Cyan,
-//                radius = 50f,
-//                center = Offset(x = canvasWidth / 2, y = canvasHeight / 2)
-//            )
-//        }
+        RoomsCanvas(
+            modifier = Modifier.fillMaxSize(),
+            curZoneState,
+            onRoomHover = { room, position ->
+                // This callback is executed inside RoomsCanvas whenever a hover event occurs.
+                // It updates the state that is held here, in the parent.
+                if (room != hoveredRoom) {
+                    hoveredRoom = room
+                    tooltipPosition = position
+                    if (hoveredRoom != null)
+                        println("Room hovered: ${hoveredRoom!!.id},tooltip position: $tooltipPosition")
+                    else
+                        println("Room unhovered")
+                }
+                if (room != null && room == hoveredRoom && tooltipPosition != position) {
+                    // update tooltip position
+                }
+            }
+        )
 
         // Overlay two texts in the bottom left corner of the Box
         // Room name
@@ -108,40 +119,24 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun RoomsCanvas(curZoneState: MutableState<Zone?>) {
-    // 1. State for tracking zoom (scale) and pan (offset)
-    var scale by remember { mutableStateOf(0.5f) }
-    var panOffset by remember { mutableStateOf(Offset.Zero) }
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            // 2. Add pointer input modifier for Panning (drag)
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    panOffset += dragAmount
-                }
-            }
-            // 3. Add pointer event modifier for Zooming (scroll)
-            .onPointerEvent(PointerEventType.Scroll) {
-                val zoomFactor = 1.1f
-                // https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-desktop-mouse-events.html#scroll-listeners
-                if (it.changes.first().scrollDelta.y < 0) { // Scroll up -> Zoom in
-                    scale *= zoomFactor
-                } else { // Scroll down -> Zoom out
-                    scale /= zoomFactor
-                }
-            }
+fun RoomsCanvas(
+    modifier: Modifier = Modifier,
+    curZoneState: MutableState<Zone?>,
+    // The canvas accepts a callback to report hover events up to its parent
+    onRoomHover: (room: Room?, position: Offset) -> Unit
     ) {
-        if (curZoneState.value == null) return@Canvas
+
+    // BoxWithConstraints provides the layout size (maxWidth, maxHeight) to its children.
+    BoxWithConstraints(modifier = modifier) {
+        // States for tracking zoom (scale) and pan (offset)
+        var scale by remember { mutableStateOf(0.5f) }
+        var panOffset by remember { mutableStateOf(Offset.Zero) }
+
+        if (curZoneState.value == null) return@BoxWithConstraints
         val roomsAtZ0 = curZoneState.value!!.roomsList.filter { it.z == 5 }
-
         if (roomsAtZ0.isEmpty()) {
-            return@Canvas
+            return@BoxWithConstraints
         }
-
-        // --- 4. ADJUST DRAWING LOGIC ---
 
         // Base values
         val baseRoomRadius = 50f
@@ -154,11 +149,13 @@ fun RoomsCanvas(curZoneState: MutableState<Zone?>) {
         // Find min coordinates for relative positioning
         val minX = roomsAtZ0.minOf { it.x }
         val minY = roomsAtZ0.minOf { it.y }
+        val maxX = roomsAtZ0.maxOf { it.x }
+        val maxY = roomsAtZ0.maxOf { it.y }
 
         // This offset centers the entire drawing initially
         val centeringOffset = Offset(
-            x = (size.width - (roomsAtZ0.maxOf { it.x } - minX) * scaledRoomSpacing) / 2,
-            y = (size.height - (roomsAtZ0.maxOf { it.y } - minY) * scaledRoomSpacing) / 2
+            x = (this.maxWidth.value - (maxX - minX) * scaledRoomSpacing) / 2,
+            y = (this.maxHeight.value - (maxY - minY) * scaledRoomSpacing) / 2
         )
 
         // The final offset combines centering with user panning
@@ -172,33 +169,65 @@ fun RoomsCanvas(curZoneState: MutableState<Zone?>) {
             )
         }
 
-        // Draw the connections (Lines)
-        roomsAtZ0.forEach roomLoop@{ room ->
-            val startOffset = roomToOffsetMap[room] ?: return@roomLoop
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize() // Canvas fills the BoxWithConstraints
+                // 2. Add pointer input modifier for Panning (drag)
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        panOffset += dragAmount
+                    }
+                }
+                // Pointer event modifier for Zooming (scroll)
+                .onPointerEvent(PointerEventType.Scroll) { event ->
+                    val zoomFactor = 1.1f
+                    // https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-desktop-mouse-events.html#scroll-listeners
+                    if (event.changes.first().scrollDelta.y < 0) { // Scroll up -> Zoom in
+                        scale *= zoomFactor
+                    } else { // Scroll down -> Zoom out
+                        scale /= zoomFactor
+                    }
+                }
+                // Pointer event modifier for Moving the mouse around, to catch a hover
+                .onPointerEvent(PointerEventType.Move) { event ->
+                    // hover logic
+                    val mousePosition = event.changes.first().position
+                    val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
+                        (mousePosition - center).getDistance() <= scaledRoomRadius
+                    }?.key
+                    onRoomHover(roomUnderMouse, mousePosition)
+                }
+                // If the mouse leaves the Map window, the hover certainly ends
+                .onPointerEvent(PointerEventType.Exit) { event ->
+                    onRoomHover(null, event.changes.first().position)
+                }
+        ) {
 
-            room.exitsList.forEach exitLoop@{ exit ->
-                if (room.id < exit.roomId) {
-                    val endRoom = roomsAtZ0.find { it.id == exit.roomId }
-                    if (endRoom != null) {
-                        val endOffset = roomToOffsetMap[endRoom] ?: return@exitLoop
-                        drawLine(
-                            color = Color.Gray,
-                            start = startOffset,
-                            end = endOffset,
-                            strokeWidth = Stroke.DefaultMiter * scale // Make line width scale slightly
-                        )
+
+            // Draw the connections (Lines)
+            roomsAtZ0.forEach roomLoop@{ room ->
+                val startOffset = roomToOffsetMap[room] ?: return@roomLoop
+                room.exitsList.forEach exitLoop@{ exit ->
+                    if (room.id < exit.roomId) {
+                        val endRoom = roomsAtZ0.find { it.id == exit.roomId }
+                        if (endRoom != null) {
+                            val endOffset = roomToOffsetMap[endRoom] ?: return@exitLoop
+                            drawLine(
+                                color = Color.Gray,
+                                start = startOffset,
+                                end = endOffset,
+                                strokeWidth = Stroke.DefaultMiter * scale // Make line width scale slightly
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        // Draw the rooms (Circles)
-        roomToOffsetMap.values.forEach { offset ->
-            drawCircle(
-                color = Color.Cyan,
-                radius = scaledRoomRadius,
-                center = offset
-            )
+            // Draw the rooms (Circles)
+            roomToOffsetMap.values.forEach { offset ->
+                drawCircle(color = Color.Cyan, radius = scaledRoomRadius, center = offset)
+            }
         }
     }
 }
