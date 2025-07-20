@@ -54,6 +54,7 @@ fun FloatingTooltipContainer(
                     isFocusable = false // Tooltips shouldn't steal focus
                     isUndecorated = true
                     location = position
+                    isAutoRequestFocus = false // otherwise it still gets focused
                 }
             },
             dispose = ComposeDialog::dispose,

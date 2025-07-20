@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
@@ -85,7 +86,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             }
     ) {
         RoomsCanvas(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().clipToBounds(),
             curZoneState,
             onRoomHover = { room, position ->
                 // This callback is executed inside RoomsCanvas whenever a hover event occurs.
@@ -94,7 +95,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                     if (currentHoverRoom != room) {
                         tooltipOffset = (position + internalPadding) / dpi
                         hoverManager.show(ownerWindow, tooltipOffset, Dimension(300, 200)) {
-                            MapRoomTooltip(room)
+                            MapRoomTooltip(room, curZoneState.value)
                         }
                         currentHoverRoom = room
                     }
@@ -107,22 +108,27 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
         )
 
         // Overlay two texts in the bottom left corner of the Box
-        // Room name
-        Text(
-            text = curRoomState.value?.name?:"",
-            color = Color.White,
+        Box(
             modifier = Modifier
-                .padding(start = 8.dp, bottom = 32.dp) // adjustments for positioning
+                .padding(start = 8.dp, bottom = 8.dp) // adjustments for positioning
                 .align(Alignment.BottomStart)
-        )
-        // Zone name
-        Text(
-            text = curZoneState.value?.name?: "",
-            color = Color.White,
-            modifier = Modifier
-                .padding(start = 8.dp, bottom = 8.dp) // further down
-                .align(Alignment.BottomStart)
-        )
+                .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground).copy(alpha = 0.8f))
+        ) {
+            Column {
+                // Room name
+                Text(
+                    text = curRoomState.value?.name ?: "",
+                    color = Color.White,
+                    modifier = Modifier.padding(6.dp, 4.dp, 6.dp, 1.dp)
+                )
+                // Zone name
+                Text(
+                    text = curZoneState.value?.name ?: "",
+                    color = Color.White,
+                    modifier = Modifier.padding(6.dp, 2.dp, 6.dp, 4.dp)
+                )
+            }
+        }
     }
 }
 
@@ -183,7 +189,7 @@ fun RoomsCanvas(
         Canvas(
             modifier = Modifier
                 .fillMaxSize() // Canvas fills the BoxWithConstraints
-                // 2. Add pointer input modifier for Panning (drag)
+                // Add pointer input modifier for Panning (drag)
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
@@ -217,8 +223,6 @@ fun RoomsCanvas(
                     onRoomHover(null, event.changes.first().position)
                 }
         ) {
-
-
             // Draw the connections (Lines)
             roomsAtZ0.forEach roomLoop@{ room ->
                 val startOffset = roomToOffsetMap[room] ?: return@roomLoop
@@ -247,10 +251,10 @@ fun RoomsCanvas(
 }
 
 @Composable
-fun MapRoomTooltip(room: Room) {
+fun MapRoomTooltip(room: Room, zone: Zone?) {
     Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
-        Text("Room ID: ${room.id}", color = Color.White)
-        Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.White)
-        Text("Exits: ${room.exitsList.size}", color = Color.White)
+        Text(room.name, color = Color.White)
+        if (zone != null) Text(zone.name, color = Color.White)
+        Text("Room ID: ${room.id} (Coords: ${room.x}, ${room.y}, ${room.z})", color = Color.White)
     }
 }
