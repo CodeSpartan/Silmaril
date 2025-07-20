@@ -20,7 +20,7 @@ data class CurrentRoomMessage(
             return try {
                 xmlMapper.readValue(xml, CurrentRoomMessage::class.java)
             } catch (e: Exception) {
-                println(xml)
+                System.err.println("Offending XML: $xml")
                 e.printStackTrace()
                 null
             }

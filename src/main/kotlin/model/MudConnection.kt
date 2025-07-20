@@ -332,6 +332,8 @@ class MudConnection(private val host: String, private val port: Int) {
                 if (debug)
                     println("Detected command: IAC GA")
                 skipCount = 1
+                _customMessageType = -1 // added after a bug, watch that this doesn't break anything
+                // the reason being, we've had this scenario: custom message 14 arrives, then IAC, and then text, as if IAC ends any custom messages
                 flushMainBuffer()
                 continue
             }
