@@ -3,9 +3,6 @@ package view
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,8 +22,13 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.*
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import java.awt.Point
+import kotlin.math.roundToInt
 
 @Composable
 @Preview
@@ -39,26 +41,29 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
 
     val curZoneState = remember { mutableStateOf(mapViewModel.getZone(lastZone)) }
     var curZoneRooms: Map<Int, Room> = mapViewModel.getRooms(lastZone)
-
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
-
-    var lastCurrentRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
+    var lastRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
     //  States for hover
     var hoveredRoom by remember { mutableStateOf<Room?>(null) }
     var tooltipPosition by remember { mutableStateOf(Offset.Zero) }
 
-    // Collect SharedFlow in a LaunchedEffect
+    val hoverManager = LocalHoverManager.current
+    var internalPadding by remember { mutableStateOf(Offset.Zero) }
+    var tooltipOffset by remember { mutableStateOf(Offset.Zero) }
+
+    val dpi = LocalDensity.current.density
+
     LaunchedEffect(mapViewModel) {
         mapViewModel.currentRoomMessages.collect { message ->
             // Update the state with the new message to trigger recomposition
-            lastCurrentRoomMessage = message
+            lastRoomMessage = message
         }
     }
 
     // React to changes in currentRoom
-    LaunchedEffect(lastCurrentRoomMessage) {
-        lastCurrentRoomMessage?.let { roomMessage ->
+    LaunchedEffect(lastRoomMessage) {
+        lastRoomMessage?.let { roomMessage ->
             println("new room")
             if (roomMessage.zoneId != lastZone) {
                 curZoneState.value = mapViewModel.getZone(roomMessage.zoneId)
@@ -76,6 +81,10 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
         modifier = Modifier
             .fillMaxSize()
             .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
+            .onGloballyPositioned { layoutCoordinates ->
+                internalPadding = layoutCoordinates.positionInWindow()
+                println("Global position: $internalPadding")
+            }
     ) {
         RoomsCanvas(
             modifier = Modifier.fillMaxSize(),
@@ -83,16 +92,23 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             onRoomHover = { room, position ->
                 // This callback is executed inside RoomsCanvas whenever a hover event occurs.
                 // It updates the state that is held here, in the parent.
-                if (room != hoveredRoom) {
+                if (room != null) {
+                    tooltipOffset = Offset(
+                        (position.x + internalPadding.x) / dpi,
+                        (position.y + internalPadding.y) / dpi
+                    )
+                    hoverManager.show(tooltipOffset) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text("Room ID: ${room!!.id}", color = Color.Black)
+                            Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.Black)
+                            Text("Exits: ${room.exitsList.size}", color = Color.Black)
+                        }
+                    }
                     hoveredRoom = room
                     tooltipPosition = position
-                    if (hoveredRoom != null)
-                        println("Room hovered: ${hoveredRoom!!.id},tooltip position: $tooltipPosition")
-                    else
-                        println("Room unhovered")
                 }
-                if (room != null && room == hoveredRoom && tooltipPosition != position) {
-                    // update tooltip position
+                else {
+                    hoverManager.hide()
                 }
             }
         )
@@ -196,7 +212,10 @@ fun RoomsCanvas(
                     val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
                         (mousePosition - center).getDistance() <= scaledRoomRadius
                     }?.key
-                    onRoomHover(roomUnderMouse, mousePosition)
+                    onRoomHover(
+                        roomUnderMouse,
+                        mousePosition
+                    )
                 }
                 // If the mouse leaves the Map window, the hover certainly ends
                 .onPointerEvent(PointerEventType.Exit) { event ->

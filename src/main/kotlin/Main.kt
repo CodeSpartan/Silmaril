@@ -31,6 +31,7 @@ import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import view.HoverManagerProvider
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 
@@ -89,12 +90,16 @@ fun main() = application {
         // watch for resize, move, fullscreen toggle and save into settings
         SignUpToWindowEvents(state, settings)
 
-        MainWindow(mainViewModel, settingsViewModel, window)
+        HoverManagerProvider (window, settings, "") {
+            MainWindow(mainViewModel, settingsViewModel, window)
+        }
 
         // Map widget
         FloatingWindow(showMapWindow, window, settings, "MapWindow")
         {
-            MapWindow(mapViewModel, settingsViewModel)
+            HoverManagerProvider (window, settings, "MapWindow") {
+                MapWindow(mapViewModel, settingsViewModel)
+            }
         }
 
         // Additional output widget
@@ -186,10 +191,3 @@ fun FloatingWindow(
         }
     }
 }
-
-@Composable
-fun Dp.dpToPx() = with(LocalDensity.current) { this@dpToPx.toPx() }
-
-
-@Composable
-fun Int.pxToDp() = with(LocalDensity.current) { this@pxToDp.toDp() }
