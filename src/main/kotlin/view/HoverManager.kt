@@ -16,6 +16,7 @@ import androidx.compose.ui.window.DialogWindow
 import model.SettingsManager
 import java.awt.Dimension
 import java.awt.Point
+import java.awt.Toolkit
 import kotlin.math.roundToInt
 
 
@@ -24,7 +25,7 @@ import kotlin.math.roundToInt
  * Any component can get this from the CompositionLocal and use it.
  */
 interface HoverManager {
-    fun show(relativePosition: Offset, content: @Composable () -> Unit)
+    fun show(relativePosition: Offset, dimension: Dimension, content: @Composable () -> Unit)
     fun hide()
 }
 
@@ -41,13 +42,14 @@ fun FloatingTooltipContainer(
     show: MutableState<Boolean>,
     owner: ComposeWindow,
     position: Point,
+    dimension: Dimension,
     content: @Composable () -> Unit
 ) {
     if (show.value) {
         DialogWindow(
             create = {
                 ComposeDialog(owner = owner).apply {
-                    size = Dimension(300, 200)
+                    size = dimension
                     isFocusable = false // Tooltips shouldn't steal focus
                     isUndecorated = true
                     location = position
@@ -73,17 +75,20 @@ fun HoverManagerProvider(
     val showTooltip = remember { mutableStateOf(false) }
     var tooltipContent by remember { mutableStateOf<@Composable () -> Unit>({}) }
     var tooltipPosition by remember { mutableStateOf(Point(0, 0)) }
+    var tooltipDimension by remember { mutableStateOf(Dimension(0, 0)) }
     var windowGlobalPosition by remember { mutableStateOf(Point(0, 0)) }
+    val screenSize by remember { mutableStateOf(Toolkit.getDefaultToolkit().screenSize) }
 
     val manager = remember {
         object : HoverManager {
-            override fun show(relativePosition: Offset, content: @Composable () -> Unit) {
-                if (windowName == "") {
-                    windowGlobalPosition = owner.location
-                    println("location: ${owner.location}")
-                    println("manual coords: ${owner.x}, ${owner.y}")
+            override fun show(relativePosition: Offset, dimension: Dimension, content: @Composable () -> Unit) {
+                tooltipDimension = dimension
+                // I couldn't find a better way. If the tooltip is for the main window, we'll use its location
+                // If it's for a floating window, we'll get its position from settings (ugly, but works)
+                windowGlobalPosition = if (windowName == "") {
+                    owner.location // same as owner.x, owner.y ?
                 } else {
-                    windowGlobalPosition = settings.getFloatingWindowState(windowName).windowPosition
+                    settings.getFloatingWindowState(windowName).windowPosition
                 }
                 tooltipPosition = Point(
                     windowGlobalPosition.x + relativePosition.x.roundToInt(),
@@ -102,14 +107,34 @@ fun HoverManagerProvider(
         content()
     }
 
+    // A tooltip can overflow beyond screen borders. We fix it here.
+    fun getIdealPosition() : Point {
+        val tinyOffset = Offset(15f, 15f)
+        val desiredPosition = Point(tooltipPosition.x + tinyOffset.x.toInt(),tooltipPosition.y + tinyOffset.y.toInt())
+
+        val finalX = when {
+            // Check if it goes off the right edge
+            desiredPosition.x + tooltipDimension.width > screenSize.width ->
+                desiredPosition.x - (desiredPosition.x + tooltipDimension.width - screenSize.width) - (tinyOffset.x.toInt() * 2)
+            else -> desiredPosition.x
+        }
+
+        val finalY = when {
+            // Check if it goes off the bottom edge
+            desiredPosition.y + tooltipDimension.height > screenSize.height ->
+                desiredPosition.y - (desiredPosition.y + tooltipDimension.height - screenSize.height) - (tinyOffset.y.toInt() * 2)
+            else -> desiredPosition.y
+        }
+
+        return Point(finalX, finalY)
+    }
+
     FloatingTooltipContainer(
         show = showTooltip,
         owner = owner,
         // Give a bit of offset to the tooltip relative to the mouse cursor
-        position = Point(
-            tooltipPosition.x + 15,
-            tooltipPosition.y + 15
-        ),
+        position = getIdealPosition(),
+        dimension = tooltipDimension,
         content = {
             tooltipContent()
         }

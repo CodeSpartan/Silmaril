@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewConfiguration
+import java.awt.Dimension
 
 @Composable
 @Preview
@@ -96,7 +97,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                         (position.x + internalPadding.x) / dpi,
                         (position.y + internalPadding.y) / dpi
                     )
-                    hoverManager.show(tooltipOffset) {
+                    hoverManager.show(tooltipOffset, Dimension(300, 200)) {
                         Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
                             Text("Room ID: ${room!!.id}", color = Color.White)
                             Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.White)
