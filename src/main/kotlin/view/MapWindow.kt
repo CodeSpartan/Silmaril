@@ -44,6 +44,8 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
     var lastRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
+    var currentHoverRoom: Room? = null
+
     val hoverManager = LocalHoverManager.current
     val ownerWindow = OwnerWindow.current
     var internalPadding by remember { mutableStateOf(Offset.Zero) }
@@ -80,7 +82,6 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
             .onGloballyPositioned { layoutCoordinates ->
                 internalPadding = layoutCoordinates.positionInWindow()
-                println("Global position: $internalPadding")
             }
     ) {
         RoomsCanvas(
@@ -90,19 +91,16 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                 // This callback is executed inside RoomsCanvas whenever a hover event occurs.
                 // It updates the state that is held here, in the parent.
                 if (room != null) {
-                    tooltipOffset = Offset(
-                        (position.x + internalPadding.x) / dpi,
-                        (position.y + internalPadding.y) / dpi
-                    )
-                    hoverManager.show(ownerWindow, tooltipOffset, Dimension(300, 200)) {
-                        Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
-                            Text("Room ID: ${room.id}", color = Color.White)
-                            Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.White)
-                            Text("Exits: ${room.exitsList.size}", color = Color.White)
+                    if (currentHoverRoom != room) {
+                        tooltipOffset = (position + internalPadding) / dpi
+                        hoverManager.show(ownerWindow, tooltipOffset, Dimension(300, 200)) {
+                            MapRoomTooltip(room)
                         }
+                        currentHoverRoom = room
                     }
                 }
                 else {
+                    currentHoverRoom = null
                     hoverManager.hide()
                 }
             }
@@ -245,5 +243,14 @@ fun RoomsCanvas(
                 drawCircle(color = Color.Cyan, radius = scaledRoomRadius, center = offset)
             }
         }
+    }
+}
+
+@Composable
+fun MapRoomTooltip(room: Room) {
+    Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
+        Text("Room ID: ${room.id}", color = Color.White)
+        Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.White)
+        Text("Exits: ${room.exitsList.size}", color = Color.White)
     }
 }
