@@ -27,8 +27,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import java.awt.Point
-import kotlin.math.roundToInt
+import androidx.compose.ui.platform.ViewConfiguration
 
 @Composable
 @Preview
@@ -98,10 +97,10 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                         (position.y + internalPadding.y) / dpi
                     )
                     hoverManager.show(tooltipOffset) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text("Room ID: ${room!!.id}", color = Color.Black)
-                            Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.Black)
-                            Text("Exits: ${room.exitsList.size}", color = Color.Black)
+                        Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
+                            Text("Room ID: ${room!!.id}", color = Color.White)
+                            Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.White)
+                            Text("Exits: ${room.exitsList.size}", color = Color.White)
                         }
                     }
                     hoveredRoom = room
@@ -142,10 +141,12 @@ fun RoomsCanvas(
     onRoomHover: (room: Room?, position: Offset) -> Unit
     ) {
 
+    val dpi = LocalDensity.current.density
+
     // BoxWithConstraints provides the layout size (maxWidth, maxHeight) to its children.
     BoxWithConstraints(modifier = modifier) {
         // States for tracking zoom (scale) and pan (offset)
-        var scale by remember { mutableStateOf(0.5f) }
+        var scaleLogical by remember { mutableStateOf(0.25f) }
         var panOffset by remember { mutableStateOf(Offset.Zero) }
 
         if (curZoneState.value == null) return@BoxWithConstraints
@@ -159,8 +160,8 @@ fun RoomsCanvas(
         val baseRoomSpacing = baseRoomRadius * 3 // Space for a room + gap
 
         // Scaled values based on the zoom state
-        val scaledRoomRadius = baseRoomRadius * scale
-        val scaledRoomSpacing = baseRoomSpacing * scale
+        val scaledRoomRadius = baseRoomRadius * scaleLogical * dpi
+        val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
 
         // Find min coordinates for relative positioning
         val minX = roomsAtZ0.minOf { it.x }
@@ -197,12 +198,12 @@ fun RoomsCanvas(
                 }
                 // Pointer event modifier for Zooming (scroll)
                 .onPointerEvent(PointerEventType.Scroll) { event ->
-                    val zoomFactor = 1.1f
+                    val zoomFactor = 1.2f
                     // https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-desktop-mouse-events.html#scroll-listeners
                     if (event.changes.first().scrollDelta.y < 0) { // Scroll up -> Zoom in
-                        scale *= zoomFactor
+                        scaleLogical *= zoomFactor
                     } else { // Scroll down -> Zoom out
-                        scale /= zoomFactor
+                        scaleLogical /= zoomFactor
                     }
                 }
                 // Pointer event modifier for Moving the mouse around, to catch a hover
@@ -236,7 +237,7 @@ fun RoomsCanvas(
                                 color = Color.Gray,
                                 start = startOffset,
                                 end = endOffset,
-                                strokeWidth = Stroke.DefaultMiter * scale // Make line width scale slightly
+                                strokeWidth = Stroke.DefaultMiter * scaleLogical * dpi // Make line width scale slightly
                             )
                         }
                     }

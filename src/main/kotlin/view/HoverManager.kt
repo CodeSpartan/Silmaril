@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
 
 
 /**
- * The interface for our global hover service.
+ * The interface for the global hover service.
  * Any component can get this from the CompositionLocal and use it.
  */
 interface HoverManager {
@@ -35,12 +35,6 @@ val LocalHoverManager = staticCompositionLocalOf<HoverManager> {
     // Provide a default implementation that crashes if the provider is not set.
     error("No HoverManager provided")
 }
-
-// A data class to hold the full state of the tooltip
-private data class HoverInfo(
-    val position: Point,
-    val content: @Composable () -> Unit
-)
 
 @Composable
 fun FloatingTooltipContainer(
