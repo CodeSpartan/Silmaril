@@ -13,19 +13,20 @@ import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.DialogWindow
-import model.SettingsManager
 import java.awt.Dimension
 import java.awt.Point
 import java.awt.Toolkit
 import kotlin.math.roundToInt
-
+import java.awt.GraphicsEnvironment
+import java.awt.Rectangle
+import java.awt.Window
 
 /**
  * The interface for the global hover service.
  * Any component can get this from the CompositionLocal and use it.
  */
 interface HoverManager {
-    fun show(relativePosition: Offset, dimension: Dimension, content: @Composable () -> Unit)
+    fun show(ownerWindow: Window?, relativePosition: Offset, dimension: Dimension, content: @Composable () -> Unit)
     fun hide()
 }
 
@@ -66,9 +67,7 @@ fun FloatingTooltipContainer(
 
 @Composable
 fun HoverManagerProvider(
-    owner: ComposeWindow,
-    settings: SettingsManager,
-    windowName: String,
+    mainWindow: ComposeWindow,
     content: @Composable () -> Unit
 ) {
     // State for the floating window
@@ -76,23 +75,18 @@ fun HoverManagerProvider(
     var tooltipContent by remember { mutableStateOf<@Composable () -> Unit>({}) }
     var tooltipPosition by remember { mutableStateOf(Point(0, 0)) }
     var tooltipDimension by remember { mutableStateOf(Dimension(0, 0)) }
-    var windowGlobalPosition by remember { mutableStateOf(Point(0, 0)) }
-    val screenSize by remember { mutableStateOf(Toolkit.getDefaultToolkit().screenSize) }
+    // by default, assume main window owns everything, but later show() will potentially provide another owner
+    var tooltipParentWindow by remember { mutableStateOf<Window>(mainWindow) }
 
     val manager = remember {
         object : HoverManager {
-            override fun show(relativePosition: Offset, dimension: Dimension, content: @Composable () -> Unit) {
+            override fun show(ownerWindow: Window?, relativePosition: Offset, dimension: Dimension, content: @Composable () -> Unit) {
                 tooltipDimension = dimension
-                // I couldn't find a better way. If the tooltip is for the main window, we'll use its location
-                // If it's for a floating window, we'll get its position from settings (ugly, but works)
-                windowGlobalPosition = if (windowName == "") {
-                    owner.location // same as owner.x, owner.y ?
-                } else {
-                    settings.getFloatingWindowState(windowName).windowPosition
-                }
+                if (ownerWindow != null)
+                    tooltipParentWindow = ownerWindow
                 tooltipPosition = Point(
-                    windowGlobalPosition.x + relativePosition.x.roundToInt(),
-                    windowGlobalPosition.y + relativePosition.y.roundToInt())
+                    tooltipParentWindow.location.x + relativePosition.x.roundToInt(),
+                    tooltipParentWindow.location.y + relativePosition.y.roundToInt())
                 tooltipContent = content
                 showTooltip.value = true
             }
@@ -108,35 +102,64 @@ fun HoverManagerProvider(
     }
 
     // A tooltip can overflow beyond screen borders. We fix it here.
+    // Then we give a bit of offset to the tooltip relative to the mouse cursor
     fun getIdealPosition() : Point {
         val tinyOffset = Offset(15f, 15f)
         val desiredPosition = Point(tooltipPosition.x + tinyOffset.x.toInt(),tooltipPosition.y + tinyOffset.y.toInt())
+        val screenBounds = getScreenBoundsForWindow(tooltipParentWindow)
 
         val finalX = when {
             // Check if it goes off the right edge
-            desiredPosition.x + tooltipDimension.width > screenSize.width ->
-                desiredPosition.x - (desiredPosition.x + tooltipDimension.width - screenSize.width) - (tinyOffset.x.toInt() * 2)
+            desiredPosition.x + tooltipDimension.width > screenBounds.x + screenBounds.width ->
+                desiredPosition.x - (desiredPosition.x + tooltipDimension.width - (screenBounds.x + screenBounds.width)) - (tinyOffset.x.toInt() * 2)
             else -> desiredPosition.x
         }
 
         val finalY = when {
             // Check if it goes off the bottom edge
-            desiredPosition.y + tooltipDimension.height > screenSize.height ->
-                desiredPosition.y - (desiredPosition.y + tooltipDimension.height - screenSize.height) - (tinyOffset.y.toInt() * 2)
+            desiredPosition.y + tooltipDimension.height > screenBounds.y + screenBounds.height ->
+                desiredPosition.y - (desiredPosition.y + tooltipDimension.height - (screenBounds.y + screenBounds.height)) - (tinyOffset.y.toInt() * 2)
             else -> desiredPosition.y
         }
 
+        // special case: if we're overflowing both on Y and X, just flip Y and X around the cursor
+        if (desiredPosition.x + tooltipDimension.width > screenBounds.x + screenBounds.width
+            && desiredPosition.y + tooltipDimension.height > screenBounds.y + screenBounds.height)
+        {
+            return Point(
+                desiredPosition.x - tinyOffset.x.toInt() * 2 - tooltipDimension.width,
+                desiredPosition.y - tinyOffset.y.toInt() * 2 - tooltipDimension.height,
+            )
+        }
         return Point(finalX, finalY)
     }
 
     FloatingTooltipContainer(
         show = showTooltip,
-        owner = owner,
-        // Give a bit of offset to the tooltip relative to the mouse cursor
+        owner = mainWindow,
         position = getIdealPosition(),
         dimension = tooltipDimension,
         content = {
             tooltipContent()
         }
     )
+}
+
+/**
+ * Finds the screen device that the given AWT window is currently on and returns its bounds.
+ */
+fun getScreenBoundsForWindow(window: Window): Rectangle {
+    val windowCenter = window.location.apply {
+        x += window.width / 2
+        y += window.height / 2
+    }
+    val screenDevices = GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices
+    // Find the screen device that contains the window's center point
+    val currentScreen = screenDevices.find { screen ->
+        screen.defaultConfiguration.bounds.contains(windowCenter)
+    }
+    // Return the bounds of the found screen, or the default screen's bounds as a fallback.
+    // The bounds property gives the true, physical pixel dimensions.
+    return currentScreen?.defaultConfiguration?.bounds
+        ?: GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.defaultConfiguration.bounds
 }

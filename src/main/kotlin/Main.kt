@@ -24,14 +24,13 @@ import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import view.HoverManagerProvider
+import java.awt.Window
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 
@@ -90,14 +89,15 @@ fun main() = application {
         // watch for resize, move, fullscreen toggle and save into settings
         SignUpToWindowEvents(state, settings)
 
-        HoverManagerProvider (window, settings, "") {
+        HoverManagerProvider (window) {
             MainWindow(mainViewModel, settingsViewModel, window)
         }
 
         // Map widget
+        // FloatingWindow will provide real OwnerWindow down the line
         FloatingWindow(showMapWindow, window, settings, "MapWindow")
         {
-            HoverManagerProvider (window, settings, "MapWindow") {
+            HoverManagerProvider(window) {
                 MapWindow(mapViewModel, settingsViewModel)
             }
         }
@@ -150,7 +150,7 @@ fun FloatingWindow(
     owner: ComposeWindow, // owner is necessary for correct focus behavior
     settings: SettingsManager,
     windowName: String,
-    content: @Composable () -> Unit // Custom content as a composable lambda
+    content: @Composable () -> Unit
 ) {
     if (show.value) {
         DialogWindow(
@@ -184,10 +184,18 @@ fun FloatingWindow(
             },
             dispose = ComposeDialog::dispose,
         ) {
-            Column(Modifier.background(Color.Black)) {
-                AppWindowTitleBar()
-                content()
+            // Provides the real OwnerWindow down the hierarchy
+            CompositionLocalProvider(OwnerWindow provides window) {
+                Column(Modifier.background(Color.Black)) {
+                    AppWindowTitleBar()
+                    content()
+                }
             }
         }
     }
+}
+
+// This will provide any composable with a reference to its immediate containing window.
+val OwnerWindow = staticCompositionLocalOf<Window> {
+    error("No Window provided. Wrap your content in a provider.")
 }

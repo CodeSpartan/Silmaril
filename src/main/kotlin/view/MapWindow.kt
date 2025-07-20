@@ -1,5 +1,6 @@
 package view
 
+import OwnerWindow
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,7 +28,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.ViewConfiguration
 import java.awt.Dimension
 
 @Composable
@@ -44,11 +44,8 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
     var lastRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
-    //  States for hover
-    var hoveredRoom by remember { mutableStateOf<Room?>(null) }
-    var tooltipPosition by remember { mutableStateOf(Offset.Zero) }
-
     val hoverManager = LocalHoverManager.current
+    val ownerWindow = OwnerWindow.current
     var internalPadding by remember { mutableStateOf(Offset.Zero) }
     var tooltipOffset by remember { mutableStateOf(Offset.Zero) }
 
@@ -97,15 +94,13 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                         (position.x + internalPadding.x) / dpi,
                         (position.y + internalPadding.y) / dpi
                     )
-                    hoverManager.show(tooltipOffset, Dimension(300, 200)) {
+                    hoverManager.show(ownerWindow, tooltipOffset, Dimension(300, 200)) {
                         Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
-                            Text("Room ID: ${room!!.id}", color = Color.White)
+                            Text("Room ID: ${room.id}", color = Color.White)
                             Text("Coords: (${room.x}, ${room.y}, ${room.z})", color = Color.White)
                             Text("Exits: ${room.exitsList.size}", color = Color.White)
                         }
                     }
-                    hoveredRoom = room
-                    tooltipPosition = position
                 }
                 else {
                     hoverManager.hide()
