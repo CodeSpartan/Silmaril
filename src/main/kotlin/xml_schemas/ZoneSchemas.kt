@@ -36,10 +36,10 @@ data class Room(
     val x: Int = 0,
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "YLocation")
-    val y: Int = 0,
+    var y: Int = 0,
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "ZLocation")
-    val z: Int = 0,
+    var z: Int = 0,
 
     @field:JacksonXmlProperty(isAttribute = false, localName = "Description")
     val description: String = "",

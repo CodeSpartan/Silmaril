@@ -68,6 +68,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             if (roomMessage.zoneId != lastZone) {
                 curZoneState.value = mapViewModel.getZone(roomMessage.zoneId)
                 curZoneRooms = mapViewModel.getRooms(roomMessage.zoneId)
+                mapViewModel.squashRooms(curZoneRooms)
             }
             if (roomMessage.roomId != lastRoom) {
                 curRoomState.value = curZoneRooms[roomMessage.roomId]
@@ -150,8 +151,8 @@ fun RoomsCanvas(
         var panOffset by remember { mutableStateOf(Offset.Zero) }
 
         if (curZoneState.value == null) return@BoxWithConstraints
-        val roomsAtZ0 = curZoneState.value!!.roomsList.filter { it.z == 5 }
-        if (roomsAtZ0.isEmpty()) {
+        val rooms = curZoneState.value!!.roomsList
+        if (rooms.isEmpty()) {
             return@BoxWithConstraints
         }
 
@@ -164,10 +165,10 @@ fun RoomsCanvas(
         val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
 
         // Find min coordinates for relative positioning
-        val minX = roomsAtZ0.minOf { it.x }
-        val minY = roomsAtZ0.minOf { it.y }
-        val maxX = roomsAtZ0.maxOf { it.x }
-        val maxY = roomsAtZ0.maxOf { it.y }
+        val minX = rooms.minOf { it.x }
+        val minY = rooms.minOf { it.y }
+        val maxX = rooms.maxOf { it.x }
+        val maxY = rooms.maxOf { it.y }
 
         // This offset centers the entire drawing initially
         val centeringOffset = Offset(
@@ -179,7 +180,7 @@ fun RoomsCanvas(
         val totalOffset = centeringOffset + panOffset
 
         // Create a map of room objects to their final calculated screen positions
-        val roomToOffsetMap = roomsAtZ0.associateWith { room ->
+        val roomToOffsetMap = rooms.associateWith { room ->
             Offset(
                 x = totalOffset.x + (room.x - minX) * scaledRoomSpacing,
                 y = totalOffset.y + (room.y - minY) * scaledRoomSpacing
@@ -224,11 +225,11 @@ fun RoomsCanvas(
                 }
         ) {
             // Draw the connections (Lines)
-            roomsAtZ0.forEach roomLoop@{ room ->
+            rooms.forEach roomLoop@{ room ->
                 val startOffset = roomToOffsetMap[room] ?: return@roomLoop
                 room.exitsList.forEach exitLoop@{ exit ->
                     if (room.id < exit.roomId) {
-                        val endRoom = roomsAtZ0.find { it.id == exit.roomId }
+                        val endRoom = rooms.find { it.id == exit.roomId }
                         if (endRoom != null) {
                             val endOffset = roomToOffsetMap[endRoom] ?: return@exitLoop
                             drawLine(
@@ -254,7 +255,9 @@ fun RoomsCanvas(
 fun MapRoomTooltip(room: Room, zone: Zone?) {
     Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
         Text(room.name, color = Color.White)
-        if (zone != null) Text(zone.name, color = Color.White)
+        //if (zone != null) Text(zone.name, color = Color.White)
+        Text("Description: ${room.description}", color = Color.White)
         Text("Room ID: ${room.id} (Coords: ${room.x}, ${room.y}, ${room.z})", color = Color.White)
+        Text("Room Exits: ${room.exitsList}", color = Color.White)
     }
 }
