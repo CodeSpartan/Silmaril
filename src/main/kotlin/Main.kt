@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.awt.ComposeDialog
 import androidx.compose.ui.awt.ComposeWindow
+import androidx.compose.ui.unit.Dp
 import model.SettingsManager
 import view.AdditionalOutputWindow
 import view.MapWindow
@@ -142,8 +143,8 @@ private fun onWindowStateUpdated(state: WindowState, settings: SettingsManager) 
 }
 
 @Composable
-private fun WindowScope.AppWindowTitleBar() = WindowDraggableArea {
-    Box(Modifier.fillMaxWidth().height(15.dp).background(Color.DarkGray))
+private fun WindowScope.AppWindowTitleBar(height : Dp) = WindowDraggableArea {
+    Box(Modifier.fillMaxWidth().height(height).background(Color.DarkGray))
 }
 
 @Composable
@@ -186,11 +187,14 @@ fun FloatingWindow(
             },
             dispose = ComposeDialog::dispose,
         ) {
+            val titleBarHeight = 15.dp
             // Provides the real OwnerWindow down the hierarchy
             CompositionLocalProvider(OwnerWindow provides window) {
-                Column(Modifier.background(Color.Black)) {
-                    AppWindowTitleBar()
-                    content()
+                CompositionLocalProvider(LocalTopBarHeight provides titleBarHeight) {
+                    Column(Modifier.background(Color.Black)) {
+                        AppWindowTitleBar(titleBarHeight)
+                        content()
+                    }
                 }
             }
         }
@@ -201,3 +205,10 @@ fun FloatingWindow(
 val OwnerWindow = staticCompositionLocalOf<Window> {
     error("No Window provided. Wrap your content in a provider.")
 }
+
+/**
+ * Provides the height of the title/drag bar of a FloatingWindow.
+ * This allows descendant composables to account for the obscured space
+ * at the top of the window without having to hardcode the value.
+ */
+val LocalTopBarHeight = compositionLocalOf { 0.dp }

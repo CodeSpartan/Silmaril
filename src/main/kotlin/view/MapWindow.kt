@@ -1,5 +1,6 @@
 package view
 
+import LocalTopBarHeight
 import OwnerWindow
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
@@ -33,6 +34,7 @@ import androidx.compose.animation.core.Animatable
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.ui.unit.Dp
 
 @Composable
 @Preview
@@ -97,6 +99,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             modifier = Modifier.fillMaxSize().clipToBounds(),
             curZoneState = curZoneState,
             centerOnRoomId = centerOnRoomId, // Pass the target ID to the canvas
+            topBarPixelHeight = LocalTopBarHeight.current, // height of the bar by which we drag the window, provided
             onRoomHover = { room, position ->
                 // This callback is executed inside RoomsCanvas whenever a hover event occurs.
                 // It updates the state that is held here, in the parent.
@@ -150,6 +153,7 @@ fun RoomsCanvas(
     modifier: Modifier = Modifier,
     curZoneState: MutableState<Zone?>,
     centerOnRoomId: Int?,
+    topBarPixelHeight: Dp,
     // The canvas accepts a callback to report hover events up to its parent
     onRoomHover: (room: Room?, position: Offset) -> Unit
 ) {
@@ -186,7 +190,7 @@ fun RoomsCanvas(
                 coroutineScope.launch {
                     panOffset.animateTo(
                         targetValue = Offset(newPanTargetX, newPanTargetY),
-                        animationSpec = tween(durationMillis = 500)
+                        animationSpec = tween(durationMillis = 150)
                     )
                 }
             }
@@ -212,10 +216,16 @@ fun RoomsCanvas(
         val maxX = rooms.maxOf { it.x }
         val maxY = rooms.maxOf { it.y }
 
+        val dragBarHeightInPixels: Float = with(LocalDensity.current) {
+            topBarPixelHeight.toPx()
+        }
+
         // This offset centers the entire drawing initially
         val centeringOffset = Offset(
-            x = (this.maxWidth.value - (maxX - minX) * scaledRoomSpacing) / 2,
-            y = (this.maxHeight.value - (maxY - minY) * scaledRoomSpacing) / 2
+            x = (constraints.maxWidth - (maxX - minX) * scaledRoomSpacing) / 2f,
+            // constraints.maxHeight is the entire height of the window
+            // but at the top, we have a top bar, by which we can drag the window. half of it needs to be subtracted
+            y = (constraints.maxHeight - (maxY - minY) * scaledRoomSpacing) / 2f - (dragBarHeightInPixels/2)
         )
 
         // The final offset combines centering with user panning
