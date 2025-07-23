@@ -29,7 +29,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import java.awt.Dimension
+import androidx.compose.animation.core.Animatable
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.VectorConverter
 
 @Composable
 @Preview
@@ -44,6 +47,9 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     var curZoneRooms: Map<Int, Room> = mapViewModel.getRooms(lastZone)
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
     var lastRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
+
+    // State to hold the ID of the room to center on. This will be passed to the RoomsCanvas.
+    var centerOnRoomId by remember { mutableStateOf<Int?>(null) }
 
     var currentHoverRoom: Room? = null
 
@@ -61,17 +67,18 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
         }
     }
 
-    // React to changes in currentRoom
+    // React to changes from the currentRoom message
     LaunchedEffect(lastRoomMessage) {
         lastRoomMessage?.let { roomMessage ->
-            println("new room")
             if (roomMessage.zoneId != lastZone) {
                 curZoneState.value = mapViewModel.getZone(roomMessage.zoneId)
                 curZoneRooms = mapViewModel.getRooms(roomMessage.zoneId)
                 mapViewModel.squashRooms(curZoneRooms)
             }
+            // If the room has changed, update the state and trigger the centering
             if (roomMessage.roomId != lastRoom) {
                 curRoomState.value = curZoneRooms[roomMessage.roomId]
+                centerOnRoomId = roomMessage.roomId
             }
             lastZone = roomMessage.zoneId
             lastRoom = roomMessage.roomId
@@ -88,7 +95,8 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     ) {
         RoomsCanvas(
             modifier = Modifier.fillMaxSize().clipToBounds(),
-            curZoneState,
+            curZoneState = curZoneState,
+            centerOnRoomId = centerOnRoomId, // Pass the target ID to the canvas
             onRoomHover = { room, position ->
                 // This callback is executed inside RoomsCanvas whenever a hover event occurs.
                 // It updates the state that is held here, in the parent.
@@ -100,20 +108,23 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                         }
                         currentHoverRoom = room
                     }
-                }
-                else {
+                } else {
                     currentHoverRoom = null
                     hoverManager.hide()
                 }
             }
         )
 
-        // Overlay two texts in the bottom left corner of the Box
+        // Overlay with current room and zone name
         Box(
             modifier = Modifier
-                .padding(start = 8.dp, bottom = 8.dp) // adjustments for positioning
+                .padding(start = 8.dp, bottom = 8.dp)
                 .align(Alignment.BottomStart)
-                .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground).copy(alpha = 0.8f))
+                .background(
+                    StyleManager.getStyle(currentColorStyle)
+                        .getUiColor(UiColor.AdditionalWindowBackground)
+                        .copy(alpha = 0.8f)
+                )
         ) {
             Column {
                 // Room name
@@ -138,17 +149,48 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
 fun RoomsCanvas(
     modifier: Modifier = Modifier,
     curZoneState: MutableState<Zone?>,
+    centerOnRoomId: Int?,
     // The canvas accepts a callback to report hover events up to its parent
     onRoomHover: (room: Room?, position: Offset) -> Unit
-    ) {
-
+) {
     val dpi = LocalDensity.current.density
+    val coroutineScope = rememberCoroutineScope()
 
-    // BoxWithConstraints provides the layout size (maxWidth, maxHeight) to its children.
     BoxWithConstraints(modifier = modifier) {
-        // States for tracking zoom (scale) and pan (offset)
         var scaleLogical by remember { mutableStateOf(0.25f) }
-        var panOffset by remember { mutableStateOf(Offset.Zero) }
+
+        // This teaches the animation system how to handle the Offset type.
+        val panOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+
+        // effect responsible for panning after centerOnRoomId changes
+        LaunchedEffect(centerOnRoomId, curZoneState.value) {
+            val zone = curZoneState.value
+            if (centerOnRoomId == null || zone == null) return@LaunchedEffect
+
+            val rooms = zone.roomsList
+            val targetRoom = rooms.find { it.id == centerOnRoomId }
+
+            if (targetRoom != null && rooms.isNotEmpty()) {
+                val minX = rooms.minOf { it.x }
+                val minY = rooms.minOf { it.y }
+                val maxX = rooms.maxOf { it.x }
+                val maxY = rooms.maxOf { it.y }
+
+                val baseRoomRadius = 50f
+                val baseRoomSpacing = baseRoomRadius * 3
+                val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
+
+                val newPanTargetX = -((targetRoom.x - minX) - (maxX - minX) / 2f) * scaledRoomSpacing
+                val newPanTargetY = -((targetRoom.y - minY) - (maxY - minY) / 2f) * scaledRoomSpacing
+
+                coroutineScope.launch {
+                    panOffset.animateTo(
+                        targetValue = Offset(newPanTargetX, newPanTargetY),
+                        animationSpec = tween(durationMillis = 500)
+                    )
+                }
+            }
+        }
 
         if (curZoneState.value == null) return@BoxWithConstraints
         val rooms = curZoneState.value!!.roomsList
@@ -177,7 +219,7 @@ fun RoomsCanvas(
         )
 
         // The final offset combines centering with user panning
-        val totalOffset = centeringOffset + panOffset
+        val totalOffset = centeringOffset + panOffset.value
 
         // Create a map of room objects to their final calculated screen positions
         val roomToOffsetMap = rooms.associateWith { room ->
@@ -194,7 +236,10 @@ fun RoomsCanvas(
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
-                        panOffset += dragAmount
+                        // instead of "panOffset += dragAmount", animate to the new offset
+                        coroutineScope.launch {
+                            panOffset.snapTo(panOffset.value + dragAmount)
+                        }
                     }
                 }
                 // Pointer event modifier for Zooming (scroll)
@@ -214,10 +259,7 @@ fun RoomsCanvas(
                     val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
                         (mousePosition - center).getDistance() <= scaledRoomRadius
                     }?.key
-                    onRoomHover(
-                        roomUnderMouse,
-                        mousePosition
-                    )
+                    onRoomHover(roomUnderMouse, mousePosition)
                 }
                 // If the mouse leaves the Map window, the hover certainly ends
                 .onPointerEvent(PointerEventType.Exit) { event ->
