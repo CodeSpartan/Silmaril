@@ -215,7 +215,7 @@ class MudConnection(private val host: String, private val port: Int) {
 
     private suspend fun processData(data : ByteArray, byteLength: Int)
     {
-        val debug = false
+        val debug = true
         var skipCount = 0
         for (offset in 0 until byteLength) {
             if (skipCount > 0) {
@@ -230,8 +230,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset + 2] == TelnetConstants.Compress) {
                 // Respond with IAC DO COMPRESS
                 _compressionEnabled = true
-                if (debug)
-                    println("Detected command: IAC WILL COMPRESS")
+                if (debug) {
+                    val str = "Detected command: IAC WILL COMPRESS"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
                 skipCount = 2
                 //flushMainBuffer()
@@ -245,8 +248,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset + 2] == TelnetConstants.CustomProtocol) {
                 // Enable the custom protocol and respond with IAC DO CUSTOM_PROTOCOL
                 _customProtocolEnabled = true
-                if (debug)
-                    println("Detected command: IAC WILL CUSTOM")
+                if (debug) {
+                    val str = "Detected command: IAC WILL CUSTOM"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
                 skipCount = 2
                 //flushMainBuffer()
@@ -260,8 +266,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset + 2] == TelnetConstants.Compress
                 && data[offset + 3] == TelnetConstants.Will
                 && data[offset + 4] == TelnetConstants.SubNegotiationEnd) {
-                if (debug)
-                    println("Detected command: IAC SUB_START COMPRESS WILL SUB_STOP")
+                if (debug) {
+                    val str = "Detected command: IAC SUB_START COMPRESS WILL SUB_STOP"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 _compressionInProgress = true
                 _zlibDecompressionStream = InflaterInputStream(inputStream)  // Start decompression
                 skipCount = 4
@@ -275,8 +284,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset + 1] == TelnetConstants.SubNegotiationStart
                 && data[offset + 2] == TelnetConstants.CustomProtocol) {
                 _customMessageType = data[offset + 3].toInt() // 4th byte carries the message type
-                if (debug)
-                    println("Detected command: custom message start ${data[offset + 3]}")
+                if (debug) {
+                    val str = "Detected command: custom message start ${data[offset + 3]}"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 // _textMessages.emit(whiteTextMessage("Custom protocol begin: ${data[offset + 3]}"))
                 skipCount = 3
                 //flushMainBuffer()
@@ -288,8 +300,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.SubNegotiationEnd) {
                 flushMainBuffer()
-                if (debug)
-                    println("Detected command: custom message end")
+                if (debug) {
+                    val str = "Detected command: custom message end"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 _customMessageType = -1
                 //_dataFlow.emit("Custom protocol end")
                 skipCount = 1
@@ -302,8 +317,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset + 1] == TelnetConstants.Will
                 && data[offset + 2] == TelnetConstants.Echo)
             {
-                if (debug)
-                    println("Detected command: IAC WILL ECHO")
+                if (debug) {
+                    val str = "Detected command: IAC WILL ECHO"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 skipCount = 2
                 _isEchoOn.value = true
                 //flushMainBuffer()
@@ -316,8 +334,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset + 1] == TelnetConstants.WillNot
                 && data[offset + 2] == TelnetConstants.Echo)
             {
-                if (debug)
-                    println("Detected command: IAC WONT ECHO")
+                if (debug) {
+                    val str = "Detected command: IAC WONT ECHO"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 skipCount = 2
                 _isEchoOn.value = false
                 //flushMainBuffer()
@@ -329,8 +350,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && 1 < byteLength
                 && data[0] == TelnetConstants.InterpretAsCommand
                 && data[1] == TelnetConstants.GoAhead) {
-                if (debug)
-                    println("Detected command: IAC GA")
+                if (debug) {
+                    val str = "Detected command: IAC GA"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 skipCount = 1
                 _customMessageType = -1 // added after a bug, watch that this doesn't break anything
                 // the reason being, we've had this scenario: custom message 14 arrives, then IAC, and then text, as if IAC ends any custom messages
@@ -344,8 +368,11 @@ class MudConnection(private val host: String, private val port: Int) {
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.GoAhead
                 && data[offset - 1] != TelnetConstants.InterpretAsCommand) {
-                if (debug)
-                    println("Detected command: IAC GA")
+                if (debug) {
+                    val str = "Detected command: IAC GA"
+                    //println(str)
+                    FileLogger.log("MudConnection", str)
+                }
                 skipCount = 1
                 flushMainBuffer()
                 continue
@@ -388,12 +415,14 @@ class MudConnection(private val host: String, private val port: Int) {
     }
 
     private fun bufferToColorfulText(buffer: ByteArray, bufferEndPointer: Int) : ColorfulTextMessage {
-        val debug = false
+        val debug = true
         // print bytes
         if (debug) {
             val copiedBytes = buffer.copyOfRange(0, bufferEndPointer)
             val hexString = copiedBytes.joinToString(separator = " ") { byte -> String.format("%02X", byte) }
-            println("Bytes in bufferToColorfulText: $hexString")
+            val str = "Bytes in bufferToColorfulText: $hexString"
+            //println(str)
+            FileLogger.log("MudConnection", str)
         }
 
         colorTreatmentPointer = 0
@@ -493,7 +522,7 @@ class MudConnection(private val host: String, private val port: Int) {
 
     private suspend fun flushMainBuffer() {
         if (_customMessageType != -1) {
-            val debug = false
+            val debug = true
             var skipBytes = 0
 
             // Due to an ADAN bug, some messages can arrive inside a custom message, e.g.
@@ -511,9 +540,17 @@ class MudConnection(private val host: String, private val port: Int) {
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
             }
             if (debug) {
-                println("- Custom message: ${_customMessageType}")
-                println(msg)
-                println("- End of custom message")
+                val str1 = "- Custom message: ${_customMessageType}"
+                //println(str1)
+                FileLogger.log("MudConnection", str1)
+
+                //println(msg)
+                FileLogger.log("MudConnection", msg)
+
+                val str2 = "- End of custom message"
+                //println(str2)
+                FileLogger.log("MudConnection", str2)
+
                 //_textMessages.emit(whiteTextMessage(msg)) // print custom message into main window
             }
         } else {
@@ -523,15 +560,17 @@ class MudConnection(private val host: String, private val port: Int) {
     }
 
     private suspend fun processTextMessage(buffer: ByteArray, bufferEndPointer: Int, emitEmpty: Boolean) {
-        val debug = false
+        val debug = true
         val gluedMessage = bufferToColorfulText(buffer, bufferEndPointer)
         if (gluedMessage.chunks.isNotEmpty()) {
             if (debug) {
-                print("Text message: \n")
+                var str = "Text message: \n"
                 for (chunk in gluedMessage.chunks) {
-                    print(chunk.text)
+                    str += chunk.text
                 }
-                print("\n- End of text message\n")
+                str += "\n- End of text message\n"
+                //println(str)
+                FileLogger.log("MudConnection", str)
             }
             _colorfulTextMessages.emit(gluedMessage)
         } else if (emitEmpty) {
@@ -540,16 +579,27 @@ class MudConnection(private val host: String, private val port: Int) {
     }
 
     private suspend fun processBorkedTextMessage(buffer: ByteArray, bufferEndPointer: Int) : Int {
-        val debug = false
+        val debug = true
         val xmlStartOffset = findXmlOffset(buffer, bufferEndPointer)
         if (debug) {
-            println("Borked message detected")
-             println("Xml start offset: $xmlStartOffset")
+            val str1 = "Borked message detected"
+            //println(str1)
+            FileLogger.log("MudConnection", str1)
+
+            val str2 = "Xml start offset: $xmlStartOffset"
+            //println(str2)
+            FileLogger.log("MudConnection", str2)
+
             val byteMsg = buffer.copyOfRange(0, bufferEndPointer)
             val hexString = byteMsg.joinToString(separator = " ") { byte -> String.format("%02X", byte) }
-            println("Bytes of the borked message: $hexString")
+            val str3 = "Bytes of the borked message: $hexString"
+            //println(str3)
+            FileLogger.log("MudConnection", str3)
+
             val msg = String(byteMsg, charset)
-            println("Borked message: $msg")
+            val str4 = "Borked message: $msg"
+            //println(str4)
+            FileLogger.log("MudConnection", str4)
         }
         if (xmlStartOffset > 0)
             processTextMessage(buffer, xmlStartOffset, false)

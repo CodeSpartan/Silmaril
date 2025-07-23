@@ -2,6 +2,7 @@ package mud_messages
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
+import model.FileLogger
 
 /***
  * Construct this object from xml:
@@ -22,6 +23,8 @@ data class CurrentRoomMessage(
             } catch (e: Exception) {
                 System.err.println("Offending XML: $xml")
                 e.printStackTrace()
+                FileLogger.log("CurrentRoomMessage", "Offending XML: $xml")
+                FileLogger.log("CurrentRoomMessage", e.stackTrace.toString())
                 null
             }
         }

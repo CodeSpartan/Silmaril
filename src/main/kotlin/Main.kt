@@ -29,6 +29,7 @@ import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import model.FileLogger
 import view.HoverManagerProvider
 import java.awt.Window
 import java.awt.event.ComponentAdapter
@@ -40,6 +41,7 @@ fun main() = application {
     val mainViewModel = MainViewModel(client, settings)
     val mapViewModel = MapViewModel(client, settings)
     val settingsViewModel = SettingsViewModel(settings)
+    FileLogger.initialize("Silmaril")
 
     val showMapWindow = remember { mutableStateOf(settings.getFloatingWindowState("MapWindow").show) }
     val showAdditionalOutputWindow = remember { mutableStateOf(settings.getFloatingWindowState("AdditionalOutput").show) }
