@@ -24,10 +24,10 @@ class ClassicBlackColorStyle : ColorStyle() {
     override fun getUiColorList(color: UiColor): List<Color> {
         return when (color) {
             UiColor.MapRoomUnvisited -> listOf(
-                Color(0xFF1e6c9d), // Start color: Dark Blue
-                Color(0xFF1e6c9d), // Start color: Dark Blue
-                Color(0xFF05979c), // Middle color: Light blue
-                Color(0xFF1e6c9d), // End color: Dark Blue
+                Color(0xFF5d5d5d), // Start color: Grey
+                Color(0xFF5d5d5d), // Start color: Grey
+                Color(0xff6d6d6d), // Middle color: Light Grey
+                Color(0xFF5d5d5d), // End color: Grey
             )
             UiColor.MapRoomVisited -> listOf(
                 Color(0xFF1e6c9d), // Start color: Dark Blue
