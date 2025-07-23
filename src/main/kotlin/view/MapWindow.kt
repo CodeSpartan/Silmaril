@@ -34,6 +34,8 @@ import androidx.compose.animation.core.Animatable
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Dp
 
 @Composable
@@ -203,11 +205,11 @@ fun RoomsCanvas(
         }
 
         // Base values
-        val baseRoomRadius = 50f
-        val baseRoomSpacing = baseRoomRadius * 3 // Space for a room + gap
+        val baseRoomSize = 100f
+        val baseRoomSpacing = baseRoomSize * 1.5f
 
         // Scaled values based on the zoom state
-        val scaledRoomRadius = baseRoomRadius * scaleLogical * dpi
+        val scaledRoomSize = baseRoomSize * scaleLogical * dpi
         val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
 
         // Find min coordinates for relative positioning
@@ -264,11 +266,17 @@ fun RoomsCanvas(
                 }
                 // Pointer event modifier for Moving the mouse around, to catch a hover
                 .onPointerEvent(PointerEventType.Move) { event ->
-                    // hover logic
                     val mousePosition = event.changes.first().position
+                    val halfRoomSize = scaledRoomSize / 2f
+
+                    // hover logic
+                    // Find the first room whose bounding box contains the mouse pointer
                     val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
-                        (mousePosition - center).getDistance() <= scaledRoomRadius
-                    }?.key
+                        mousePosition.x >= center.x - halfRoomSize &&
+                                mousePosition.x <= center.x + halfRoomSize &&
+                                mousePosition.y >= center.y - halfRoomSize &&
+                                mousePosition.y <= center.y + halfRoomSize
+                    }?.key // Get the Room object (the key) from the map entry
                     onRoomHover(roomUnderMouse, mousePosition)
                 }
                 // If the mouse leaves the Map window, the hover certainly ends
@@ -296,8 +304,19 @@ fun RoomsCanvas(
             }
 
             // Draw the rooms (Circles)
-            roomToOffsetMap.values.forEach { offset ->
-                drawCircle(color = Color.Cyan, radius = scaledRoomRadius, center = offset)
+            roomToOffsetMap.values.forEach { centerOffset ->
+                //drawCircle(color = Color.Cyan, radius = scaledRoomRadius, center = offset)
+                val cornerRadius = scaledRoomSize * 0.15f // 15% of the size for the corner radius
+                drawRoundRect(
+                    color = Color.Cyan,
+                    // The draw function needs the top-left corner, not the center.
+                    topLeft = Offset(
+                        x = centerOffset.x - (scaledRoomSize / 2),
+                        y = centerOffset.y - (scaledRoomSize / 2)
+                    ),
+                    size = Size(scaledRoomSize, scaledRoomSize),
+                    cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+                )
             }
         }
     }
