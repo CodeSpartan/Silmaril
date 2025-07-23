@@ -17,4 +17,7 @@ enum class UiColor {
     AdditionalWindowBackground,
     InputField,
     InputFieldText,
+    MapRoomUnvisited,
+    MapRoomVisited,
+    MapRoomStroke,
 }

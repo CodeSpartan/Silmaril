@@ -19,6 +19,26 @@ class ModernDarkRedColorStyle : ColorStyle() {
             UiColor.AdditionalWindowBackground -> Color(0xFF1A110F)
             UiColor.InputField -> Color(0xFF3D3230)
             UiColor.InputFieldText -> Color(0xFFE7D6D1)
+            UiColor.MapRoomStroke -> Color.White
+            else -> Color.White
+        }
+    }
+
+    override fun getUiColorList(color: UiColor): List<Color> {
+        return when (color) {
+            UiColor.MapRoomUnvisited -> listOf(
+                Color(0xFF222222), // Start color: Dark Blue
+                Color(0xFF222222), // Start color: Dark Blue
+                Color(0xFF191919), // Middle color: Light blue
+                Color(0xFF222222), // End color: Dark Blue
+            )
+            UiColor.MapRoomVisited -> listOf(
+                Color(0xFF222222), // Start color: Dark Blue
+                Color(0xFF222222), // Start color: Dark Blue
+                Color(0xFF191919), // Middle color: Light blue
+                Color(0xFF222222), // End color: Dark Blue
+            )
+            else -> listOf(Color.White)
         }
     }
 

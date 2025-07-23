@@ -20,5 +20,6 @@ object StyleManager {
 abstract class ColorStyle {
     abstract fun getAnsiColor(color: AnsiColor, bright: Boolean): Color
     abstract fun getUiColor(color: UiColor): Color
+    abstract fun getUiColorList(color: UiColor): List<Color>
     abstract fun inputFieldCornerRoundness(): Float
 }

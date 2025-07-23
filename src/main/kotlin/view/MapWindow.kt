@@ -36,6 +36,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
 
 @Composable
@@ -98,6 +100,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             }
     ) {
         RoomsCanvas(
+            settingsViewModel = settingsViewModel,
             modifier = Modifier.fillMaxSize().clipToBounds(),
             curZoneState = curZoneState,
             centerOnRoomId = centerOnRoomId, // Pass the target ID to the canvas
@@ -152,6 +155,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun RoomsCanvas(
+    settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
     curZoneState: MutableState<Zone?>,
     centerOnRoomId: Int?,
@@ -161,6 +165,8 @@ fun RoomsCanvas(
 ) {
     val dpi = LocalDensity.current.density
     val coroutineScope = rememberCoroutineScope()
+    val currentColorStyleName by settingsViewModel.currentColorStyleName.collectAsState()
+    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }
@@ -304,19 +310,42 @@ fun RoomsCanvas(
             }
 
             // Draw the rooms (Circles)
-            roomToOffsetMap.values.forEach { centerOffset ->
-                //drawCircle(color = Color.Cyan, radius = scaledRoomRadius, center = offset)
-                val cornerRadius = scaledRoomSize * 0.15f // 15% of the size for the corner radius
-                drawRoundRect(
-                    color = Color.Cyan,
-                    // The draw function needs the top-left corner, not the center.
-                    topLeft = Offset(
-                        x = centerOffset.x - (scaledRoomSize / 2),
-                        y = centerOffset.y - (scaledRoomSize / 2)
-                    ),
-                    size = Size(scaledRoomSize, scaledRoomSize),
-                    cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+            roomToOffsetMap.entries.forEach { (room, centerOffset) ->
+                val cornerRadiusValue = scaledRoomSize * 0.15f // 15% of the size for the corner radius
+                val roomTopLeft = Offset(
+                    x = centerOffset.x - (scaledRoomSize / 2),
+                    y = centerOffset.y - (scaledRoomSize / 2)
                 )
+                val roomSize = Size(scaledRoomSize, scaledRoomSize)
+                val roomCornerRadius = CornerRadius(cornerRadiusValue, cornerRadiusValue)
+
+                // start->end: from top-right corner to bottom-left corner
+                val roomBrush = Brush.linearGradient(
+                    colors = currentColorStyle.getUiColorList(UiColor.MapRoomVisited),
+                    start = Offset(x = roomTopLeft.x + roomSize.width, y = roomTopLeft.y),
+                    end = Offset(x = roomTopLeft.x, y = roomTopLeft.y + roomSize.height)
+                )
+
+                drawRoundRect(
+                    // The draw function needs the top-left corner, not the center.
+                    topLeft = roomTopLeft,
+                    size = roomSize,
+                    cornerRadius = roomCornerRadius,
+                    style = Fill,
+                    brush = roomBrush, // Use the brush here
+                )
+
+                // if the player is in the room, draw a stroke over it
+                if (room.id == centerOnRoomId) {
+                    val strokeWidth = 15f * scaleLogical // Make the stroke responsive to zoom
+                    drawRoundRect(
+                        color = currentColorStyle.getUiColor(UiColor.MapRoomStroke),
+                        topLeft = roomTopLeft,
+                        size = roomSize,
+                        cornerRadius = roomCornerRadius,
+                        style = Stroke(width = strokeWidth)
+                    )
+                }
             }
         }
     }

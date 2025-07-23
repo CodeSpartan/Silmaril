@@ -16,6 +16,26 @@ class ClassicBlackColorStyle : ColorStyle() {
             UiColor.AdditionalWindowBackground -> Color.Black
             UiColor.InputField -> Color(0xFF424242)
             UiColor.InputFieldText -> Color.White
+            UiColor.MapRoomStroke -> Color.White
+            else -> Color.White
+        }
+    }
+
+    override fun getUiColorList(color: UiColor): List<Color> {
+        return when (color) {
+            UiColor.MapRoomUnvisited -> listOf(
+                Color(0xFF1e6c9d), // Start color: Dark Blue
+                Color(0xFF1e6c9d), // Start color: Dark Blue
+                Color(0xFF05979c), // Middle color: Light blue
+                Color(0xFF1e6c9d), // End color: Dark Blue
+            )
+            UiColor.MapRoomVisited -> listOf(
+                Color(0xFF1e6c9d), // Start color: Dark Blue
+                Color(0xFF1e6c9d), // Start color: Dark Blue
+                Color(0xFF05979c), // Middle color: Light blue
+                Color(0xFF1e6c9d), // End color: Dark Blue
+            )
+            else -> listOf(Color.White)
         }
     }
 

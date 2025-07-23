@@ -41,6 +41,26 @@ class ModernBlackColorStyle : ColorStyle() {
             UiColor.AdditionalWindowBackground -> Color(0xFF1a1a1a)
             UiColor.InputField -> Color(0xFF3d3d3d)
             UiColor.InputFieldText -> Color(0xFFe8e8e8)
+            UiColor.MapRoomStroke -> Color(0xffdadada)
+            else -> Color.White
+        }
+    }
+
+    override fun getUiColorList(color: UiColor): List<Color> {
+        return when (color) {
+            UiColor.MapRoomUnvisited -> listOf(
+                Color(0xFF383838), // Start color: Dark Blue
+                Color(0xFF383838), // Start color: Dark Blue
+                Color(0xFF2c2c2c), // Middle color: Light blue
+                Color(0xff333333), // End color: Dark Blue
+            )
+            UiColor.MapRoomVisited -> listOf(
+                Color(0xFF565656), // Start color: Dark Blue
+                Color(0xff525252), // Start color: Dark Blue
+                Color(0xff454545), // Middle color: Light blue
+                Color(0xff4f4f4f), // End color: Dark Blue
+            )
+            else -> listOf(Color.White)
         }
     }
 
