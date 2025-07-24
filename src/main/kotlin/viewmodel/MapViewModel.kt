@@ -161,7 +161,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                 if (unvisitedRoom.z != mainLevel) {
                     val neighbors : MutableMap<Int, Room> = mutableMapOf(unvisitedRoom.id to unvisitedRoom)
                     gatherChunkOfRooms(unvisitedRoom, rooms, neighbors)
-                    trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds)
+                    trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds, centerOfGravity)
                     occupySpaceBetweenRooms(
                         rooms.filter { (_, room) -> room.z == mainLevel }, // occupied rooms on the main floor
                         occupiedCoords)
@@ -175,7 +175,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                         if (neighbor.z != mainLevel) {
                             val neighbors : MutableMap<Int, Room> = mutableMapOf(neighbor.id to neighbor)
                             gatherChunkOfRooms(neighbor, rooms, neighbors)
-                            trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds)
+                            trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds, centerOfGravity)
                             occupySpaceBetweenRooms(
                                 rooms.filter { (_, room) -> room.z == mainLevel }, // occupied rooms on the main floor
                                 occupiedCoords)
@@ -205,11 +205,23 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
         }
     }
 
-    private fun trySquashRooms(roomsToMove: Map<Int, Room>, mainLevel: Int, occupiedCoords: MutableSet<Point>, visitedCoords: MutableMap<Int, Boolean>) {
+    private fun trySquashRooms(
+        roomsToMove: Map<Int, Room>,
+        mainLevel: Int,
+        occupiedCoords: MutableSet<Point>,
+        visitedCoords: MutableMap<Int, Boolean>,
+        mainLevelCenterOfGravity: Point,
+    ) {
         if (roomsToMove.isEmpty()) return
         val thisLevel = roomsToMove.entries.firstOrNull()!!.value.z
         val goDown = thisLevel < mainLevel
+
+        val centerOfGravity = Point(
+            roomsToMove.values.sumOf { it.x } / roomsToMove.count(),
+            roomsToMove.values.sumOf { it.y } / roomsToMove.count())
+        val goRight = centerOfGravity.x >= mainLevelCenterOfGravity.x
         var success = false
+        var i = 0
         while (!success) {
             success = roomsToMove.all { room ->
                 !occupiedCoords.contains(Point(room.value.x, room.value.y))
@@ -218,6 +230,26 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
             if (!success) {
                 for (entry in roomsToMove) {
                     entry.value.y += if (goDown) +1 else -1
+                }
+            }
+            i++
+
+            // for every 5 steps down (or up), try to move it to the right (or left), away from the center of gravity
+            if (!success && i % 5 == 0) {
+                val offsetX = i / 5
+                for (entry in roomsToMove) {
+                    entry.value.y -= if (goDown) +i else -i
+                    entry.value.x += if (goRight) +offsetX else -offsetX
+                }
+                success = roomsToMove.all { room ->
+                    !occupiedCoords.contains(Point(room.value.x, room.value.y))
+                }
+                // if no success, move the rooms back
+                if (!success) {
+                    for (entry in roomsToMove) {
+                        entry.value.y += if (goDown) +i else -i
+                        entry.value.x += if (goRight) -offsetX else +offsetX
+                    }
                 }
             }
         }

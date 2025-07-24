@@ -33,7 +33,7 @@ data class Room(
     val name: String = "",
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "XLocation")
-    val x: Int = 0,
+    var x: Int = 0,
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "YLocation")
     var y: Int = 0,
