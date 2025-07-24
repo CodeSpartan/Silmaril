@@ -300,13 +300,17 @@ fun RoomsCanvas(
                         return@exitLoop
                     }
 
+                    val connectionColor =
+                        if (exit.roomId == centerOnRoomId || room.id == centerOnRoomId) Color.White
+                        else Color.Gray
+
                     // avoid drawing the same connection twice, e.g. x->y and y->x
                     if (drawnConnections[room.id]?.contains(exit.roomId) != true && drawnConnections[exit.roomId]?.contains(room.id) != true) {
                         drawnConnections[room.id]?.add(exit.roomId)
                         if (roomsMap[exit.roomId] != null) {
                             val endOffset = roomToOffsetMap[exit.roomId] ?: return@exitLoop
                             drawLine(
-                                color = Color.Gray,
+                                color = connectionColor,
                                 start = startOffset,
                                 end = endOffset,
                                 strokeWidth = Stroke.DefaultMiter * scaleLogical * dpi // Make line width scale slightly
@@ -328,7 +332,7 @@ fun RoomsCanvas(
 
                             // Draw the main part of the line
                             drawLine(
-                                color = Color.Gray,
+                                color = connectionColor,
                                 start = startOffset,
                                 end = endOffset,
                                 strokeWidth = Stroke.DefaultMiter * scaleLogical * dpi
@@ -362,14 +366,14 @@ fun RoomsCanvas(
                             path.close()
                             drawPath(
                                 path = path,
-                                color = Color.Gray
+                                color = connectionColor
                             )
                         }
                     }
                 }
             }
 
-            // Draw the rooms (Circles)
+            // Draw the rooms (Squares with rounded corners)
             roomToOffsetMap.entries.forEach { (roomId, centerOffset) ->
                 val cornerRadiusValue = scaledRoomSize * 0.15f // 15% of the size for the corner radius
                 val roomTopLeft = Offset(
@@ -408,6 +412,7 @@ fun RoomsCanvas(
                 }
             }
 
+            // Draw staircases
             roomsMap.values.forEach roomLoop@{ room ->
                 val startOffset = roomToOffsetMap[room.id] ?: return@roomLoop
                 room.exitsList.forEach { exit ->
@@ -440,18 +445,18 @@ fun RoomsCanvas(
                             )
                         }
 
-                        val stairsColor =
+                        val connectionColor =
                             if (exit.roomId == centerOnRoomId || room.id == centerOnRoomId) Color.White
                             else Color.Gray
 
                         // Draw the two vertical lines (the sides of the stairs).
                         val leftVerticalStart = Offset(stairsTopLeft.x, stairsTopLeft.y - stairsHeight * 0.2f)
                         val leftVerticalEnd = Offset(stairsTopLeft.x, stairsTopLeft.y + stairsHeight * 1.2f)
-                        drawLine(stairsColor, leftVerticalStart, leftVerticalEnd, stairsStrokeWidth)
+                        drawLine(connectionColor, leftVerticalStart, leftVerticalEnd, stairsStrokeWidth)
 
                         val rightVerticalStart = Offset(stairsTopLeft.x + stairsWidth, stairsTopLeft.y - stairsHeight * 0.2f)
                         val rightVerticalEnd = Offset(stairsTopLeft.x + stairsWidth, stairsTopLeft.y + stairsHeight * 1.2f)
-                        drawLine(stairsColor, rightVerticalStart, rightVerticalEnd, stairsStrokeWidth)
+                        drawLine(connectionColor, rightVerticalStart, rightVerticalEnd, stairsStrokeWidth)
 
                         // Draw the three horizontal lines for the steps.
                         val stepCount = 3
@@ -459,7 +464,32 @@ fun RoomsCanvas(
                             val stepY = stairsTopLeft.y + (i.toFloat() / (stepCount - 1)) * stairsHeight
                             val stepStart = Offset(stairsTopLeft.x, stepY)
                             val stepEnd = Offset(stairsTopLeft.x + stairsWidth, stepY)
-                            drawLine(stairsColor, stepStart, stepEnd, stairsStrokeWidth)
+                            drawLine(connectionColor, stepStart, stepEnd, stairsStrokeWidth)
+                        }
+
+                        // if the stairacases lead to another zone, additionally draw an arrow
+                        if (roomsMap[exit.roomId] == null) {
+                            val arrowHeadSize = 15f * scaleLogical * dpi
+                            val path = Path()
+                            when (exit.direction) {
+                                "Up" -> {
+                                    val endOffset = Offset(stairsTopLeft.x + stairsWidth/2, stairsTopLeft.y - arrowHeadSize * 1.75f)
+                                    path.moveTo(endOffset.x, endOffset.y)
+                                    path.lineTo(endOffset.x - arrowHeadSize, endOffset.y + arrowHeadSize)
+                                    path.lineTo(endOffset.x + arrowHeadSize, endOffset.y + arrowHeadSize)
+                                }
+                                "Down" -> {
+                                    val endOffset = Offset(stairsTopLeft.x + stairsWidth/2, stairsTopLeft.y + stairsHeight + arrowHeadSize * 1.75f)
+                                    path.moveTo(endOffset.x, endOffset.y)
+                                    path.lineTo(endOffset.x - arrowHeadSize, endOffset.y - arrowHeadSize)
+                                    path.lineTo(endOffset.x + arrowHeadSize, endOffset.y - arrowHeadSize)
+                                }
+                            }
+                            path.close()
+                            drawPath(
+                                path = path,
+                                color = connectionColor
+                            )
                         }
                     }
                 }
@@ -475,7 +505,7 @@ fun MapRoomTooltip(room: Room, zone: Zone?) {
     ) {
         Text(room.name, color = Color.White)
         //if (zone != null) Text(zone.name, color = Color.White)
-        Text("Description: ${room.description}", color = Color.White)
+        Text(room.description, color = Color.White)
         Text("Room ID: ${room.id} (Coords: ${room.x}, ${room.y}, ${room.z})", color = Color.White)
         Text("Room Exits: ${room.exitsList}", color = Color.White)
     }
