@@ -162,6 +162,9 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                     val neighbors : MutableMap<Int, Room> = mutableMapOf(unvisitedRoom.id to unvisitedRoom)
                     gatherChunkOfRooms(unvisitedRoom, rooms, neighbors)
                     trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds)
+                    occupySpaceBetweenRooms(
+                        rooms.filter { (_, room) -> room.z == mainLevel }, // occupied rooms on the main floor
+                        occupiedCoords)
                 }
                 else {
                     // if the room itself is on the main floor, try its up/down neighbors
@@ -173,6 +176,9 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                             val neighbors : MutableMap<Int, Room> = mutableMapOf(neighbor.id to neighbor)
                             gatherChunkOfRooms(neighbor, rooms, neighbors)
                             trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds)
+                            occupySpaceBetweenRooms(
+                                rooms.filter { (_, room) -> room.z == mainLevel }, // occupied rooms on the main floor
+                                occupiedCoords)
                         }
                     }
                     visitedIds[unvisitedId.key] = true
@@ -220,7 +226,6 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
         occupiedCoords.addAll(newOccupied)
         val newVisited = roomsToMove.values.associate { it.id to false }
         visitedCoords.putAll(newVisited)
-        occupySpaceBetweenRooms(roomsToMove, occupiedCoords)
     }
 
     // adds more "occupied" points in the map by filling in empty space between existing rooms

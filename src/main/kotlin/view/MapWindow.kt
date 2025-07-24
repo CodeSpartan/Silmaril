@@ -37,6 +37,7 @@ import androidx.compose.animation.core.VectorConverter
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
 
@@ -102,7 +103,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
         RoomsCanvas(
             settingsViewModel = settingsViewModel,
             modifier = Modifier.fillMaxSize().clipToBounds(),
-            curZoneState = curZoneState,
+            zoneState = curZoneState,
             centerOnRoomId = centerOnRoomId, // Pass the target ID to the canvas
             topBarPixelHeight = LocalTopBarHeight.current, // height of the bar by which we drag the window, provided
             onRoomHover = { room, position ->
@@ -157,7 +158,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
 fun RoomsCanvas(
     settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
-    curZoneState: MutableState<Zone?>,
+    zoneState: MutableState<Zone?>,
     centerOnRoomId: Int?,
     topBarPixelHeight: Dp,
     // The canvas accepts a callback to report hover events up to its parent
@@ -171,22 +172,31 @@ fun RoomsCanvas(
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }
 
+        if (zoneState.value == null) return@BoxWithConstraints
+
         // This teaches the animation system how to handle the Offset type.
         val panOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+        val roomsList = zoneState.value!!.roomsList
+        if (roomsList.isEmpty()) {
+            return@BoxWithConstraints
+        }
+        val roomsMap = zoneState.value!!.roomsList.associateBy { it.id }.toMap()
+
+        val minX = roomsList.minOf { it.x }
+        val minY = roomsList.minOf { it.y }
+        val maxX = roomsList.maxOf { it.x }
+        val maxY = roomsList.maxOf { it.y }
 
         // effect responsible for panning after centerOnRoomId changes
-        LaunchedEffect(centerOnRoomId, curZoneState.value) {
-            val zone = curZoneState.value
+        LaunchedEffect(centerOnRoomId, zoneState.value) {
+            val zone = zoneState.value
             if (centerOnRoomId == null || zone == null) return@LaunchedEffect
 
-            val rooms = zone.roomsList
-            val targetRoom = rooms.find { it.id == centerOnRoomId }
 
-            if (targetRoom != null && rooms.isNotEmpty()) {
-                val minX = rooms.minOf { it.x }
-                val minY = rooms.minOf { it.y }
-                val maxX = rooms.maxOf { it.x }
-                val maxY = rooms.maxOf { it.y }
+            val targetRoom = roomsList.find { it.id == centerOnRoomId }
+
+            if (targetRoom != null && roomsList.isNotEmpty()) {
+
 
                 val baseRoomRadius = 50f
                 val baseRoomSpacing = baseRoomRadius * 3
@@ -204,12 +214,6 @@ fun RoomsCanvas(
             }
         }
 
-        if (curZoneState.value == null) return@BoxWithConstraints
-        val rooms = curZoneState.value!!.roomsList
-        if (rooms.isEmpty()) {
-            return@BoxWithConstraints
-        }
-
         // Base values
         val baseRoomSize = 100f
         val baseRoomSpacing = baseRoomSize * 1.5f
@@ -217,12 +221,6 @@ fun RoomsCanvas(
         // Scaled values based on the zoom state
         val scaledRoomSize = baseRoomSize * scaleLogical * dpi
         val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
-
-        // Find min coordinates for relative positioning
-        val minX = rooms.minOf { it.x }
-        val minY = rooms.minOf { it.y }
-        val maxX = rooms.maxOf { it.x }
-        val maxY = rooms.maxOf { it.y }
 
         val dragBarHeightInPixels: Float = with(LocalDensity.current) {
             topBarPixelHeight.toPx()
@@ -240,7 +238,8 @@ fun RoomsCanvas(
         val totalOffset = centeringOffset + panOffset.value
 
         // Create a map of room objects to their final calculated screen positions
-        val roomToOffsetMap = rooms.associateWith { room ->
+        val roomToOffsetMap = roomsMap.values.associate { room ->
+            room.id to
             Offset(
                 x = totalOffset.x + (room.x - minX) * scaledRoomSpacing,
                 y = totalOffset.y + (room.y - minY) * scaledRoomSpacing
@@ -283,26 +282,85 @@ fun RoomsCanvas(
                                 mousePosition.y >= center.y - halfRoomSize &&
                                 mousePosition.y <= center.y + halfRoomSize
                     }?.key // Get the Room object (the key) from the map entry
-                    onRoomHover(roomUnderMouse, mousePosition)
+                    onRoomHover(roomsMap[roomUnderMouse], mousePosition)
                 }
                 // If the mouse leaves the Map window, the hover certainly ends
                 .onPointerEvent(PointerEventType.Exit) { event ->
                     onRoomHover(null, event.changes.first().position)
                 }
         ) {
-            // Draw the connections (Lines)
-            rooms.forEach roomLoop@{ room ->
-                val startOffset = roomToOffsetMap[room] ?: return@roomLoop
+            val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
+
+            // Draw the connections (Lines) only for East/West/North/South exits
+            roomsMap.values.forEach roomLoop@{ room ->
+                val startOffset = roomToOffsetMap[room.id] ?: return@roomLoop
                 room.exitsList.forEach exitLoop@{ exit ->
-                    if (room.id < exit.roomId) {
-                        val endRoom = rooms.find { it.id == exit.roomId }
-                        if (endRoom != null) {
-                            val endOffset = roomToOffsetMap[endRoom] ?: return@exitLoop
+                    if (exit.direction == "Up" || exit.direction == "Down")
+                        return@exitLoop
+
+                    // avoid drawing the same connection twice, e.g. x->y and y->x
+                    if (drawnConnections[room.id]?.contains(exit.roomId) != true && drawnConnections[exit.roomId]?.contains(room.id) != true) {
+                        drawnConnections[room.id]?.add(exit.roomId)
+                        if (roomsMap[exit.roomId] != null) {
+                            val endOffset = roomToOffsetMap[exit.roomId] ?: return@exitLoop
                             drawLine(
                                 color = Color.Gray,
                                 start = startOffset,
                                 end = endOffset,
                                 strokeWidth = Stroke.DefaultMiter * scaleLogical * dpi // Make line width scale slightly
+                            )
+                        } else {
+                            // Here, we handle drawing a connection to a room that's not in the current zone.
+                            // We'll draw a shorter line to indicate the direction of the exit.
+                            val lineLength = scaledRoomSpacing / 1.5f // Make the line stop short of a hypothetical next room
+                            val endOffset: Offset
+
+                            // Calculate the end point of the line based on the exit direction
+                            when (exit.direction) {
+                                "North" -> endOffset = startOffset.copy(y = startOffset.y - lineLength)
+                                "South" -> endOffset = startOffset.copy(y = startOffset.y + lineLength)
+                                "East"  -> endOffset = startOffset.copy(x = startOffset.x + lineLength)
+                                "West"  -> endOffset = startOffset.copy(x = startOffset.x - lineLength)
+                                else -> return@exitLoop // If the direction is unknown, draw nothing
+                            }
+
+                            // Draw the main part of the line
+                            drawLine(
+                                color = Color.Gray,
+                                start = startOffset,
+                                end = endOffset,
+                                strokeWidth = Stroke.DefaultMiter * scaleLogical * dpi
+                            )
+
+                            // Now, let's draw a small arrowhead at the end of the line
+                            val arrowHeadSize = 20f * scaleLogical * dpi
+                            val path = Path()
+                            when (exit.direction) {
+                                "North" -> {
+                                    path.moveTo(endOffset.x, endOffset.y)
+                                    path.lineTo(endOffset.x - arrowHeadSize, endOffset.y + arrowHeadSize)
+                                    path.lineTo(endOffset.x + arrowHeadSize, endOffset.y + arrowHeadSize)
+                                }
+                                "South" -> {
+                                    path.moveTo(endOffset.x, endOffset.y)
+                                    path.lineTo(endOffset.x - arrowHeadSize, endOffset.y - arrowHeadSize)
+                                    path.lineTo(endOffset.x + arrowHeadSize, endOffset.y - arrowHeadSize)
+                                }
+                                "East" -> {
+                                    path.moveTo(endOffset.x, endOffset.y)
+                                    path.lineTo(endOffset.x - arrowHeadSize, endOffset.y + arrowHeadSize)
+                                    path.lineTo(endOffset.x - arrowHeadSize, endOffset.y - arrowHeadSize)
+                                }
+                                "West" -> {
+                                    path.moveTo(endOffset.x, endOffset.y)
+                                    path.lineTo(endOffset.x + arrowHeadSize, endOffset.y + arrowHeadSize)
+                                    path.lineTo(endOffset.x + arrowHeadSize, endOffset.y - arrowHeadSize)
+                                }
+                            }
+                            path.close()
+                            drawPath(
+                                path = path,
+                                color = Color.Gray
                             )
                         }
                     }
@@ -310,7 +368,7 @@ fun RoomsCanvas(
             }
 
             // Draw the rooms (Circles)
-            roomToOffsetMap.entries.forEach { (room, centerOffset) ->
+            roomToOffsetMap.entries.forEach { (roomId, centerOffset) ->
                 val cornerRadiusValue = scaledRoomSize * 0.15f // 15% of the size for the corner radius
                 val roomTopLeft = Offset(
                     x = centerOffset.x - (scaledRoomSize / 2),
@@ -335,8 +393,8 @@ fun RoomsCanvas(
                     brush = roomBrush, // Use the brush here
                 )
 
-                // if the player is in the room, draw a stroke over it
-                if (room.id == centerOnRoomId) {
+                // if the player is in the roomId, draw a stroke over it
+                if (roomId == centerOnRoomId) {
                     val strokeWidth = 15f * scaleLogical // Make the stroke responsive to zoom
                     drawRoundRect(
                         color = currentColorStyle.getUiColor(UiColor.MapRoomStroke),
