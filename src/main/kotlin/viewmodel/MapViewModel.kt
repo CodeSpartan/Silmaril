@@ -15,6 +15,7 @@ import xml_schemas.*
 import java.awt.Point
 import java.io.File
 import java.nio.file.Paths
+import kotlin.math.absoluteValue
 
 
 class MapViewModel(private val client: MudConnection, private val settings: SettingsManager) {
@@ -127,10 +128,14 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
         val mainLevel : Int = roomsPerLevel.maxByOrNull { it.value }?.key ?: 0
 
         // 2. go over all rooms on the main level and place their coords into a map, so we can easily check if a coordinate is occupied
-        val occupiedCoords: MutableMap<Point, Room> = rooms.values
+        val occupiedCoords: MutableSet<Point> = rooms.values
             .filter { it.z == mainLevel }
-            .associateBy { Point(it.x, it.y) }
-            .toMutableMap()
+            .map { Point(it.x, it.y) }
+            .toMutableSet()
+
+        occupySpaceBetweenRooms(
+            rooms.filter { (_, room) -> room.z == mainLevel }, // occupied rooms on the main floor
+            occupiedCoords)
 
         val visitedIds: MutableMap<Int, Boolean> = rooms
             .mapValues { false }
@@ -138,8 +143,8 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
 
         // 3. find the center of gravity on the main level for later
         val centerOfGravity = Point(
-            occupiedCoords.keys.sumOf { it.x } / occupiedCoords.count(),
-            occupiedCoords.keys.sumOf { it.y } / occupiedCoords.count())
+            occupiedCoords.sumOf { it.x } / occupiedCoords.count(),
+            occupiedCoords.sumOf { it.y } / occupiedCoords.count())
 
         // The squashing process is simple:
         // - Visit rooms. If they have connections that go upstairs or downstairs, isolate those chunks and try to fit them in on the main level
@@ -151,7 +156,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
             for (unvisitedId in visitedIds.filter { !it.value }) {
                 val unvisitedRoom = rooms[unvisitedId.key]!!
 
-                // if the room itself is on the non-main floor, start treating it
+                // if the room itself is on the non-main floor, start trying to move it to the main floor
                 /*&& !(visitedIds.containsKey(unvisitedId.key) && visitedIds[unvisitedRoom.id]!!)*/
                 if (unvisitedRoom.z != mainLevel) {
                     val neighbors : MutableMap<Int, Room> = mutableMapOf(unvisitedRoom.id to unvisitedRoom)
@@ -159,7 +164,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                     trySquashRooms(neighbors, mainLevel, occupiedCoords, visitedIds)
                 }
                 else {
-                    // inspect neighbor rooms
+                    // if the room itself is on the main floor, try its up/down neighbors
                     for (exit in unvisitedRoom.exitsList) {
                         // if neighbor leads to another zone, skip it
                         val neighbor = rooms[exit.roomId] ?: continue
@@ -194,14 +199,14 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
         }
     }
 
-    private fun trySquashRooms(roomsToMove: Map<Int, Room>, mainLevel: Int, occupiedCoords: MutableMap<Point, Room>, visitedCoords: MutableMap<Int, Boolean>) {
+    private fun trySquashRooms(roomsToMove: Map<Int, Room>, mainLevel: Int, occupiedCoords: MutableSet<Point>, visitedCoords: MutableMap<Int, Boolean>) {
         if (roomsToMove.isEmpty()) return
         val thisLevel = roomsToMove.entries.firstOrNull()!!.value.z
         val goDown = thisLevel < mainLevel
         var success = false
         while (!success) {
             success = roomsToMove.all { room ->
-                !occupiedCoords.containsKey(Point(room.value.x, room.value.y))
+                !occupiedCoords.contains(Point(room.value.x, room.value.y))
             }
 
             if (!success) {
@@ -211,9 +216,37 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
             }
         }
         roomsToMove.forEach { it.value.z = mainLevel }
-        val newOccupied = roomsToMove.values.associateBy { Point(it.x, it.y) }
-        occupiedCoords.putAll(newOccupied)
+        val newOccupied = roomsToMove.values.map { Point(it.x, it.y) }.toMutableSet()
+        occupiedCoords.addAll(newOccupied)
         val newVisited = roomsToMove.values.associate { it.id to false }
         visitedCoords.putAll(newVisited)
+        occupySpaceBetweenRooms(roomsToMove, occupiedCoords)
+    }
+
+    // adds more "occupied" points in the map by filling in empty space between existing rooms
+    private fun occupySpaceBetweenRooms(rooms : Map<Int, Room>, occupiedCoords: MutableSet<Point>)
+    {
+        for (room in rooms.values) {
+            for (exit in room.exitsList) {
+                val neighbor = rooms[exit.roomId] ?: continue
+                if (neighbor.z == room.z && Point(neighbor.x, neighbor.y).distance(Point(room.x, room.y)) > 1) {
+                    if (room.x == neighbor.x) {
+                        // build occupied points along the Y axis
+                        val range = neighbor.y - room.y
+                        val rangeSign = if (range >= 0) 1 else -1
+                        for (i in 0 until range.absoluteValue) {
+                            occupiedCoords.add(Point(room.x, room.y + i * rangeSign))
+                        }
+                    } else if (room.y == neighbor.y) {
+                        // build occupied points along the X axis
+                        val range = neighbor.x - room.x
+                        val rangeSign = if (range >= 0) 1 else -1
+                        for (i in 0 until range.absoluteValue) {
+                            occupiedCoords.add(Point(room.x + i * rangeSign, room.y))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
