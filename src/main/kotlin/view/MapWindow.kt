@@ -295,8 +295,10 @@ fun RoomsCanvas(
             roomsMap.values.forEach roomLoop@{ room ->
                 val startOffset = roomToOffsetMap[room.id] ?: return@roomLoop
                 room.exitsList.forEach exitLoop@{ exit ->
-                    if (exit.direction == "Up" || exit.direction == "Down")
+                    if (exit.direction == "Up" || exit.direction == "Down") {
+                        // the "stairs" are drawn after the rooms, not here
                         return@exitLoop
+                    }
 
                     // avoid drawing the same connection twice, e.g. x->y and y->x
                     if (drawnConnections[room.id]?.contains(exit.roomId) != true && drawnConnections[exit.roomId]?.contains(room.id) != true) {
@@ -403,6 +405,63 @@ fun RoomsCanvas(
                         cornerRadius = roomCornerRadius,
                         style = Stroke(width = strokeWidth)
                     )
+                }
+            }
+
+            roomsMap.values.forEach roomLoop@{ room ->
+                val startOffset = roomToOffsetMap[room.id] ?: return@roomLoop
+                room.exitsList.forEach { exit ->
+                    if (exit.direction == "Up" || exit.direction == "Down") {
+                        // We need the top-left corner of the room to position the stairs.
+                        // `startOffset` is the center of the room, which we already have.
+                        val roomTopLeft = Offset(
+                            x = startOffset.x - (scaledRoomSize / 2),
+                            y = startOffset.y - (scaledRoomSize / 2)
+                        )
+
+                        // --- Stairs Drawing Logic ---
+                        val stairsStrokeWidth = Stroke.DefaultMiter * scaleLogical * dpi * 1.5f
+
+                        // Define stairs dimensions relative to the room size for scalability.
+                        val stairsWidth = scaledRoomSize * 0.3f  // The width of the staircase.
+                        val stairsHeight = scaledRoomSize * 0.3f // The height of the staircase.
+                        val padding = scaledRoomSize * 0.16f     // Padding from the room's corner.
+
+                        // Determine the top-left corner of the stairs drawing area based on the exit direction.
+                        val stairsTopLeft: Offset = if (exit.direction == "Up") {
+                            Offset(
+                                x = roomTopLeft.x + scaledRoomSize - stairsWidth + padding,
+                                y = roomTopLeft.y - padding
+                            )
+                        } else { // This handles the "Down" case.
+                            Offset(
+                                x = roomTopLeft.x + scaledRoomSize - stairsWidth + padding,
+                                y = roomTopLeft.y + scaledRoomSize - stairsHeight + padding
+                            )
+                        }
+
+                        val stairsColor =
+                            if (exit.roomId == centerOnRoomId || room.id == centerOnRoomId) Color.White
+                            else Color.Gray
+
+                        // Draw the two vertical lines (the sides of the stairs).
+                        val leftVerticalStart = Offset(stairsTopLeft.x, stairsTopLeft.y - stairsHeight * 0.2f)
+                        val leftVerticalEnd = Offset(stairsTopLeft.x, stairsTopLeft.y + stairsHeight * 1.2f)
+                        drawLine(stairsColor, leftVerticalStart, leftVerticalEnd, stairsStrokeWidth)
+
+                        val rightVerticalStart = Offset(stairsTopLeft.x + stairsWidth, stairsTopLeft.y - stairsHeight * 0.2f)
+                        val rightVerticalEnd = Offset(stairsTopLeft.x + stairsWidth, stairsTopLeft.y + stairsHeight * 1.2f)
+                        drawLine(stairsColor, rightVerticalStart, rightVerticalEnd, stairsStrokeWidth)
+
+                        // Draw the three horizontal lines for the steps.
+                        val stepCount = 3
+                        for (i in 0 until stepCount) {
+                            val stepY = stairsTopLeft.y + (i.toFloat() / (stepCount - 1)) * stairsHeight
+                            val stepStart = Offset(stairsTopLeft.x, stepY)
+                            val stepEnd = Offset(stairsTopLeft.x + stairsWidth, stepY)
+                            drawLine(stairsColor, stepStart, stepEnd, stairsStrokeWidth)
+                        }
+                    }
                 }
             }
         }
