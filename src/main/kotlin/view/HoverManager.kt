@@ -22,13 +22,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.window.DialogWindow
+import kotlinx.coroutines.delay
+import javax.swing.JDialog
 
 /**
  * The interface for the global hover service.
  * Any component can get this from the CompositionLocal and use it.
  */
 interface HoverManager {
-    fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, content: @Composable () -> Unit)
+    fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, content: @Composable () -> Unit)
     fun hide()
 }
 
@@ -44,8 +46,9 @@ val LocalHoverManager = staticCompositionLocalOf<HoverManager> {
 fun FloatingTooltipContainer(
     show: MutableState<Boolean>,
     owner: ComposeWindow,
-    position: Point,
+    position: MutableState<Point>,
     width: Dp,
+    uniqueKey: MutableState<Int>,
     content: @Composable () -> Unit
 ) {
     if (show.value) {
@@ -61,16 +64,25 @@ fun FloatingTooltipContainer(
             update = { dialog ->
                 // This is called on every recomposition.
                 dialog.pack()
-                dialog.location = position
+                dialog.location = position.value
             }
         ) {
+            LaunchedEffect(uniqueKey.value) {
+                delay(1)
+                val dialogWindow = window as JDialog
+                dialogWindow.setSize(dialogWindow.width, dialogWindow.height-1)
+                delay(1)
+                dialogWindow.pack()
+            }
             Column(
                 Modifier
                     .width(width)
                     .wrapContentHeight()
                     .background(Color.Black)
             ) {
-                content()
+                key(position.value.x, position.value.y, uniqueKey.value) {
+                    content()
+                }
             }
         }
     }
@@ -87,13 +99,15 @@ fun HoverManagerProvider(
     var tooltipPosition by remember { mutableStateOf(Point(0, 0)) }
     var tooltipWidth by remember { mutableStateOf(300) }
     val tooltipHeight = 500 // an assumption
+    var tooltipUniqueKey by remember { mutableStateOf(-1) }
     // by default, assume main window owns everything, but later show() will potentially provide another owner
     var tooltipParentWindow by remember { mutableStateOf<Window>(mainWindow) }
 
     val manager = remember {
         object : HoverManager {
-            override fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, content: @Composable () -> Unit) {
+            override fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, content: @Composable () -> Unit) {
                 tooltipWidth = width
+                tooltipUniqueKey = uniqueKey
                 if (ownerWindow != null)
                     tooltipParentWindow = ownerWindow
                 tooltipPosition = Point(
@@ -150,8 +164,9 @@ fun HoverManagerProvider(
     FloatingTooltipContainer(
         show = showTooltip,
         owner = mainWindow,
-        position = getIdealPosition(),
+        position = mutableStateOf(getIdealPosition()),
         width = tooltipWidth.dp,
+        uniqueKey = mutableStateOf(tooltipUniqueKey),
         content = {
             tooltipContent()
         }

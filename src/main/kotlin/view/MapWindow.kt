@@ -113,7 +113,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                 if (room != null) {
                     if (currentHoverRoom != room) {
                         tooltipOffset = (position + internalPadding) / dpi
-                        hoverManager.show(ownerWindow, tooltipOffset, 300) {
+                        hoverManager.show(ownerWindow, tooltipOffset, 300, room.id) {
                             MapRoomTooltip(room, curZoneState.value, mapViewModel)
                         }
                         currentHoverRoom = room
@@ -534,6 +534,7 @@ fun RoomsCanvas(
 fun MapRoomTooltip(room: Room, zone: Zone?, mapViewModel: MapViewModel) {
     Column(modifier = Modifier
         .padding(8.dp)
+        .width(300.dp)
     ) {
         Text(room.name, color = Color.White)
         //if (zone != null) Text(zone.name, color = Color.White)
