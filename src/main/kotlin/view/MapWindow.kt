@@ -186,7 +186,7 @@ fun RoomsCanvas(
         val maxX = roomsList.maxOf { it.x }
         val maxY = roomsList.maxOf { it.y }
 
-        // Effect responsible for panning after centerOnRoomId changes
+        // Effect responsible for centering the view on a specific room
         LaunchedEffect(centerOnRoomId, zoneState.value) {
             val zone = zoneState.value
             if (centerOnRoomId == null || zone == null) return@LaunchedEffect
@@ -194,10 +194,10 @@ fun RoomsCanvas(
             val targetRoom = roomsList.find { it.id == centerOnRoomId }
 
             if (targetRoom != null && roomsList.isNotEmpty()) {
-                val baseRoomRadius = 50f
-                val baseRoomSpacing = baseRoomRadius * 3
+                val baseRoomSpacing = 100f * 1.5f
                 val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
 
+                // This calculation determines the pan required to move the target room to the center
                 val newPanTargetX = -((targetRoom.x - minX) - (maxX - minX) / 2f) * scaledRoomSpacing
                 val newPanTargetY = -((targetRoom.y - minY) - (maxY - minY) / 2f) * scaledRoomSpacing
 
@@ -222,16 +222,16 @@ fun RoomsCanvas(
             topBarPixelHeight.toPx()
         }
 
-        // This offset centers the entire drawing initially
+        // This offset centers the entire drawing initially. It changes with zoom.
         val centeringOffset = Offset(
             x = (constraints.maxWidth - (maxX - minX) * scaledRoomSpacing) / 2f,
             y = (constraints.maxHeight - (maxY - minY) * scaledRoomSpacing) / 2f - (dragBarHeightInPixels / 2)
         )
 
-        // The final offset combines centering with user panning
+        // The final total offset combines the dynamic centering with user panning
         val totalOffset = centeringOffset + panOffset.value
 
-        // Create a map of room objects to their final calculated screen positions
+        // A map of room IDs to their final calculated screen positions
         val roomToOffsetMap = roomsMap.values.associate { room ->
             room.id to
                     Offset(
@@ -243,92 +243,57 @@ fun RoomsCanvas(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
+                // We chain the pointer input modifiers. They are processed in order.
+                // 1. Panning (drag)
                 .pointerInput(Unit) {
-                    // Combined gesture detector for pan, zoom, and hover
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.first()
-
-                            // Handle Hover Events
-                            if (event.type == PointerEventType.Move) {
-                                val mousePosition = change.position
-                                val halfRoomSize = scaledRoomSize / 2f
-
-                                val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
-                                    mousePosition.x >= center.x - halfRoomSize &&
-                                            mousePosition.x <= center.x + halfRoomSize &&
-                                            mousePosition.y >= center.y - halfRoomSize &&
-                                            mousePosition.y <= center.y + halfRoomSize
-                                }?.key
-                                onRoomHover(roomsMap[roomUnderMouse], mousePosition)
-                            }
-
-                            // Handle Mouse Exit
-                            if (event.type == PointerEventType.Exit) {
-                                onRoomHover(null, change.position)
-                            }
-
-                            // Handle Zooming (Scroll)
-                            if (event.type == PointerEventType.Scroll) {
-                                val oldScale = scaleLogical
-                                val scrollDelta = change.scrollDelta.y
-                                val zoomFactor = 1.2f
-
-                                val newScale = if (scrollDelta < 0) {
-                                    (oldScale * zoomFactor).coerceIn(0.1f, 5f)
-                                } else {
-                                    (oldScale / zoomFactor).coerceIn(0.1f, 5f)
-                                }
-
-                                if (newScale != oldScale) {
-                                    val mousePosition = change.position
-
-                                    // Calculate the old and new centering offsets within the handler
-                                    val baseScaledRoomSpacingFactor = baseRoomSpacing * dpi
-                                    val mapContentWidth = (maxX - minX) * baseScaledRoomSpacingFactor
-                                    val mapContentHeight = (maxY - minY) * baseScaledRoomSpacingFactor
-
-                                    val oldCenteringOffset = Offset(
-                                        x = (constraints.maxWidth - mapContentWidth * oldScale) / 2f,
-                                        y = (constraints.maxHeight - mapContentHeight * oldScale) / 2f - (dragBarHeightInPixels / 2)
-                                    )
-
-                                    val newCenteringOffset = Offset(
-                                        x = (constraints.maxWidth - mapContentWidth * newScale) / 2f,
-                                        y = (constraints.maxHeight - mapContentHeight * newScale) / 2f - (dragBarHeightInPixels / 2)
-                                    )
-
-                                    // Calculate the total offset before the zoom
-                                    val oldTotalOffset = oldCenteringOffset + panOffset.value
-
-                                    // Calculate the new total offset required to keep the mouse position fixed
-                                    val newTotalOffset = mousePosition - (mousePosition - oldTotalOffset) * (newScale / oldScale)
-
-                                    // From that, determine the new panOffset
-                                    val newPanOffset = newTotalOffset - newCenteringOffset
-
-                                    // Update states simultaneously
-                                    coroutineScope.launch {
-                                        scaleLogical = newScale
-                                        panOffset.snapTo(newPanOffset)
-                                    }
-                                }
-                                change.consume()
-                            }
-
-                            // Handle Panning (Drag)
-                            // This uses detectDragGestures under the hood but is done manually here
-                            // to coexist with other pointer event types.
-                            if (change.pressed && event.type == PointerEventType.Move) {
-                                val dragAmount = change.position - change.previousPosition
-                                coroutineScope.launch {
-                                    panOffset.snapTo(panOffset.value + dragAmount)
-                                }
-                                change.consume()
-                            }
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        coroutineScope.launch {
+                            // snapTo is used for immediate response to dragging
+                            panOffset.snapTo(panOffset.value + dragAmount)
                         }
                     }
+                }
+                // 2. Zooming (scroll)
+                .onPointerEvent(PointerEventType.Scroll) { event ->
+                    val change = event.changes.first()
+                    val scrollDelta = change.scrollDelta.y
+                    val mousePosition = change.position
+
+                    val oldScale = scaleLogical
+                    val zoomFactor = 1.2f
+                    val newScale = if (scrollDelta < 0) {
+                        (oldScale * zoomFactor).coerceIn(0.1f, 5f) // Zoom In
+                    } else {
+                        (oldScale / zoomFactor).coerceIn(0.1f, 5f) // Zoom Out
+                    }
+
+                    // The logic to adjust the pan offset to keep the point under the mouse stationary
+                    val newPan = mousePosition - (mousePosition - panOffset.value) * (newScale / oldScale)
+
+                    // Update scale and pan states together
+                    scaleLogical = newScale
+                    coroutineScope.launch {
+                        panOffset.snapTo(newPan)
+                    }
+                    change.consume()
+                }
+                // 3. Hovering (move)
+                .onPointerEvent(PointerEventType.Move) { event ->
+                    val mousePosition = event.changes.first().position
+                    val halfRoomSize = scaledRoomSize / 2f
+
+                    val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
+                        mousePosition.x >= center.x - halfRoomSize &&
+                                mousePosition.x <= center.x + halfRoomSize &&
+                                mousePosition.y >= center.y - halfRoomSize &&
+                                mousePosition.y <= center.y + halfRoomSize
+                    }?.key
+                    onRoomHover(roomsMap[roomUnderMouse], mousePosition)
+                }
+                // 4. Hover End (exit)
+                .onPointerEvent(PointerEventType.Exit) { event ->
+                    onRoomHover(null, event.changes.first().position)
                 }
         ) {
             val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
