@@ -67,8 +67,8 @@ fun FloatingTooltipContainer(
                 println("[$effectId] DisposableEffect: LAUNCHED.")
                 var dialog: ComposeDialog? = null
                 val isDisposed = AtomicBoolean(false)
-                val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-                var job: Job? = null
+                // A flag to ensure we only move the window into view once.
+                val hasMovedOnscreen = AtomicBoolean(false)
 
                 EventQueue.invokeLater {
                     println("[$effectId] AWT: Creating dialog OFF-SCREEN.")
@@ -91,26 +91,21 @@ fun FloatingTooltipContainer(
                                         if (isDisposed.get() || newSize.width <= 0 || newSize.height <= 0) return@onSizeChanged
                                         println("[$effectId] COMPOSE-onSizeChanged: Size reported: $newSize")
 
-                                        // Every time the size changes, we cancel the old job and launch a new one.
-                                        job?.cancel()
-                                        job = scope.launch {
-                                            // 1. Pack the dialog while it's off-screen.
-                                            // This is now debounced and will only happen for the last size change.
-                                            withContext(Dispatchers.AWT) {
-                                                if(isDisposed.get()) return@withContext
-                                                println("[$effectId] AWT-Packing: Packing to new size.")
-                                                pack()
-                                            }
+                                        EventQueue.invokeLater {
+                                            if (isDisposed.get()) return@invokeLater
 
-                                            // 2. Wait for the packing to stabilize.
-                                            delay(50)
+                                            // 1. Always pack the off-screen window to the latest size.
+                                            // This correctly handles DPI and content changes.
+                                            println("[$effectId] AWT-Packing: Packing to new size.")
+                                            pack()
 
-                                            // 3. Move the now perfectly packed window into view.
-                                            withContext(Dispatchers.AWT) {
-                                                if(isDisposed.get()) return@withContext
-                                                println("[$effectId] AWT-Moving: Moving to final position.")
+                                            // 2. Move the window into view ONLY ONCE.
+                                            // compareAndSet is an atomic operation that sets the flag
+                                            // to true only if it was false, and returns true if it succeeded.
+                                            if (hasMovedOnscreen.compareAndSet(false, true)) {
+                                                println("[$effectId] AWT-Moving: First valid size. Moving to final position.")
                                                 location = position
-                                                println("[$effectId] AWT-Moved: Final size is $size")
+                                                println("[$effectId] AWT-Moved: Final size on first move is $size")
                                             }
                                         }
                                     }
@@ -124,7 +119,6 @@ fun FloatingTooltipContainer(
                 onDispose {
                     println("[$effectId] DisposableEffect: DISPOSED.")
                     isDisposed.set(true)
-                    scope.cancel() // Cancel all running jobs for this instance.
                     EventQueue.invokeLater {
                         dialog?.isVisible = false
                         dialog?.dispose()
