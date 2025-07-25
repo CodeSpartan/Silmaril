@@ -304,12 +304,13 @@ fun RoomsCanvas(
                 .onPointerEvent(PointerEventType.Move) { event ->
                     val mousePosition = event.changes.first().position
                     val halfRoomSize = scaledRoomSize / 2f
+                    val checkBeyondRoomSize = halfRoomSize * 1.5f
 
                     val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
-                        mousePosition.x >= center.x - halfRoomSize &&
-                                mousePosition.x <= center.x + halfRoomSize &&
-                                mousePosition.y >= center.y - halfRoomSize &&
-                                mousePosition.y <= center.y + halfRoomSize
+                        mousePosition.x >= center.x - checkBeyondRoomSize &&
+                                mousePosition.x <= center.x + checkBeyondRoomSize &&
+                                mousePosition.y >= center.y - checkBeyondRoomSize &&
+                                mousePosition.y <= center.y + checkBeyondRoomSize
                     }?.key
                     onRoomHover(roomsMap[roomUnderMouse], Offset(
                         roomToOffsetMap[roomUnderMouse]?.x?.plus(halfRoomSize)?:mousePosition.x,
