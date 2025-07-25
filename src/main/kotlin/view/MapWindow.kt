@@ -114,7 +114,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                     if (currentHoverRoom != room) {
                         tooltipOffset = (position + internalPadding) / dpi
                         hoverManager.show(ownerWindow, tooltipOffset, 300) {
-                            MapRoomTooltip(room, curZoneState.value)
+                            MapRoomTooltip(room, curZoneState.value, mapViewModel)
                         }
                         currentHoverRoom = room
                     }
@@ -531,14 +531,32 @@ fun RoomsCanvas(
 }
 
 @Composable
-fun MapRoomTooltip(room: Room, zone: Zone?) {
+fun MapRoomTooltip(room: Room, zone: Zone?, mapViewModel: MapViewModel) {
     Column(modifier = Modifier
         .padding(8.dp)
     ) {
         Text(room.name, color = Color.White)
         //if (zone != null) Text(zone.name, color = Color.White)
         Text(room.description, color = Color.White)
-        Text("Room ID: ${room.id} (Coords: ${room.x}, ${room.y}, ${room.z})", color = Color.White)
-        Text("Room Exits: ${room.exitsList}", color = Color.White)
+        //Text("ID комнаты: ${room.id} (Coords: ${room.x}, ${room.y}, ${room.z})", color = Color.White)
+        Text("ID комнаты: ${room.id}", color = Color.White)
+        val exitsTexts: MutableList<String> = mutableListOf()
+        room.exitsList.forEach { exit ->
+            val dirName = when(exit.direction) {
+                "East" -> "Восток"
+                "West" -> "Запад"
+                "North" -> "Север"
+                "South" -> "Юг"
+                "Up" -> "Вверх"
+                "Down" -> "Вниз"
+                else -> exit.direction
+            }
+            var exitTxt = "$dirName = ${exit.roomId}"
+            if (mapViewModel.getZoneByRoomId(exit.roomId) != zone) {
+                exitTxt+=" (${mapViewModel.getZoneByRoomId(exit.roomId)?.name?:"не существует"})"
+            }
+            exitsTexts.add(exitTxt)
+        }
+        Text("Выходы: ${exitsTexts.joinToString(", ")}", color = Color.White)
     }
 }

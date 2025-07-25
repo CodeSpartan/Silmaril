@@ -20,6 +20,7 @@ import kotlin.math.absoluteValue
 
 class MapViewModel(private val client: MudConnection, private val settings: SettingsManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
+    private val roomToZone = mutableMapOf<Int, Zone>()
 
     private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>(replay = 1)
     val currentRoomMessages : MutableSharedFlow<CurrentRoomMessage> get() = _currentRoomMessages
@@ -81,6 +82,10 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                 }
 
                 println("Zones loaded into memory: ${zonesMap.size}")
+
+                zonesMap.forEach { zone ->
+                    roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
+                }
             }
         }
     }
@@ -111,6 +116,10 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
 
     fun getZone(zoneId: Int): Zone? {
         return zonesMap[zoneId]
+    }
+
+    fun getZoneByRoomId(roomId: Int): Zone? {
+        return roomToZone[roomId]
     }
 
     fun getRooms(zoneId: Int): Map<Int, Room> {
