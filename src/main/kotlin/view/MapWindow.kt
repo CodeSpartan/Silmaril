@@ -40,8 +40,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
 
 
 @Composable
@@ -200,7 +198,6 @@ fun RoomsCanvas(
                 val baseRoomSpacing = 100f * 1.5f
                 val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
 
-                // This calculation determines the pan required to move the target room to the center
                 val newPanTargetX = -((targetRoom.x - minX) - (maxX - minX) / 2f) * scaledRoomSpacing
                 val newPanTargetY = -((targetRoom.y - minY) - (maxY - minY) / 2f) * scaledRoomSpacing
 
@@ -252,7 +249,6 @@ fun RoomsCanvas(
                     detectDragGestures { change, dragAmount ->
                         change.consume()
                         coroutineScope.launch {
-                            // snapTo is used for immediate response to dragging
                             panOffset.snapTo(panOffset.value + dragAmount)
                         }
                     }
@@ -266,18 +262,41 @@ fun RoomsCanvas(
                     val oldScale = scaleLogical
                     val zoomFactor = 1.2f
                     val newScale = if (scrollDelta < 0) {
-                        (oldScale * zoomFactor).coerceIn(0.1f, 5f) // Zoom In
+                        (oldScale * zoomFactor).coerceIn(0.1f, 5f) // Zoom in
                     } else {
-                        (oldScale / zoomFactor).coerceIn(0.1f, 5f) // Zoom Out
+                        (oldScale / zoomFactor).coerceIn(0.1f, 5f) // Zoom out
                     }
 
-                    // The logic to adjust the pan offset to keep the point under the mouse stationary
-                    val newPan = mousePosition - (mousePosition - panOffset.value) * (newScale / oldScale)
+                    if (newScale != oldScale) {
+                        // This is the crucial part.
+                        // 1. Calculate the total offset at the moment of the event.
+                        // We must recalculate the centeringOffset with the old scale to get the true total offset.
+                        val oldCenteringOffset = Offset(
+                            x = (constraints.maxWidth - (maxX - minX) * baseRoomSpacing * oldScale * dpi) / 2f,
+                            y = (constraints.maxHeight - (maxY - minY) * baseRoomSpacing * oldScale * dpi) / 2f - (dragBarHeightInPixels / 2)
+                        )
+                        val oldTotalOffset = oldCenteringOffset + panOffset.value
 
-                    // Update scale and pan states together
-                    scaleLogical = newScale
-                    coroutineScope.launch {
-                        panOffset.snapTo(newPan)
+                        // 2. The vector from the top-left of the pannable content to the mouse pointer.
+                        val mouseVector = mousePosition - oldTotalOffset
+
+                        // 3. The new total offset is calculated to keep the mouseVector's endpoint stationary.
+                        val newTotalOffset = mousePosition - mouseVector * (newScale / oldScale)
+
+                        // 4. Calculate what the new centeringOffset will be after recomposition.
+                        val newCenteringOffset = Offset(
+                            x = (constraints.maxWidth - (maxX - minX) * baseRoomSpacing * newScale * dpi) / 2f,
+                            y = (constraints.maxHeight - (maxY - minY) * baseRoomSpacing * newScale * dpi) / 2f - (dragBarHeightInPixels / 2)
+                        )
+
+                        // 5. From that, we can derive the new pan offset we need to set.
+                        val newPan = newTotalOffset - newCenteringOffset
+
+                        // Update states simultaneously
+                        scaleLogical = newScale
+                        coroutineScope.launch {
+                            panOffset.snapTo(newPan)
+                        }
                     }
                     change.consume()
                 }
@@ -299,11 +318,8 @@ fun RoomsCanvas(
                     onRoomHover(null, event.changes.first().position)
                 }
         ) {
-            // --- ALL DRAWING LOGIC REMAINS IDENTICAL ---
-            // It correctly uses the calculated `roomToOffsetMap` and `scaleLogical`
-            val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
-
             // Draw the connections (Lines) only for East/West/North/South exits
+            val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
             roomsMap.values.forEach roomLoop@{ room ->
                 val startOffset = roomToOffsetMap[room.id] ?: return@roomLoop
                 room.exitsList.forEach exitLoop@{ exit ->
