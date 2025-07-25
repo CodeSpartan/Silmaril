@@ -40,6 +40,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+
 
 @Composable
 @Preview
@@ -296,6 +299,8 @@ fun RoomsCanvas(
                     onRoomHover(null, event.changes.first().position)
                 }
         ) {
+            // --- ALL DRAWING LOGIC REMAINS IDENTICAL ---
+            // It correctly uses the calculated `roomToOffsetMap` and `scaleLogical`
             val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
 
             // Draw the connections (Lines) only for East/West/North/South exits
