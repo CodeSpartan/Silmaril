@@ -1,7 +1,6 @@
 package view
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -13,15 +12,28 @@ import androidx.compose.ui.awt.ComposeDialog
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogWindow
 import java.awt.Dimension
 import java.awt.Point
 import kotlin.math.roundToInt
 import java.awt.GraphicsEnvironment
 import java.awt.Rectangle
 import java.awt.Window
+import java.awt.EventQueue
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import kotlinx.coroutines.*
+import java.util.concurrent.atomic.AtomicBoolean
+import androidx.compose.ui.platform.LocalDensity
+import java.awt.geom.AffineTransform
+import kotlin.coroutines.CoroutineContext
 
 /**
  * The interface for the global hover service.
@@ -49,40 +61,92 @@ fun FloatingTooltipContainer(
     content: @Composable () -> Unit
 ) {
     if (show.value) {
-        // A flag to ensure we only run the sizing and positioning logic once
-        var isPacked by remember { mutableStateOf(false) }
+        key(content, width, position) {
+            DisposableEffect(Unit) {
+                val effectId = (0..1_000_000).random()
+                println("[$effectId] DisposableEffect: LAUNCHED.")
+                var dialog: ComposeDialog? = null
+                val isDisposed = AtomicBoolean(false)
+                val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+                var job: Job? = null
 
-        DialogWindow(
-            create = {
-                // 1. Create the dialog, but keep it invisible through Dimensions (0,0)
-                ComposeDialog(owner = owner).apply {
-                    isFocusable = false // tooltips shouldn't steal focus
-                    isUndecorated = true
-                    isAutoRequestFocus = false // otherwise it still gets focused
-                    size = Dimension(0, 0)
-                    location = position
+                EventQueue.invokeLater {
+                    println("[$effectId] AWT: Creating dialog OFF-SCREEN.")
+                    dialog = ComposeDialog(owner = owner).apply {
+                        isFocusable = false
+                        isUndecorated = true
+                        isAutoRequestFocus = false
+                        background = java.awt.Color(0, 0, 0, 0)
+                        location = Point(-10000, -10000)
+                        size = Dimension(1, 1)
+                        isVisible = true
+
+                        setContent {
+                            Column(
+                                Modifier
+                                    .width(width)
+                                    .wrapContentHeight()
+                                    .background(Color.Black)
+                                    .onSizeChanged { newSize ->
+                                        if (isDisposed.get() || newSize.width <= 0 || newSize.height <= 0) return@onSizeChanged
+                                        println("[$effectId] COMPOSE-onSizeChanged: Size reported: $newSize")
+
+                                        // Every time the size changes, we cancel the old job and launch a new one.
+                                        job?.cancel()
+                                        job = scope.launch {
+                                            // 1. Pack the dialog while it's off-screen.
+                                            // This is now debounced and will only happen for the last size change.
+                                            withContext(Dispatchers.AWT) {
+                                                if(isDisposed.get()) return@withContext
+                                                println("[$effectId] AWT-Packing: Packing to new size.")
+                                                pack()
+                                            }
+
+                                            // 2. Wait for the packing to stabilize.
+                                            delay(50)
+
+                                            // 3. Move the now perfectly packed window into view.
+                                            withContext(Dispatchers.AWT) {
+                                                if(isDisposed.get()) return@withContext
+                                                println("[$effectId] AWT-Moving: Moving to final position.")
+                                                location = position
+                                                println("[$effectId] AWT-Moved: Final size is $size")
+                                            }
+                                        }
+                                    }
+                            ) {
+                                content()
+                            }
+                        }
+                    }
                 }
-            },
-            dispose = ComposeDialog::dispose,
-            update = { dialog ->
-                // Pack it, forcing it to draw at desired size
-                if (!isPacked) {
-                    dialog.pack()
-                    isPacked = true
+
+                onDispose {
+                    println("[$effectId] DisposableEffect: DISPOSED.")
+                    isDisposed.set(true)
+                    scope.cancel() // Cancel all running jobs for this instance.
+                    EventQueue.invokeLater {
+                        dialog?.isVisible = false
+                        dialog?.dispose()
+                    }
                 }
-            }
-        ) {
-            Column(
-                Modifier
-                    .width(width)
-                    .wrapContentHeight() // Crucial: height is determined by content. Content mustn't do: .fillMaxSize()
-                    .background(Color.Black)
-            ) {
-                content()
             }
         }
     }
 }
+
+/**
+ * A CoroutineDispatcher for the AWT Event Dispatch Thread.
+ */
+val Dispatchers.AWT: CoroutineDispatcher
+    get() = AwtDispatcher
+
+private object AwtDispatcher : CoroutineDispatcher() {
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
+        EventQueue.invokeLater(block)
+    }
+}
+
 
 @Composable
 fun HoverManagerProvider(
