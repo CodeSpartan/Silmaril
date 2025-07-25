@@ -1,6 +1,7 @@
 package view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -92,8 +93,8 @@ fun HoverManagerProvider(
     val showTooltip = remember { mutableStateOf(false) }
     var tooltipContent by remember { mutableStateOf<@Composable () -> Unit>({}) }
     var tooltipPosition by remember { mutableStateOf(Point(0, 0)) }
-    var tooltipWidth by remember { mutableStateOf(0) }
-    val tooltipHeight = 300 // an assumption
+    var tooltipWidth by remember { mutableStateOf(300) }
+    val tooltipHeight = 500 // an assumption
     // by default, assume main window owns everything, but later show() will potentially provide another owner
     var tooltipParentWindow by remember { mutableStateOf<Window>(mainWindow) }
 
@@ -123,21 +124,22 @@ fun HoverManagerProvider(
     // A tooltip can overflow beyond screen borders. We fix it here.
     // Then we give a bit of offset to the tooltip relative to the mouse cursor
     fun getIdealPosition() : Point {
-        val tinyOffset = Offset(15f, 15f)
+        val tinyOffset = Offset(0f, 0f)
+        val reverseOffset = Offset(15f, 15f)
         val desiredPosition = Point(tooltipPosition.x + tinyOffset.x.toInt(),tooltipPosition.y + tinyOffset.y.toInt())
         val screenBounds = getScreenBoundsForWindow(tooltipParentWindow)
 
         val finalX = when {
             // Check if it goes off the right edge
             desiredPosition.x + tooltipWidth > screenBounds.x + screenBounds.width ->
-                desiredPosition.x - (desiredPosition.x + tooltipWidth - (screenBounds.x + screenBounds.width)) - (tinyOffset.x.toInt() * 2)
+                desiredPosition.x - (desiredPosition.x + tooltipWidth - (screenBounds.x + screenBounds.width)) - reverseOffset.x.toInt()
             else -> desiredPosition.x
         }
 
         val finalY = when {
             // Check if it goes off the bottom edge
             desiredPosition.y + tooltipHeight > screenBounds.y + screenBounds.height ->
-                desiredPosition.y - (desiredPosition.y + tooltipHeight - (screenBounds.y + screenBounds.height)) - (tinyOffset.y.toInt() * 2)
+                desiredPosition.y - (desiredPosition.y + tooltipHeight - (screenBounds.y + screenBounds.height)) - reverseOffset.y.toInt()
             else -> desiredPosition.y
         }
 
@@ -146,8 +148,8 @@ fun HoverManagerProvider(
             && desiredPosition.y + tooltipHeight > screenBounds.y + screenBounds.height)
         {
             return Point(
-                desiredPosition.x - tinyOffset.x.toInt() * 2 - tooltipWidth,
-                desiredPosition.y - tinyOffset.y.toInt() * 2 - tooltipHeight,
+                desiredPosition.x - reverseOffset.x.toInt() - tooltipWidth,
+                desiredPosition.y - reverseOffset.y.toInt() - tooltipHeight,
             )
         }
         return Point(finalX, finalY)

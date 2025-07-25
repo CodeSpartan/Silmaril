@@ -311,7 +311,10 @@ fun RoomsCanvas(
                                 mousePosition.y >= center.y - halfRoomSize &&
                                 mousePosition.y <= center.y + halfRoomSize
                     }?.key
-                    onRoomHover(roomsMap[roomUnderMouse], mousePosition)
+                    onRoomHover(roomsMap[roomUnderMouse], Offset(
+                        roomToOffsetMap[roomUnderMouse]?.x?.plus(halfRoomSize)?:mousePosition.x,
+                        roomToOffsetMap[roomUnderMouse]?.y?.plus(halfRoomSize*2)?:mousePosition.y)
+                    )
                 }
                 // 4. Hover End (exit)
                 .onPointerEvent(PointerEventType.Exit) { event ->
