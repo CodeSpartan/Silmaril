@@ -33,7 +33,7 @@ data class Settings(
     var mapsUrl: String = "http://adan.ru/files/Maps.zip",
     @Serializable(with = InstantSerializer::class)
     var lastMapsUpdateDate: Instant = Instant.EPOCH,
-    var font: String = "Fira",
+    var font: String = "FiraMono",
     var fontSize: Int = 15,
     var colorStyle: String = "Black",
     var windowSettings: WindowSettings = WindowSettings(),

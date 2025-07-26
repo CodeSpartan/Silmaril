@@ -28,6 +28,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     // jackson xml
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.1")
+    // this allows us to load fonts from the composeResources folder and load them in a new way
+    implementation(compose.components.resources)
 }
 
 compose.desktop {

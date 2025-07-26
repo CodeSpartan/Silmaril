@@ -10,10 +10,10 @@ class SettingsViewModel (private val settingsManager: SettingsManager) {
 
     // temp method to toggle font
     fun toggleFont() {
-        if (currentFontFamily.value == "Fira")
-            settingsManager.updateFont("Roboto" )
+        if (currentFontFamily.value == "FiraMono")
+            settingsManager.updateFont("RobotoMono" )
         else
-            settingsManager.updateFont("Fira")
+            settingsManager.updateFont("FiraMono")
     }
 
     fun toggleColorStyle() {

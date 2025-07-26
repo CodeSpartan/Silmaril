@@ -113,8 +113,14 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                 if (room != null) {
                     if (currentHoverRoom != room) {
                         tooltipOffset = (position + internalPadding) / dpi
-                        hoverManager.show(ownerWindow, tooltipOffset, 300, room.id) {
-                            MapRoomTooltip(room, curZoneState.value, mapViewModel)
+                        hoverManager.show(
+                            ownerWindow,
+                            tooltipOffset,
+                            500,
+                            room.id,
+                            StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.HoverBackground)
+                        ) {
+                            MapHoverTooltip(room, curZoneState.value, mapViewModel)
                         }
                         currentHoverRoom = room
                     }
@@ -527,37 +533,5 @@ fun RoomsCanvas(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun MapRoomTooltip(room: Room, zone: Zone?, mapViewModel: MapViewModel) {
-    Column(modifier = Modifier
-        .padding(8.dp)
-        .width(300.dp)
-    ) {
-        Text(room.name, color = Color.White)
-        //if (zone != null) Text(zone.name, color = Color.White)
-        Text(room.description, color = Color.White)
-        //Text("ID комнаты: ${room.id} (Coords: ${room.x}, ${room.y}, ${room.z})", color = Color.White)
-        Text("ID комнаты: ${room.id}", color = Color.White)
-        val exitsTexts: MutableList<String> = mutableListOf()
-        room.exitsList.forEach { exit ->
-            val dirName = when(exit.direction) {
-                "East" -> "Восток"
-                "West" -> "Запад"
-                "North" -> "Север"
-                "South" -> "Юг"
-                "Up" -> "Вверх"
-                "Down" -> "Вниз"
-                else -> exit.direction
-            }
-            var exitTxt = "$dirName = ${exit.roomId}"
-            if (mapViewModel.getZoneByRoomId(exit.roomId) != zone) {
-                exitTxt+=" (${mapViewModel.getZoneByRoomId(exit.roomId)?.name?:"не существует"})"
-            }
-            exitsTexts.add(exitTxt)
-        }
-        Text("Выходы: ${exitsTexts.joinToString(", ")}", color = Color.White)
     }
 }
