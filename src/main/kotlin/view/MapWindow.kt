@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
+import misc.FontManager
 
 
 @Composable
@@ -118,9 +119,8 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                             tooltipOffset,
                             500,
                             room.id,
-                            StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.HoverBackground)
                         ) {
-                            MapHoverTooltip(room, curZoneState.value, mapViewModel)
+                            MapHoverTooltip(room, curZoneState.value, mapViewModel, StyleManager.getStyle(currentColorStyle))
                         }
                         currentHoverRoom = room
                     }
@@ -142,16 +142,19 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                         .copy(alpha = 0.8f)
                 )
         ) {
+            val robotoFont = remember {FontManager.getFont("RobotoClassic")}
             Column {
                 // Room name
                 Text(
                     text = curRoomState.value?.name ?: "",
+                    fontFamily = robotoFont,
                     color = Color.White,
                     modifier = Modifier.padding(6.dp, 4.dp, 6.dp, 1.dp)
                 )
                 // Zone name
                 Text(
                     text = curZoneState.value?.name ?: "",
+                    fontFamily = robotoFont,
                     color = Color.White,
                     modifier = Modifier.padding(6.dp, 2.dp, 6.dp, 4.dp)
                 )

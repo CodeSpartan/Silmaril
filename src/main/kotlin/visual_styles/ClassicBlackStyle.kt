@@ -17,7 +17,8 @@ class ClassicBlackColorStyle : ColorStyle() {
             UiColor.InputField -> Color(0xFF424242)
             UiColor.InputFieldText -> Color.White
             UiColor.MapRoomStroke -> Color.White
-            UiColor.HoverBackground -> Color(0xFF1c1c1c)
+            UiColor.HoverBackground -> Color(0xFF242424)
+            UiColor.HoverSeparator -> Color(0xff2b2b2b)
             else -> Color.White
         }
     }

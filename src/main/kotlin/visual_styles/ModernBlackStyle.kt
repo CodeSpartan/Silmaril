@@ -42,7 +42,8 @@ class ModernBlackColorStyle : ColorStyle() {
             UiColor.InputField -> Color(0xFF3d3d3d)
             UiColor.InputFieldText -> Color(0xFFe8e8e8)
             UiColor.MapRoomStroke -> Color(0xffdadada)
-            UiColor.HoverBackground -> Color(0xFF1c1c1c)
+            UiColor.HoverBackground -> Color(0xFF242424)
+            UiColor.HoverSeparator -> Color(0xff2b2b2b)
             else -> Color.White
         }
     }

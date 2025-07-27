@@ -21,4 +21,5 @@ enum class UiColor {
     MapRoomVisited,
     MapRoomStroke,
     HoverBackground,
+    HoverSeparator,
 }

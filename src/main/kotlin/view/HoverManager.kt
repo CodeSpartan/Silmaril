@@ -19,13 +19,8 @@ import java.awt.GraphicsEnvironment
 import java.awt.Rectangle
 import java.awt.Window
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.window.DialogWindow
 import kotlinx.coroutines.delay
 import javax.swing.JDialog
@@ -35,7 +30,7 @@ import javax.swing.JDialog
  * Any component can get this from the CompositionLocal and use it.
  */
 interface HoverManager {
-    fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, backgroundColor: Color, content: @Composable () -> Unit)
+    fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, content: @Composable () -> Unit)
     fun hide()
 }
 
@@ -54,7 +49,6 @@ fun FloatingTooltipContainer(
     position: MutableState<Point>,
     width: Dp,
     uniqueKey: MutableState<Int>,
-    backgroundColor: MutableState<Color>,
     content: @Composable () -> Unit
 ) {
     if (show.value) {
@@ -64,6 +58,7 @@ fun FloatingTooltipContainer(
                     isFocusable = false
                     isUndecorated = true
                     isTransparent = true
+                    focusableWindowState = false
                 }
             },
             dispose = ComposeDialog::dispose,
@@ -85,8 +80,7 @@ fun FloatingTooltipContainer(
                 Modifier
                     .width(width)
                     .wrapContentHeight()
-                    .background(backgroundColor.value)
-                    //.shadow(elevation = 8.dp, shape = RoundedCornerShape(12.dp))
+                    .background(Color.Transparent)
             ) {
                 key(position.value.x, position.value.y, uniqueKey.value) {
                     content()
@@ -108,16 +102,14 @@ fun HoverManagerProvider(
     var tooltipWidth by remember { mutableStateOf(0) }
     val tooltipHeight = 500 // an assumption
     var tooltipUniqueKey by remember { mutableStateOf(-1) }
-    var tooltipBackgroundColor by remember { mutableStateOf(Color.Transparent) }
     // by default, assume main window owns everything, but later show() will potentially provide another owner
     var tooltipParentWindow by remember { mutableStateOf<Window>(mainWindow) }
 
     val manager = remember {
         object : HoverManager {
-            override fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, backgroundColor: Color, content: @Composable () -> Unit) {
+            override fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, content: @Composable () -> Unit) {
                 tooltipWidth = width
                 tooltipUniqueKey = uniqueKey
-                tooltipBackgroundColor = backgroundColor
                 if (ownerWindow != null)
                     tooltipParentWindow = ownerWindow
                 tooltipPosition = Point(
@@ -177,7 +169,6 @@ fun HoverManagerProvider(
         position = mutableStateOf(getIdealPosition()),
         width = tooltipWidth.dp,
         uniqueKey = mutableStateOf(tooltipUniqueKey),
-        backgroundColor = mutableStateOf(tooltipBackgroundColor),
         content = {
             tooltipContent()
         }

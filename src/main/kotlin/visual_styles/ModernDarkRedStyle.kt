@@ -20,7 +20,8 @@ class ModernDarkRedColorStyle : ColorStyle() {
             UiColor.InputField -> Color(0xFF3D3230)
             UiColor.InputFieldText -> Color(0xFFE7D6D1)
             UiColor.MapRoomStroke -> Color.White
-            UiColor.HoverBackground -> Color(0xFF1c1c1c)
+            UiColor.HoverBackground -> Color(0xFF242424)
+            UiColor.HoverSeparator -> Color(0xff2b2b2b)
             else -> Color.White
         }
     }
