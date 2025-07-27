@@ -166,7 +166,8 @@ fun MainWindow(
                             .padding(8.dp), // Apply padding as necessary
                         textStyle = TextStyle(
                             color = currentColorStyle.getUiColor(UiColor.InputFieldText),
-                            fontSize = currentFontSize.sp
+                            fontSize = currentFontSize.sp,
+                            fontFamily = FontManager.getFont(currentFontFamily)
                         ),
                         cursorBrush = SolidColor(Color.White), // Change the caret (cursor) color to white
                         singleLine = true, // Handle single line input

@@ -563,6 +563,9 @@ class MudConnection(private val host: String, private val port: Int) {
         val debug = true
         val gluedMessage = bufferToColorfulText(buffer, bufferEndPointer)
         if (gluedMessage.chunks.isNotEmpty()) {
+            val gluedString = gluedMessage.chunks.joinToString(separator = "", transform = { chunk -> chunk.text})
+            // @TODO: send gluedString to the trigger system here
+            
             if (debug) {
                 var str = "Text message: \n"
                 for (chunk in gluedMessage.chunks) {
