@@ -1,29 +1,21 @@
-import androidx.compose.foundation.window.WindowDraggableArea
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.Button
+import androidx.compose.material.Text
 import androidx.compose.ui.res.painterResource
 import model.MudConnection
-import view.MainWindow
 import viewmodel.MainViewModel
 import viewmodel.MapViewModel
 import androidx.compose.ui.window.*
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.awt.ComposeDialog
-import androidx.compose.ui.awt.ComposeWindow
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import model.SettingsManager
-import view.AdditionalOutputWindow
-import view.MapWindow
 import viewmodel.SettingsViewModel
 import java.awt.Dimension
-import java.awt.event.WindowAdapter
-import java.awt.event.WindowEvent
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -31,15 +23,17 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import model.FileLogger
-import view.HoverManagerProvider
-import java.awt.Window
-import java.awt.event.ComponentAdapter
-import java.awt.event.ComponentEvent
+import view.*
 
 fun main() = application {
     val settings = SettingsManager()
+
     val client = MudConnection(settings.gameServer, settings.gamePort)
     val mainViewModel = MainViewModel(client, settings)
+
+    val client2 = MudConnection(settings.gameServer, settings.gamePort)
+    val mainViewModel2 = MainViewModel(client2, settings)
+
     val mapViewModel = MapViewModel(client, settings)
     val settingsViewModel = SettingsViewModel(settings)
     FileLogger.initialize("Silmaril")
@@ -52,10 +46,13 @@ fun main() = application {
         size = settings.windowSize
     )
 
+    var selectedTabIndex by remember { mutableStateOf(0) }
+
     // Main Window
     Window(
         onCloseRequest = {
             mainViewModel.cleanup()
+            mainViewModel2.cleanup()
             mapViewModel.cleanup()
             settings.cleanup()
             exitApplication()
@@ -82,7 +79,9 @@ fun main() = application {
                 }
                 Item("Exit") {
                     mainViewModel.cleanup()
+                    mainViewModel2.cleanup()
                     mapViewModel.cleanup()
+                    settings.cleanup()
                     exitApplication()
                 }
             }
@@ -92,9 +91,21 @@ fun main() = application {
         // watch for resize, move, fullscreen toggle and save into settings
         SignUpToWindowEvents(state, settings)
 
-        HoverManagerProvider (window) {
-            MainWindow(mainViewModel, settingsViewModel, window)
+        val tabs = remember {
+            listOf(
+                Tab("Tab 1") { isFocused, thisTabId ->
+                    HoverManagerProvider(window) {
+                        MainWindow(mainViewModel, settingsViewModel, window, isFocused, thisTabId)
+                    }
+                },
+                Tab("Tab 2") { isFocused, thisTabId ->
+                    HoverManagerProvider(window) {
+                        MainWindow(mainViewModel2, settingsViewModel, window, isFocused, thisTabId)
+                    }
+                }
+            )
         }
+        TabbedView(tabs = tabs)
 
         // Map widget
         // FloatingWindow will provide real OwnerWindow down the line
@@ -112,12 +123,14 @@ fun main() = application {
         }
     }
 
+    // @TODO: this message isn't displayed right now. Why? Because the View isn't initialized yet?
     mainViewModel.displaySystemMessage("Проверяю карты...")
     val mapsUpdated : Boolean = settings.updateMaps()
     mainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
     mapViewModel.loadAllMaps()
 
     mainViewModel.connect()
+    mainViewModel2.connect()
 }
 
 @Composable
@@ -142,73 +155,3 @@ private fun onWindowStateUpdated(state: WindowState, settings: SettingsManager) 
     settings.updateWindowState(state)
 }
 
-@Composable
-private fun WindowScope.AppWindowTitleBar(height : Dp) = WindowDraggableArea {
-    Box(Modifier.fillMaxWidth().height(height).background(Color.DarkGray))
-}
-
-@Composable
-fun FloatingWindow(
-    show: MutableState<Boolean>,
-    owner: ComposeWindow, // owner is necessary for correct focus behavior
-    settings: SettingsManager,
-    windowName: String,
-    content: @Composable () -> Unit
-) {
-    if (show.value) {
-        DialogWindow(
-            create = {
-                ComposeDialog(owner = owner).apply { // Set the owner as the window
-                    val windowInitialState = settings.getFloatingWindowState(windowName)
-                    size = Dimension(windowInitialState.windowSize.width, windowInitialState.windowSize.height)
-                    isFocusable = true
-                    isUndecorated = true
-                    location = windowInitialState.windowPosition
-
-                    // Listen to "x" button being pressed
-                    addWindowListener(object : WindowAdapter() {
-                        override fun windowClosing(e: WindowEvent) {
-                            show.value = false
-                            settings.updateFloatingWindowState(windowName, false)
-                        }
-                    })
-
-                    // Listen to position/size changes
-                    addComponentListener(object : ComponentAdapter() {
-                        override fun componentMoved(e: ComponentEvent) {
-                            settings.updateFloatingWindow(windowName, location, size)
-                        }
-
-                        override fun componentResized(e: ComponentEvent) {
-                            settings.updateFloatingWindow(windowName, location, size)
-                        }
-                    })
-                }
-            },
-            dispose = ComposeDialog::dispose,
-        ) {
-            val titleBarHeight = 15.dp
-            // Provides the real OwnerWindow down the hierarchy
-            CompositionLocalProvider(OwnerWindow provides window) {
-                CompositionLocalProvider(LocalTopBarHeight provides titleBarHeight) {
-                    Column(Modifier.background(Color.Black)) {
-                        AppWindowTitleBar(titleBarHeight)
-                        content()
-                    }
-                }
-            }
-        }
-    }
-}
-
-// This will provide any composable with a reference to its immediate containing window.
-val OwnerWindow = staticCompositionLocalOf<Window> {
-    error("No Window provided. Wrap your content in a provider.")
-}
-
-/**
- * Provides the height of the title/drag bar of a FloatingWindow.
- * This allows descendant composables to account for the obscured space
- * at the top of the window without having to hardcode the value.
- */
-val LocalTopBarHeight = compositionLocalOf { 0.dp }

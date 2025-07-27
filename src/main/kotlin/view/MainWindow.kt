@@ -23,6 +23,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import misc.FontManager
 import visual_styles.StyleManager
@@ -44,6 +46,8 @@ fun MainWindow(
     mainViewModel: MainViewModel,
     settingsViewModel: SettingsViewModel,
     owner: ComposeWindow,
+    isFocused: Boolean,
+    windowId: Int,
 ) {
     // Observe messages from the ViewModel
     val messages by mainViewModel.messages.collectAsState()
@@ -52,6 +56,8 @@ fun MainWindow(
     val currentFontFamily by settingsViewModel.currentFontFamily.collectAsState()
     val currentFontSize by settingsViewModel.currentFontSize.collectAsState()
     val currentColorStyleName by settingsViewModel.currentColorStyleName.collectAsState()
+
+    val focusManager = LocalFocusManager.current
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -65,6 +71,12 @@ fun MainWindow(
         }
     }
 
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            focusRequester.requestFocus()
+        }
+    }
+
     var paddingLeft by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2, 0.dp)) }
     var paddingRight by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)) }
 
@@ -72,6 +84,7 @@ fun MainWindow(
     owner.addComponentListener(object : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent?) {
             // owner size isn't real size, but oh well, this formula works
+            // @TODO: what is that 2 - dpi? needs to be fixed
             paddingLeft = maxOf((owner.width.dp - 680.dp) / 2, 0.dp)
             paddingRight = maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)
             runBlocking {
@@ -162,7 +175,6 @@ fun MainWindow(
                                 currentColorStyle.getUiColor(UiColor.InputField),
                                 RoundedCornerShape(currentColorStyle.inputFieldCornerRoundness().dp)
                             ) // Add background with clipping to the rounded shape
-                            .focusable()
                             .padding(8.dp), // Apply padding as necessary
                         textStyle = TextStyle(
                             color = currentColorStyle.getUiColor(UiColor.InputFieldText),
@@ -197,12 +209,6 @@ fun MainWindow(
     // When font changes, scroll down
     LaunchedEffect(currentFontFamily) {
         scrollDown()
-    }
-
-    // Request focus after the first composition
-    DisposableEffect(Unit) {
-        focusRequester.requestFocus()
-        onDispose { }
     }
 
     // Scroll to the bottom when a new string is added

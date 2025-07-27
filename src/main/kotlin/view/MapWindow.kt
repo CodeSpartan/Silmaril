@@ -1,7 +1,5 @@
 package view
 
-import LocalTopBarHeight
-import OwnerWindow
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
