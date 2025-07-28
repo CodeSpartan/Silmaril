@@ -31,7 +31,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import misc.FontManager
 import visual_styles.StyleManager
@@ -56,8 +55,6 @@ fun MainWindow(
     val currentFontFamily by settingsViewModel.currentFontFamily.collectAsState()
     val currentFontSize by settingsViewModel.currentFontSize.collectAsState()
     val currentColorStyleName by settingsViewModel.currentColorStyleName.collectAsState()
-
-    val focusManager = LocalFocusManager.current
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -93,7 +90,7 @@ fun MainWindow(
         }
     })
 
-    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
+    val currentColorStyle = remember { StyleManager.getStyle(currentColorStyleName) }
 
     Surface(
         modifier = Modifier

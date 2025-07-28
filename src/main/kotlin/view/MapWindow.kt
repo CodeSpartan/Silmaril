@@ -68,8 +68,10 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     val dpi = LocalDensity.current.density
 
     LaunchedEffect(mapViewModel) {
+        println("mapViewModel update")
         mapViewModel.currentRoomMessages.collect { message ->
             // Update the state with the new message to trigger recomposition
+            println("last room message updated")
             lastRoomMessage = message
         }
     }
