@@ -80,7 +80,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
             if (roomMessage.zoneId != lastZone) {
                 curZoneState.value = mapViewModel.getZone(roomMessage.zoneId)
                 curZoneRooms = mapViewModel.getRooms(roomMessage.zoneId)
-                mapViewModel.squashRooms(curZoneRooms)
+                mapViewModel.squashRooms(curZoneRooms, roomMessage.zoneId)
             }
             // If the room has changed, update the state and trigger the centering
             if (roomMessage.roomId != lastRoom) {

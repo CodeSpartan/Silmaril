@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.first
 import model.MudConnection
 import model.SettingsManager
 import viewmodel.MainViewModel
+import viewmodel.MapViewModel
 
 class Profile(val name: String, settings: SettingsManager, areMapsReady: StateFlow<Boolean>) {
     val client = MudConnection(settings.gameServer, settings.gamePort)

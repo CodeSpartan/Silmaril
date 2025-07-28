@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import misc.decryptFile
 import model.MudConnection
@@ -24,6 +25,8 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
 
     private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>(replay = 1)
     val currentRoomMessages : MutableSharedFlow<CurrentRoomMessage> get() = _currentRoomMessages
+
+    private val squashedZones : MutableSet<Int> = mutableSetOf()
 
     private val managerJob = Job()
     private val managerScope = CoroutineScope(Dispatchers.Main + managerJob)
@@ -57,7 +60,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
     }
 
     // called from main() after new maps have been downloaded and unzipped (or didn't need an update)
-    fun loadAllMaps() {
+    fun loadAllMaps(mapsReady: MutableStateFlow<Boolean>) {
         if (loadMapsJob == null || loadMapsJob?.isActive == false) {
             val sourceDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
             loadMapsJob = loadMapsScope.launch {
@@ -86,6 +89,8 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                 zonesMap.forEach { zone ->
                     roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
                 }
+
+                mapsReady.value = true
             }
         }
     }
@@ -128,7 +133,10 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
     }
 
     // Places all rooms on the same z-level
-    fun squashRooms(rooms: Map<Int, Room>) {
+    fun squashRooms(rooms: Map<Int, Room>, zoneId: Int) {
+        if (squashedZones.contains(zoneId))
+            return
+
         // 1. find which level has the most rooms, so we'll start working with that level by default
         val roomsPerLevel : MutableMap<Int, Int> = mutableMapOf()
         for (room in rooms) {
@@ -149,6 +157,10 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
         val visitedIds: MutableMap<Int, Boolean> = rooms
             .mapValues { false }
             .toMutableMap()
+
+        // prevent division by zero
+        if (occupiedCoords.isEmpty())
+            return
 
         // 3. find the center of gravity on the main level for later
         val centerOfGravity = Point(
@@ -200,6 +212,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                 visitedIds.putAll(newEntries)
             }
         }
+        squashedZones.add(zoneId)
     }
 
     // gathers all neighbors on the same level recursively

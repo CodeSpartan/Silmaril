@@ -17,24 +17,22 @@ import view.*
 import view.small_dialogs.*
 
 fun main() = application {
-    val settings = SettingsManager()
+    val settings = remember { SettingsManager() }
 
     val _areMapsReady = MutableStateFlow(false)
     val areMapsReady = _areMapsReady.asStateFlow()
 
-    var gameWindows: MutableMap<String, Profile> by remember{ mutableStateOf(mutableMapOf()) }
-    // read settings, start profiles that are in settings.ini
-    // if no profile exists, settings will provide a new one called "Default"
-    settings.gameWindows.value.forEach { windowName ->
-        gameWindows[windowName] = Profile(windowName, settings, areMapsReady)
+    var gameWindows: MutableMap<String, Profile> by remember {
+        mutableStateOf(settings.gameWindows.value.associateWith { windowName -> Profile(windowName, settings, areMapsReady) }.toMutableMap())
     }
 
     var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
     var currentMainViewModel by remember {mutableStateOf(gameWindows.values.first().mainViewModel)}
 
-    val mapViewModel = MapViewModel(currentClient, settings)
-    val settingsViewModel = SettingsViewModel(settings)
-    FileLogger.initialize("Silmaril")
+    val mapViewModel = remember(currentClient) {
+        MapViewModel(currentClient, settings)
+    }
+    val settingsViewModel = remember { SettingsViewModel(settings) }
 
     val showMapWindow = remember { mutableStateOf(settings.getFloatingWindowState("MapWindow").show) }
     val showAdditionalOutputWindow = remember { mutableStateOf(settings.getFloatingWindowState("AdditionalOutput").show) }
@@ -95,18 +93,28 @@ fun main() = application {
         // watch for resize, move, fullscreen toggle and save into settings
         SignUpToWindowEvents(state, settings)
 
-        val tabs : MutableList<Tab> = remember {mutableListOf()}
-        gameWindows.forEach {
-            tabs.add(
+        // Stability is achieved through keys in TabbedView for each tab
+        val tabs = gameWindows.values.map { profile ->
+            Tab(
                 // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
-                Tab(it.value.name) { isFocused, thisTabId ->
+                title = profile.name,
+                content = { isFocused, thisTabId ->
                     HoverManagerProvider(window) {
-                        MainWindow(it.value.mainViewModel, settingsViewModel, window, isFocused, thisTabId)
+                        MainWindow(profile.mainViewModel, settingsViewModel, window, isFocused, thisTabId)
                     }
-                },
+                }
             )
         }
-        TabbedView(tabs = tabs)
+        TabbedView(
+            tabs = tabs,
+            selectedTabIndex = selectedTabIndex,
+            onTabSelected = { newIndex, tabName ->
+                selectedTabIndex = newIndex
+                println("Switching to tab: ${tabName}")
+                currentClient = gameWindows[tabName]!!.client
+                currentMainViewModel = gameWindows[tabName]!!.mainViewModel
+            }
+        )
 
         // Map widget
         // FloatingWindow will provide real OwnerWindow down the line
@@ -125,17 +133,22 @@ fun main() = application {
 
         ProfileDialog(showProfileDialog, gameWindows, settings,
             onAddWindow = { windowName ->
-                gameWindows = (gameWindows + (windowName to Profile(windowName, settings, areMapsReady))).toMutableMap()
+                val newProfile = Profile(windowName, settings, areMapsReady)
+                gameWindows = (gameWindows + (windowName to newProfile)).toMutableMap()
             }
         )
     }
 
-    currentMainViewModel.displaySystemMessage("Проверяю карты...")
-    val mapsUpdated : Boolean = settings.updateMaps()
-    currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
-    mapViewModel.loadAllMaps()
-    // all Profiles->MainViewModels wait for this bool to become true to connect to the server
-    _areMapsReady.value = true
+    // launch only on first composition, when the program starts
+    LaunchedEffect(Unit) {
+        // @TODO: each connection needs its own log
+        FileLogger.initialize("Silmaril")
+        currentMainViewModel.displaySystemMessage("Проверяю карты...")
+        val mapsUpdated: Boolean = settings.updateMaps()
+        currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
+        // all Profiles->MainViewModels wait for this bool to become true to connect to the server
+        mapViewModel.loadAllMaps(_areMapsReady)
+    }
 }
 
 @Composable
