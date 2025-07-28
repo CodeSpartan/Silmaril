@@ -28,5 +28,6 @@ data class CurrentRoomMessage(
                 null
             }
         }
+        val EMPTY = CurrentRoomMessage(roomId = -1, zoneId = -100)
     }
 }

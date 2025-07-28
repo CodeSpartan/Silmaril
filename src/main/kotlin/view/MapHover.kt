@@ -14,13 +14,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import misc.FontManager
 import misc.UiColor
-import viewmodel.MapViewModel
+import model.MapModel
 import visual_styles.ColorStyle
 import xml_schemas.Room
 import xml_schemas.Zone
 
 @Composable
-fun MapHoverTooltip(room: Room, zone: Zone?, mapViewModel: MapViewModel, style: ColorStyle) {
+fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorStyle) {
     Column(modifier = Modifier
         .padding(all = 0.dp)
         //.shadow(elevation = 8.dp, shape = RoundedCornerShape(5.dp)) // flickers with white background, try in later versions
@@ -71,11 +71,11 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapViewModel: MapViewModel, style: 
                     Text(dirName, color = Color.White, fontFamily = robotoFont, modifier = Modifier.width(60.dp).alignByBaseline())
                     Text("=", color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light, modifier = Modifier.width(20.dp).alignByBaseline())
                     Text("${exit.roomId}", color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light, modifier = Modifier.width(45.dp).alignByBaseline())
-                    if (mapViewModel.getZoneByRoomId(exit.roomId) != zone) {
+                    if (mapModel.getZoneByRoomId(exit.roomId) != zone) {
                         Text(" →  ", color = Color.White, fontFamily = robotoFont, modifier = Modifier.offset(y = (-2).dp).alignByBaseline().height(16.dp)) // fix for weird behavior
                         Text(
-                            mapViewModel.getZoneByRoomId(exit.roomId)?.name ?: "(не существует)",
-                            color = if (mapViewModel.getZoneByRoomId(exit.roomId) != null) Color.White else Color.Gray,
+                            mapModel.getZoneByRoomId(exit.roomId)?.name ?: "(не существует)",
+                            color = if (mapModel.getZoneByRoomId(exit.roomId) != null) Color.White else Color.Gray,
                             fontFamily = robotoFont,
                             modifier = Modifier.alignByBaseline()
                         )

@@ -25,10 +25,10 @@ class MudConnection(private val host: String, private val port: Int) {
 
     // Flow to emit received text messages to whoever is listening (MainViewModel in this case)
     private val _colorfulTextMessages = MutableSharedFlow<ColorfulTextMessage>()
-    val colorfulTextMessages = _colorfulTextMessages.asSharedFlow()  // Expose as immutable flow to MainViewModel
+    val colorfulTextMessages = _colorfulTextMessages.asSharedFlow()  // Expose flow to MainViewModel
 
-    private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>()
-    val currentRoomMessages = _currentRoomMessages.asSharedFlow() // Expose as immutable flow to MapViewModel
+    private val _currentRoomMessages = MutableStateFlow(CurrentRoomMessage.EMPTY)
+    val currentRoomMessages: StateFlow<CurrentRoomMessage> get() = _currentRoomMessages
 
     private val _isEchoOn = MutableStateFlow(false)
     val isEchoOn: StateFlow<Boolean> get() = _isEchoOn
@@ -537,7 +537,7 @@ class MudConnection(private val host: String, private val port: Int) {
             val byteMsg = mainBuffer.copyOfRange(skipBytes, mainBufferPointer)
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
-                14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
+                14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.value = it }
             }
             if (debug) {
                 val str1 = "- Custom message: ${_customMessageType}"

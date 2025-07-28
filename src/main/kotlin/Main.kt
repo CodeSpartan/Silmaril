@@ -1,5 +1,4 @@
 import androidx.compose.ui.res.painterResource
-import viewmodel.MapViewModel
 import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +11,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.*
 import model.FileLogger
+import model.MapModel
 import profiles.Profile
 import view.*
 import view.small_dialogs.*
@@ -22,6 +22,8 @@ fun main() = application {
     val _areMapsReady = MutableStateFlow(false)
     val areMapsReady = _areMapsReady.asStateFlow()
 
+    val mapModel = remember { MapModel(settings) }
+
     var gameWindows: MutableMap<String, Profile> by remember {
         mutableStateOf(settings.gameWindows.value.associateWith { windowName -> Profile(windowName, settings, areMapsReady) }.toMutableMap())
     }
@@ -29,9 +31,6 @@ fun main() = application {
     var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
     var currentMainViewModel by remember {mutableStateOf(gameWindows.values.first().mainViewModel)}
 
-    val mapViewModel = remember(currentClient) {
-        MapViewModel(currentClient, settings)
-    }
     val settingsViewModel = remember { SettingsViewModel(settings) }
 
     val showMapWindow = remember { mutableStateOf(settings.getFloatingWindowState("MapWindow").show) }
@@ -43,7 +42,7 @@ fun main() = application {
     )
 
     var selectedTabIndex by remember { mutableStateOf(0) }
-    var showProfileDialog = remember { mutableStateOf(false) }
+    val showProfileDialog = remember { mutableStateOf(false) }
 
     // Main Window
     Window(
@@ -51,7 +50,7 @@ fun main() = application {
             gameWindows.values.forEach {
                 it.cleanup()
             }
-            mapViewModel.cleanup()
+            mapModel.cleanup()
             settings.cleanup()
             exitApplication()
         },
@@ -79,7 +78,7 @@ fun main() = application {
                     gameWindows.values.forEach {
                         it.cleanup()
                     }
-                    mapViewModel.cleanup()
+                    mapModel.cleanup()
                     settings.cleanup()
                     exitApplication()
                 }
@@ -110,7 +109,7 @@ fun main() = application {
             selectedTabIndex = selectedTabIndex,
             onTabSelected = { newIndex, tabName ->
                 selectedTabIndex = newIndex
-                println("Switching to tab: ${tabName}")
+                println("Switching to tab: $tabName")
                 currentClient = gameWindows[tabName]!!.client
                 currentMainViewModel = gameWindows[tabName]!!.mainViewModel
             }
@@ -121,7 +120,7 @@ fun main() = application {
         FloatingWindow(showMapWindow, window, settings, "MapWindow")
         {
             HoverManagerProvider(window) {
-                MapWindow(mapViewModel, settingsViewModel)
+                MapWindow(currentClient, mapModel, settingsViewModel)
             }
         }
 
@@ -147,7 +146,7 @@ fun main() = application {
         val mapsUpdated: Boolean = settings.updateMaps()
         currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
         // all Profiles->MainViewModels wait for this bool to become true to connect to the server
-        mapViewModel.loadAllMaps(_areMapsReady)
+        mapModel.loadAllMaps(_areMapsReady)
     }
 }
 

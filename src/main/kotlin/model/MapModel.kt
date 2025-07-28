@@ -1,66 +1,48 @@
-package viewmodel
+package model
 
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
-import mud_messages.CurrentRoomMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import misc.decryptFile
-import model.MudConnection
-import model.SettingsManager
-import xml_schemas.*
+import xml_schemas.Room
+import xml_schemas.Zone
 import java.awt.Point
 import java.io.File
 import java.nio.file.Paths
 import kotlin.math.absoluteValue
 
-
-class MapViewModel(private val client: MudConnection, private val settings: SettingsManager) {
+class MapModel(private val settings: SettingsManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
     private val roomToZone = mutableMapOf<Int, Zone>()
 
-    private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>(replay = 1)
-    val currentRoomMessages : MutableSharedFlow<CurrentRoomMessage> get() = _currentRoomMessages
-
     private val squashedZones : MutableSet<Int> = mutableSetOf()
-
-    private val managerJob = Job()
-    private val managerScope = CoroutineScope(Dispatchers.Main + managerJob)
 
     private val loadMapsScope = CoroutineScope(Dispatchers.IO)
     private var loadMapsJob: Job? = null
 
-    init {
-        collectRoomMessages()
-    }
-
-    private fun collectRoomMessages() {
-        managerScope.launch {
-            client.currentRoomMessages.collect { message ->
-                // println("New message received: $message")
-                emitMessage(message)
-            }
-        }
-    }
-
-    // Method to emit a new message
-    private fun emitMessage(message: CurrentRoomMessage) {
-        managerScope.launch {
-            _currentRoomMessages.emit(message)
-        }
-    }
-
     fun cleanup() {
-        managerJob.cancel()
         loadMapsJob?.cancel()
     }
 
+    fun getZone(zoneId: Int): Zone? {
+        return zonesMap[zoneId]
+    }
+
+    fun getZoneByRoomId(roomId: Int): Zone? {
+        return roomToZone[roomId]
+    }
+
+    fun getRooms(zoneId: Int): Map<Int, Room> {
+        val zone = getZone(zoneId)
+        return zone?.roomsList?.associateBy { it.id } ?: emptyMap()
+    }
+
     // called from main() after new maps have been downloaded and unzipped (or didn't need an update)
-    fun loadAllMaps(mapsReady: MutableStateFlow<Boolean>) {
+    fun loadAllMaps(modelReady: MutableStateFlow<Boolean>) {
         if (loadMapsJob == null || loadMapsJob?.isActive == false) {
             val sourceDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
             loadMapsJob = loadMapsScope.launch {
@@ -90,7 +72,7 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
                     roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
                 }
 
-                mapsReady.value = true
+                modelReady.value = true
             }
         }
     }
@@ -117,19 +99,6 @@ class MapViewModel(private val client: MudConnection, private val settings: Sett
             // Write the decrypted content to the new file
             File(targetFilePath).writeText(decryptedContent)
         }
-    }
-
-    fun getZone(zoneId: Int): Zone? {
-        return zonesMap[zoneId]
-    }
-
-    fun getZoneByRoomId(roomId: Int): Zone? {
-        return roomToZone[roomId]
-    }
-
-    fun getRooms(zoneId: Int): Map<Int, Room> {
-        val zone = getZone(zoneId)
-        return zone?.roomsList?.associateBy { it.id } ?: emptyMap()
     }
 
     // Places all rooms on the same z-level

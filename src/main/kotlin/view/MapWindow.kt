@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import visual_styles.StyleManager
 import misc.UiColor
 import mud_messages.CurrentRoomMessage
-import viewmodel.MapViewModel
 import viewmodel.SettingsViewModel
 import xml_schemas.Room
 import xml_schemas.Zone
@@ -39,19 +38,21 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
 import misc.FontManager
+import model.MapModel
+import model.MudConnection
 
 
 @Composable
 @Preview
-fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) {
+fun MapWindow(client: MudConnection, mapModel: MapModel, settingsViewModel: SettingsViewModel) {
 
     val currentColorStyle by settingsViewModel.currentColorStyleName.collectAsState()
 
-    var lastZone = -100 // -1 zone is reserved for roads
-    var lastRoom = -1
+    var lastZone = -1000000 // -1 zone is reserved for roads
+    var lastRoom = -1000000
 
-    val curZoneState = remember { mutableStateOf(mapViewModel.getZone(lastZone)) }
-    var curZoneRooms: Map<Int, Room> = mapViewModel.getRooms(lastZone)
+    val curZoneState = remember { mutableStateOf(mapModel.getZone(lastZone)) }
+    var curZoneRooms: Map<Int, Room> = mapModel.getRooms(lastZone)
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
     var lastRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
@@ -67,11 +68,9 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
 
     val dpi = LocalDensity.current.density
 
-    LaunchedEffect(mapViewModel) {
-        println("mapViewModel update")
-        mapViewModel.currentRoomMessages.collect { message ->
+    LaunchedEffect(client) {
+        client.currentRoomMessages.collect { message ->
             // Update the state with the new message to trigger recomposition
-            println("last room message updated")
             lastRoomMessage = message
         }
     }
@@ -80,14 +79,16 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
     LaunchedEffect(lastRoomMessage) {
         lastRoomMessage?.let { roomMessage ->
             if (roomMessage.zoneId != lastZone) {
-                curZoneState.value = mapViewModel.getZone(roomMessage.zoneId)
-                curZoneRooms = mapViewModel.getRooms(roomMessage.zoneId)
-                mapViewModel.squashRooms(curZoneRooms, roomMessage.zoneId)
+                curZoneState.value = mapModel.getZone(roomMessage.zoneId)
+                curZoneRooms = mapModel.getRooms(roomMessage.zoneId)
+                mapModel.squashRooms(curZoneRooms, roomMessage.zoneId)
+                lastZone = roomMessage.zoneId
             }
             // If the room has changed, update the state and trigger the centering
             if (roomMessage.roomId != lastRoom) {
                 curRoomState.value = curZoneRooms[roomMessage.roomId]
                 centerOnRoomId = roomMessage.roomId
+                lastRoom = roomMessage.roomId
             }
             lastZone = roomMessage.zoneId
             lastRoom = roomMessage.roomId
@@ -120,7 +121,7 @@ fun MapWindow(mapViewModel: MapViewModel, settingsViewModel: SettingsViewModel) 
                             500,
                             room.id,
                         ) {
-                            MapHoverTooltip(room, curZoneState.value, mapViewModel, StyleManager.getStyle(currentColorStyle))
+                            MapHoverTooltip(room, curZoneState.value, mapModel, StyleManager.getStyle(currentColorStyle))
                         }
                         currentHoverRoom = room
                     }
