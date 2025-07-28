@@ -20,6 +20,7 @@ data class Tab(
 fun TabbedView(tabs: List<Tab>) {
     var selectedTabIndex by remember { mutableStateOf(0) }
 
+    // @TODO: profile tabs need an RMB -> Close, which should call cleanup and make a note in settings
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTabIndex) {
             tabs.forEachIndexed { index, tab ->

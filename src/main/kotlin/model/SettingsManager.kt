@@ -36,6 +36,7 @@ data class Settings(
     var font: String = "FiraMono",
     var fontSize: Int = 15,
     var colorStyle: String = "Black",
+    var gameWindows: MutableList<String> = mutableListOf("Default"), // value is the window name and the profile name
     var windowSettings: WindowSettings = WindowSettings(),
     var floatWindows: MutableMap<String, FloatWindowSettings> = mutableMapOf(
         "MapWindow" to FloatWindowSettings(
@@ -49,7 +50,7 @@ data class Settings(
             windowSize = Dimension(400, 400),
         ),
     ),
-    // Whether commands separated by a semicolon (e.g. "say hello;w") are written on separate lines or a single line
+    // Whether commands separated by a semicolon (e.g. "say hello;w") are echoed on separate lines or a single line
     var splitCommands: Boolean = true,
 )
 
@@ -91,6 +92,9 @@ class SettingsManager {
 
     private val _splitCommands = MutableStateFlow(settings.splitCommands)
     val splitCommands: StateFlow<Boolean> get() = _splitCommands
+
+    private val _gameWindows = MutableStateFlow(settings.gameWindows)
+    val gameWindows: StateFlow<List<String>> get() = _gameWindows
 
     private val scope = CoroutineScope(Dispatchers.Default)
 
@@ -139,6 +143,7 @@ class SettingsManager {
             _colorStyle.value = settings.colorStyle
             _settingsFlow.value = settings.windowSettings
             _floatWindowsFlow.value = settings.floatWindows
+            _gameWindows.value = settings.gameWindows
         }
     }
 
@@ -273,6 +278,18 @@ class SettingsManager {
     fun updateSplitSetting(newValue : Boolean) {
         settings.splitCommands = newValue
         _splitCommands.value = newValue
+        saveSettings()
+    }
+
+    fun addGameWindow(windowName : String) {
+        settings.gameWindows.add(windowName)
+        _gameWindows.value.add(windowName)
+        saveSettings()
+    }
+
+    fun removeGameWindow(windowName : String) {
+        settings.gameWindows.remove(windowName)
+        _gameWindows.value.remove(windowName)
         saveSettings()
     }
 }

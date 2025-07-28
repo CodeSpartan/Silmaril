@@ -19,22 +19,28 @@ import java.awt.Dimension
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import model.FileLogger
+import profiles.Profile
 import view.*
 
 fun main() = application {
     val settings = SettingsManager()
 
-    val client = MudConnection(settings.gameServer, settings.gamePort)
-    val mainViewModel = MainViewModel(client, settings)
+    val _isMapWidgetReady = MutableStateFlow(false)
+    val isMapWidgetReady = _isMapWidgetReady.asStateFlow()
 
-    val client2 = MudConnection(settings.gameServer, settings.gamePort)
-    val mainViewModel2 = MainViewModel(client2, settings)
+    val gameWindows: MutableMap<String, Profile> = mutableMapOf()
+    // read settings, start profiles that are in settings.ini
+    // if no profile exists, settings will provide a new one called "Default"
+    settings.gameWindows.value.forEach { windowName ->
+        gameWindows[windowName] = Profile(windowName, settings, isMapWidgetReady)
+    }
 
-    val mapViewModel = MapViewModel(client, settings)
+    var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
+    var currentMainViewModel by remember {mutableStateOf(gameWindows.values.first().mainViewModel)}
+
+    val mapViewModel = MapViewModel(currentClient, settings)
     val settingsViewModel = SettingsViewModel(settings)
     FileLogger.initialize("Silmaril")
 
@@ -51,8 +57,9 @@ fun main() = application {
     // Main Window
     Window(
         onCloseRequest = {
-            mainViewModel.cleanup()
-            mainViewModel2.cleanup()
+            gameWindows.values.forEach {
+                it.cleanup()
+            }
             mapViewModel.cleanup()
             settings.cleanup()
             exitApplication()
@@ -78,11 +85,17 @@ fun main() = application {
                     settingsViewModel.toggleColorStyle()
                 }
                 Item("Exit") {
-                    mainViewModel.cleanup()
-                    mainViewModel2.cleanup()
+                    gameWindows.values.forEach {
+                        it.cleanup()
+                    }
                     mapViewModel.cleanup()
                     settings.cleanup()
                     exitApplication()
+                }
+            }
+            Menu("View") {
+                Item("Add Window") {
+                    // @TODO: display popup asking for name, and a list of existing ones
                 }
             }
         }
@@ -91,18 +104,15 @@ fun main() = application {
         // watch for resize, move, fullscreen toggle and save into settings
         SignUpToWindowEvents(state, settings)
 
-        val tabs = remember {
-            listOf(
-                Tab("Tab 1") { isFocused, thisTabId ->
+        val tabs : MutableList<Tab> = remember {mutableListOf()}
+        gameWindows.forEach {
+            tabs.add(
+                // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
+                Tab(it.value.name) { isFocused, thisTabId ->
                     HoverManagerProvider(window) {
-                        MainWindow(mainViewModel, settingsViewModel, window, isFocused, thisTabId)
+                        MainWindow(it.value.mainViewModel, settingsViewModel, window, isFocused, thisTabId)
                     }
                 },
-                Tab("Tab 2") { isFocused, thisTabId ->
-                    HoverManagerProvider(window) {
-                        MainWindow(mainViewModel2, settingsViewModel, window, isFocused, thisTabId)
-                    }
-                }
             )
         }
         TabbedView(tabs = tabs)
@@ -119,18 +129,17 @@ fun main() = application {
         // Additional output widget
         FloatingWindow(showAdditionalOutputWindow, window, settings,"AdditionalOutput")
         {
-            AdditionalOutputWindow(mainViewModel, settingsViewModel)
+            AdditionalOutputWindow(currentMainViewModel, settingsViewModel)
         }
     }
 
     // @TODO: this message isn't displayed right now. Why? Because the View isn't initialized yet?
-    mainViewModel.displaySystemMessage("Проверяю карты...")
+    currentMainViewModel.displaySystemMessage("Проверяю карты...")
     val mapsUpdated : Boolean = settings.updateMaps()
-    mainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
+    currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
     mapViewModel.loadAllMaps()
-
-    mainViewModel.connect()
-    mainViewModel2.connect()
+    // all Profiles->MainViewModels wait for this bool to become true to connect to the server
+    _isMapWidgetReady.value = true
 }
 
 @Composable
