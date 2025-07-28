@@ -1,18 +1,9 @@
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.Button
-import androidx.compose.material.Text
 import androidx.compose.ui.res.painterResource
-import model.MudConnection
-import viewmodel.MainViewModel
 import viewmodel.MapViewModel
 import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusRequester
 import model.SettingsManager
 import viewmodel.SettingsViewModel
 import java.awt.Dimension
@@ -23,18 +14,19 @@ import kotlinx.coroutines.flow.*
 import model.FileLogger
 import profiles.Profile
 import view.*
+import view.small_dialogs.*
 
 fun main() = application {
     val settings = SettingsManager()
 
-    val _isMapWidgetReady = MutableStateFlow(false)
-    val isMapWidgetReady = _isMapWidgetReady.asStateFlow()
+    val _areMapsReady = MutableStateFlow(false)
+    val areMapsReady = _areMapsReady.asStateFlow()
 
-    val gameWindows: MutableMap<String, Profile> = mutableMapOf()
+    var gameWindows: MutableMap<String, Profile> by remember{ mutableStateOf(mutableMapOf()) }
     // read settings, start profiles that are in settings.ini
     // if no profile exists, settings will provide a new one called "Default"
     settings.gameWindows.value.forEach { windowName ->
-        gameWindows[windowName] = Profile(windowName, settings, isMapWidgetReady)
+        gameWindows[windowName] = Profile(windowName, settings, areMapsReady)
     }
 
     var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
@@ -53,6 +45,7 @@ fun main() = application {
     )
 
     var selectedTabIndex by remember { mutableStateOf(0) }
+    var showProfileDialog = remember { mutableStateOf(false) }
 
     // Main Window
     Window(
@@ -69,7 +62,7 @@ fun main() = application {
         icon = painterResource("icon.png"),
         ) {
         MenuBar {
-            Menu("File") {
+            Menu("Файл") {
                 Item("Toggle Map") {
                     showMapWindow.value = !showMapWindow.value
                     settings.updateFloatingWindowState("MapWindow", showMapWindow.value)
@@ -93,10 +86,8 @@ fun main() = application {
                     exitApplication()
                 }
             }
-            Menu("View") {
-                Item("Add Window") {
-                    // @TODO: display popup asking for name, and a list of existing ones
-                }
+            Menu("Вид") {
+                Item("Добавить окно", onClick = { showProfileDialog.value = true })
             }
         }
         window.minimumSize = Dimension(800, 600)
@@ -131,15 +122,20 @@ fun main() = application {
         {
             AdditionalOutputWindow(currentMainViewModel, settingsViewModel)
         }
+
+        ProfileDialog(showProfileDialog, gameWindows, settings,
+            onAddWindow = { windowName ->
+                gameWindows = (gameWindows + (windowName to Profile(windowName, settings, areMapsReady))).toMutableMap()
+            }
+        )
     }
 
-    // @TODO: this message isn't displayed right now. Why? Because the View isn't initialized yet?
     currentMainViewModel.displaySystemMessage("Проверяю карты...")
     val mapsUpdated : Boolean = settings.updateMaps()
     currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
     mapViewModel.loadAllMaps()
     // all Profiles->MainViewModels wait for this bool to become true to connect to the server
-    _isMapWidgetReady.value = true
+    _areMapsReady.value = true
 }
 
 @Composable

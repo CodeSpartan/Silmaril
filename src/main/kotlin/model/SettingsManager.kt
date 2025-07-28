@@ -96,10 +96,14 @@ class SettingsManager {
     private val _gameWindows = MutableStateFlow(settings.gameWindows)
     val gameWindows: StateFlow<List<String>> get() = _gameWindows
 
+    private val _profiles = MutableStateFlow(mutableListOf<String>())
+    val profiles: StateFlow<MutableList<String>> get() = _profiles
+
     private val scope = CoroutineScope(Dispatchers.Default)
 
     init {
         loadSettings()
+        loadProfiles()
         debounceSaveSettings()
     }
 
@@ -134,6 +138,14 @@ class SettingsManager {
         return programPath
     }
 
+    fun getProfileDirectory(): String {
+        val path = Paths.get(getProgramDirectory(), "profiles").toString()
+        val dir = File(path)
+        if (!dir.exists())
+            dir.mkdirs()
+        return path
+    }
+
     private fun loadSettings() {
         if (settingsFile.exists()) {
             val json = settingsFile.readText()
@@ -145,6 +157,19 @@ class SettingsManager {
             _floatWindowsFlow.value = settings.floatWindows
             _gameWindows.value = settings.gameWindows
         }
+    }
+
+    private fun loadProfiles() {
+        val profileDir = File(getProfileDirectory())
+        val jsonFiles = mutableListOf<String>()
+        if (profileDir.exists() && profileDir.isDirectory) {
+            profileDir.listFiles()?.forEach { file ->
+                if (file.isFile && file.extension == "json") {
+                    jsonFiles.add(file.nameWithoutExtension)
+                }
+            }
+        }
+        _profiles.value = jsonFiles
     }
 
     private fun saveSettings() {
@@ -291,6 +316,20 @@ class SettingsManager {
         settings.gameWindows.remove(windowName)
         _gameWindows.value.remove(windowName)
         saveSettings()
+    }
+
+    fun createProfile(newProfileName: String) {
+        val profileFile = File(getProfileDirectory(), "${newProfileName}.json")
+        if (!profileFile.exists()) {
+            profileFile.writeText("")
+        } else {
+            // abnormal case, if the program started without this profile, but then the user manually placed it into the folder
+            // @TODO: then just load the profile into memory
+        }
+        // add to list of profiles
+        val currentList = profiles.value.toMutableList()
+        currentList.add(newProfileName)
+        _profiles.value = currentList
     }
 }
 

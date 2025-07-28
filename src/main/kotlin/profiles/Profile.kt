@@ -7,7 +7,7 @@ import model.MudConnection
 import model.SettingsManager
 import viewmodel.MainViewModel
 
-class Profile(val name: String, settings: SettingsManager, isMapWidgetReady: StateFlow<Boolean>) {
+class Profile(val name: String, settings: SettingsManager, areMapsReady: StateFlow<Boolean>) {
     val client = MudConnection(settings.gameServer, settings.gamePort)
     val mainViewModel = MainViewModel(client, settings)
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -16,11 +16,20 @@ class Profile(val name: String, settings: SettingsManager, isMapWidgetReady: Sta
         if (!settings.gameWindows.value.contains(name)) {
             settings.addGameWindow(name)
         }
+
+        // if profile doesn't exist (e.g. Default one), create it
+        if (!settings.profiles.value.contains(name)) {
+            settings.createProfile(name)
+        } else {
+            // if it exists, load it
+        }
+
+
         // read settings from settings.options dir/user_profiles/profilename.profile
         scope.launch {
             // Wait until the map is ready
             // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
-            isMapWidgetReady.first { it }
+            areMapsReady.first { it }
             mainViewModel.connect()
         }
     }
