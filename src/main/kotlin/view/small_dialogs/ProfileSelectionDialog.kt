@@ -69,8 +69,6 @@ fun ProfileSelectionDialogWindow(
     val profileList by settings.profiles.collectAsState()
     val robotoFont = remember { FontManager.getFont("RobotoClassic") }
 
-    // Hardcoded colors are now removed from the composable.
-
     MaterialTheme(colors = AppColors.DarkColorPalette) {
         DialogWindow(
             onCloseRequest = { onCloseRequest() },

@@ -300,6 +300,7 @@ class SettingsManager {
         _floatWindowsFlow.value = updatedWindows
     }
 
+    // @TODO: fix
     fun updateSplitSetting(newValue : Boolean) {
         settings.splitCommands = newValue
         _splitCommands.value = newValue
@@ -307,14 +308,12 @@ class SettingsManager {
     }
 
     fun addGameWindow(windowName : String) {
-        settings.gameWindows.add(windowName)
-        _gameWindows.value.add(windowName)
+        settings.gameWindows.add(windowName) // this updates gameWindows.value
         saveSettings()
     }
 
     fun removeGameWindow(windowName : String) {
         settings.gameWindows.remove(windowName)
-        _gameWindows.value.remove(windowName)
         saveSettings()
     }
 
