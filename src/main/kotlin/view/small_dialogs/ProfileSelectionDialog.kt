@@ -5,22 +5,30 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
-import kotlinx.coroutines.flow.StateFlow
+import misc.FontManager
 import model.SettingsManager
-
-// Data class remains the same
-data class Profile(val name: String, val selectable: Boolean = true)
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.ui.draw.clip
 
 @Composable
 fun ProfileDialog(
@@ -44,6 +52,19 @@ fun ProfileDialog(
     }
 }
 
+// Define a modern dark color palette inspired by Discord
+private val DarkColorPalette = darkColors(
+    primary = Color(0xFF7289DA), // A vibrant blue for primary actions
+    primaryVariant = Color(0xFF5B6EAE),
+    secondary = Color(0xFF7289DA), // A consistent secondary color
+    background = Color(0xFF2C2F33), // Deep dark grey for the window background
+    surface = Color(0xFF36373e),
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onBackground = Color.White,
+    onSurface = Color.White
+)
+
 @Composable
 fun ProfileSelectionDialogWindow(
     settings: SettingsManager,
@@ -57,89 +78,209 @@ fun ProfileSelectionDialogWindow(
 
     val profileList by settings.profiles.collectAsState()
 
-    // Use DialogWindow instead of the deprecated Dialog
-    DialogWindow(
-        onCloseRequest = { onCloseRequest() },
-        state = rememberDialogState(width = 400.dp, height = 500.dp),
-        undecorated = true, // Set undecorated to true for a custom title bar
-        resizable = false,
-        title = "Select Profile" // Still useful for taskbar/OS identification
-    ) {
-        Surface(modifier = Modifier.fillMaxSize(), elevation = 4.dp) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // --- Custom Title Bar ---
-                // This is necessary because undecorated=true removes the default one.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Выберите или создайте профиль", style = MaterialTheme.typography.h6)
-                    IconButton(onClick = { onCloseRequest() }) {
-                        Icon(Icons.Default.Close, contentDescription = "Закрыть окно")
-                    }
-                }
+    val robotoFont = remember { FontManager.getFont("RobotoClassic")}
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // --- Profiles List ---
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(profileList) { profile ->
-                        val isSelected = selectedProfile == profile
-                        val backgroundColor = if (isSelected) MaterialTheme.colors.secondary.copy(alpha = 0.5f) else Color.Transparent
+    MaterialTheme(colors = DarkColorPalette) {
+        DialogWindow(
+            onCloseRequest = { onCloseRequest() },
+            state = rememberDialogState(width = 400.dp, height = 500.dp),
+            undecorated = true,
+            resizable = false,
+            title = "Select Profile",
+            transparent = true,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(5.dp),
+                color = MaterialTheme.colors.surface,
+                modifier = Modifier.fillMaxSize(),
+                //elevation = 4.dp, // this thing breaks the background color
+            ) {
+                Column {
+                    // --- Custom Title Bar ---
+                    Column(
+                        modifier = Modifier
+                            .padding(start = 16.dp, top = 0.dp, end = 0.dp, bottom = 0.dp)
+                            .background(Color(0xFF36373e))
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(backgroundColor)
-                                .clickable(enabled = !gameWindows.containsKey(profile)) {
-                                    selectedProfile = profile
-                                    isAddWindowEnabled = true
-                                }
-                                .padding(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = profile,
-                                color = if (!gameWindows.containsKey(profile)) LocalContentColor.current else LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
+                                "Выберите профиль",
+                                fontFamily = robotoFont,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 16.sp,
+                                color = Color.White,
                             )
-                            if (gameWindows.containsKey(profile)) {
-                                Text(" (используется)", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic, color = LocalContentColor.current.copy(alpha = ContentAlpha.disabled))
+                            IconButton(onClick = { onCloseRequest() }) {
+                                Icon(Icons.Default.Close, contentDescription = "Закрыть окно")
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // --- Create New Profile ---
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Создать профиль:")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedTextField(value = newProfileName, onValueChange = { newProfileName = it }, modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = {
-                        if (newProfileName.isNotBlank()) {
-                            selectedProfile = newProfileName
-                            isAddWindowEnabled = true
-                            settings.createProfile(newProfileName)
-                            newProfileName = ""
+                    // --- Content of the window
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // --- Profiles List ---
+                        LazyColumn(modifier = Modifier
+                            .weight(1f)
+                            .background(color = Color(0xFF2F3036), shape = RoundedCornerShape(5.dp))
+                        ) {
+                            items(profileList) { profile ->
+                                // 1. Create an InteractionSource for each item.
+                                val interactionSource = remember { MutableInteractionSource() }
+                                // 2. Track the hover state from the InteractionSource.
+                                val isHovered by interactionSource.collectIsHoveredAsState()
+                                val isSelected = selectedProfile == profile
+                                val backgroundColor = when {
+                                    isSelected -> MaterialTheme.colors.secondary.copy(alpha = 0.7f)
+                                    isHovered -> Color.White.copy(alpha = 0.1f)
+                                    else -> Color.Transparent // Use transparent to show the LazyColumn's background
+                                }
+                                Box(modifier = Modifier.padding(horizontal = 10.dp).clip(RoundedCornerShape(5.dp))) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(backgroundColor)
+                                            .clickable(
+                                                interactionSource = interactionSource,
+                                                indication = null,
+                                                enabled = !gameWindows.containsKey(profile)
+                                                ) {
+                                                selectedProfile = profile
+                                                isAddWindowEnabled = true
+                                            }
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val textColor = if (!gameWindows.containsKey(profile)) {
+                                            LocalContentColor.current
+                                        } else {
+                                            LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
+                                        }
+                                        Text(
+                                            text = profile,
+                                            fontFamily = robotoFont,
+                                            color = textColor
+                                        )
+                                        if (gameWindows.containsKey(profile)) {
+                                            Text(
+                                                " (используется)",
+                                                //style = MaterialTheme.typography.caption,
+                                                fontFamily = robotoFont,
+                                                fontSize = 10.sp,
+                                                fontStyle = FontStyle.Italic,
+                                                color = textColor
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
-                    }, enabled = newProfileName.isNotBlank()) {
-                        Text("Создать")
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                // --- Action Buttons: Add Window ---
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Button(onClick = {
-                        selectedProfile?.let { profileNameToAdd ->
-                            onAddWindow(profileNameToAdd)
-                            onCloseRequest()
+                        Text("Создать профиль", fontFamily = robotoFont, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row (){
+                            // --- Create New Profile ---
+                            // --- Custom BasicTextField Implementation ---
+                            var isFocused by remember { mutableStateOf(false) }
+
+                            // --- START OF CUSTOMIZATION ---
+                            val borderColor = if (isFocused) Color(0xFF83adf6) else Color(0xFF414148)
+
+                            // 4. Control text properties
+                            val textStyle = TextStyle(
+                                color = MaterialTheme.colors.onSurface,
+                                fontSize = 16.sp,
+                                fontFamily = robotoFont,
+                                fontWeight = FontWeight.Light,
+                            )
+                            // --- END OF CUSTOMIZATION ---
+
+                            BasicTextField(
+                                value = newProfileName,
+                                onValueChange = { newProfileName = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .onFocusChanged { focusState -> isFocused = focusState.isFocused }
+                                    .background(
+                                        color = Color(0xFF2b2c32),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .border(1.dp, borderColor, RoundedCornerShape(12.dp)),
+                                textStyle = textStyle,
+                                singleLine = true,
+                                cursorBrush = SolidColor(MaterialTheme.colors.primary),
+                                decorationBox = { innerTextField ->
+                                    // This Box provides the layout and padding for the text field
+                                    Box(
+                                        contentAlignment = Alignment.CenterStart,
+                                        // 1. Control the text's padding
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    ) {
+                                        innerTextField()
+                                        if (newProfileName.isEmpty()) {
+                                            Text(
+                                                text = "Имя профиля...",
+                                                style = textStyle,
+                                                color = MaterialTheme.colors.onSurface.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                            // --- End of Custom BasicTextField ---
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(onClick = {
+                                if (newProfileName.isNotBlank()) {
+                                    selectedProfile = newProfileName
+                                    isAddWindowEnabled = true
+                                    settings.createProfile(newProfileName)
+                                    newProfileName = ""
+                                }
+                            }, enabled = !profileList.contains(newProfileName) && newProfileName.isNotBlank()) {
+                                Text("Создать", fontFamily = robotoFont, fontWeight = FontWeight.Normal, letterSpacing = 1.sp)
+                            }
                         }
-                    }, enabled = isAddWindowEnabled) {
-                        Text("Добавить окно")
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // --- Action Buttons: Add Window ---
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Button(onClick = {
+                                selectedProfile?.let { profileNameToAdd ->
+                                    onAddWindow(profileNameToAdd)
+                                    onCloseRequest()
+                                }
+                            }, enabled = isAddWindowEnabled) {
+                                Text("Добавить окно", fontFamily = robotoFont, fontWeight = FontWeight.Normal, letterSpacing = 1.sp)
+                            }
+
+                            Button(onClick = {
+                                selectedProfile?.let { profileToDelete ->
+                                    selectedProfile = ""
+                                    isAddWindowEnabled = false
+                                    settings.deleteProfile(profileToDelete)
+                                }
+                            },
+                                colors = ButtonDefaults.buttonColors(
+                                    backgroundColor = Color(0xFF3e3f45),
+                                    disabledBackgroundColor = Color(0xFF4e4f55),
+                                    contentColor = Color(0xFFfa928d),
+                                    disabledContentColor = Color(0xFF919296)
+                                ),
+
+                                enabled = isAddWindowEnabled) {
+                                Text("Удалить", fontFamily = robotoFont, fontWeight = FontWeight.Normal, letterSpacing = 1.sp)
+                            }
+                        }
                     }
                 }
             }

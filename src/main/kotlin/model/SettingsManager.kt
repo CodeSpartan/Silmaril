@@ -331,6 +331,14 @@ class SettingsManager {
         currentList.add(newProfileName)
         _profiles.value = currentList
     }
+
+    fun deleteProfile(profile: String) {
+        val profileFile = File(getProfileDirectory(), "${profile}.json")
+        profileFile.delete()
+        val currentList = profiles.value.toMutableList()
+        currentList.remove(profile)
+        _profiles.value = currentList
+    }
 }
 
 fun unzipFile(zipFilePath: String, destDirectory: String) {
