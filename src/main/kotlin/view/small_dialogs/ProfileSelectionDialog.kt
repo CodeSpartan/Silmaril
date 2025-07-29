@@ -28,7 +28,9 @@ import model.SettingsManager
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 
 @Composable
 fun ProfileDialog(
@@ -97,16 +99,12 @@ fun ProfileSelectionDialogWindow(
             ) {
                 Column {
                     // --- Custom Title Bar ---
-                    Column(
-                        modifier = Modifier
-                            .padding(start = 16.dp, top = 0.dp, end = 0.dp, bottom = 0.dp)
-                            .background(Color(0xFF36373e))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 7.dp, end = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Box(modifier = Modifier) {
                             Text(
                                 "Выберите профиль",
                                 fontFamily = robotoFont,
@@ -114,8 +112,24 @@ fun ProfileSelectionDialogWindow(
                                 fontSize = 16.sp,
                                 color = Color.White,
                             )
-                            IconButton(onClick = { onCloseRequest() }) {
-                                Icon(Icons.Default.Close, contentDescription = "Закрыть окно")
+                        }
+                        Box(modifier = Modifier.scale(0.8f)) {
+                            IconButton(
+                                onClick = { onCloseRequest() },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .border(
+                                        width = 2.5.dp,                       // Set the border thickness
+                                        color = Color(0xFFc4c5c9),    // Set the border color
+                                        shape = CircleShape,                // Make the border a perfect circle
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Закрыть окно",
+                                    tint = Color(0xFFc4c5c9)
+                                )
                             }
                         }
                     }
