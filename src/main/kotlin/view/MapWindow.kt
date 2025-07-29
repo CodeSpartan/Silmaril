@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import visual_styles.StyleManager
 import misc.UiColor
 import mud_messages.CurrentRoomMessage
-import viewmodel.SettingsViewModel
 import xml_schemas.Room
 import xml_schemas.Zone
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -40,13 +39,15 @@ import androidx.compose.ui.unit.Dp
 import misc.FontManager
 import model.MapModel
 import model.MudConnection
+import model.SettingsManager
 
 
 @Composable
 @Preview
-fun MapWindow(client: MudConnection, mapModel: MapModel, settingsViewModel: SettingsViewModel) {
+fun MapWindow(client: MudConnection, mapModel: MapModel, settingsManager: SettingsManager) {
 
-    val currentColorStyle by settingsViewModel.currentColorStyleName.collectAsState()
+    val settings by settingsManager.settings.collectAsState()
+    val currentColorStyle = settings.colorStyle
 
     var lastZone = -1000000 // -1 zone is reserved for roads
     var lastRoom = -1000000
@@ -104,7 +105,7 @@ fun MapWindow(client: MudConnection, mapModel: MapModel, settingsViewModel: Sett
             }
     ) {
         RoomsCanvas(
-            settingsViewModel = settingsViewModel,
+            settingsManager = settingsManager,
             modifier = Modifier.fillMaxSize().clipToBounds(),
             zoneState = curZoneState,
             centerOnRoomId = centerOnRoomId, // Pass the target ID to the canvas
@@ -167,7 +168,7 @@ fun MapWindow(client: MudConnection, mapModel: MapModel, settingsViewModel: Sett
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun RoomsCanvas(
-    settingsViewModel: SettingsViewModel,
+    settingsManager: SettingsManager,
     modifier: Modifier = Modifier,
     zoneState: MutableState<Zone?>,
     centerOnRoomId: Int?,
@@ -175,10 +176,10 @@ fun RoomsCanvas(
     // The canvas accepts a callback to report hover events up to its parent
     onRoomHover: (room: Room?, position: Offset) -> Unit
 ) {
+    val settings = settingsManager.settings.collectAsState()
     val dpi = LocalDensity.current.density
     val coroutineScope = rememberCoroutineScope()
-    val currentColorStyleName by settingsViewModel.currentColorStyleName.collectAsState()
-    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
+    val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }

@@ -1,5 +1,7 @@
 package viewmodel
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +12,7 @@ import mud_messages.TextMessageChunk
 import mud_messages.ColorfulTextMessage
 
 // ViewModel that holds the list of strings and manages the TCP connection
-class MainViewModel(private val client: MudConnection, private val settings: SettingsManager) {
+class MainViewModel(private val client: MudConnection, private val settingsManager: SettingsManager) {
 
     // Expose the list of messages as a StateFlow for UI to observe
     private val _messages = MutableStateFlow<List<ColorfulTextMessage>>(emptyList())
@@ -46,7 +48,7 @@ class MainViewModel(private val client: MudConnection, private val settings: Set
     fun sendMessage(message: String, displayAsUserInput: Boolean = true) {
         // println("Sending: $message")
         val playerCommands = splitOnTopLevelSemicolon(message)
-        val splitCommands = settings.splitCommands.value
+        val splitCommands = settingsManager.settings.value.splitCommands
 
         if (playerCommands.size > 1) {
             if (!splitCommands) {

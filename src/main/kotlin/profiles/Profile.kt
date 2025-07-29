@@ -7,19 +7,19 @@ import model.MudConnection
 import model.SettingsManager
 import viewmodel.MainViewModel
 
-class Profile(val name: String, settings: SettingsManager, areMapsReady: StateFlow<Boolean>) {
-    val client = MudConnection(settings.gameServer, settings.gamePort)
-    val mainViewModel = MainViewModel(client, settings)
+class Profile(val name: String, settingsManager: SettingsManager, areMapsReady: StateFlow<Boolean>) {
+    val client = MudConnection(settingsManager.settings.value.gameServer, settingsManager.settings.value.gamePort)
+    val mainViewModel = MainViewModel(client, settingsManager)
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     init {
-        if (!settings.gameWindows.value.contains(name)) {
-            settings.addGameWindow(name)
+        if (!settingsManager.settings.value.gameWindows.contains(name)) {
+            settingsManager.addGameWindow(name)
         }
 
         // if profile doesn't exist (e.g. Default one), create it
-        if (!settings.profiles.value.contains(name)) {
-            settings.createProfile(name)
+        if (!settingsManager.profiles.value.contains(name)) {
+            settingsManager.createProfile(name)
         } else {
             // if it exists, load it
         }

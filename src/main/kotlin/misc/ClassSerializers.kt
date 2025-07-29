@@ -28,11 +28,11 @@ data class WindowSettings(
 
 @Serializable
 data class FloatWindowSettings(
-    var show: Boolean = true,
+    val show: Boolean = true,
     @Serializable(with = PointSerializer::class)
-    var windowPosition: Point = Point(100, 100),
+    val windowPosition: Point = Point(100, 100),
     @Serializable(with = DimensionSerializer::class)
-    var windowSize: Dimension = Dimension(400, 400),
+    val windowSize: Dimension = Dimension(400, 400),
 )
 
 // A custom serializer for type 'Instant'

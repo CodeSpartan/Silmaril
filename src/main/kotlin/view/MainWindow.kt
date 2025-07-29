@@ -23,7 +23,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import viewmodel.MainViewModel
@@ -35,7 +34,7 @@ import kotlinx.coroutines.runBlocking
 import misc.FontManager
 import visual_styles.StyleManager
 import misc.UiColor
-import viewmodel.SettingsViewModel
+import model.SettingsManager
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 
@@ -43,7 +42,7 @@ import java.awt.event.ComponentEvent
 @Preview
 fun MainWindow(
     mainViewModel: MainViewModel,
-    settingsViewModel: SettingsViewModel,
+    settingsManager: SettingsManager,
     owner: ComposeWindow,
     isFocused: Boolean,
     windowId: Int,
@@ -51,10 +50,11 @@ fun MainWindow(
     // Observe messages from the ViewModel
     val messages by mainViewModel.messages.collectAsState()
 
-    // Observe currentFontFamily from the SettingsViewModel
-    val currentFontFamily by settingsViewModel.currentFontFamily.collectAsState()
-    val currentFontSize by settingsViewModel.currentFontSize.collectAsState()
-    val currentColorStyleName by settingsViewModel.currentColorStyleName.collectAsState()
+    val settings by settingsManager.settings.collectAsState()
+
+    val currentFontFamily = settings.font
+    val currentFontSize = settings.fontSize
+    val currentColorStyleName = settings.colorStyle
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -90,7 +90,7 @@ fun MainWindow(
         }
     })
 
-    val currentColorStyle = remember { StyleManager.getStyle(currentColorStyleName) }
+    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
 
     Surface(
         modifier = Modifier

@@ -4,7 +4,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import model.SettingsManager
-import viewmodel.SettingsViewModel
 import java.awt.Dimension
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -17,28 +16,27 @@ import view.*
 import view.small_dialogs.*
 
 fun main() = application {
-    val settings = remember { SettingsManager() }
+    val settingsManager = remember { SettingsManager() }
+    val settings by settingsManager.settings.collectAsState()
 
-    val _areMapsReady = MutableStateFlow(false)
+    val _areMapsReady = remember { MutableStateFlow(false) }
     val areMapsReady = _areMapsReady.asStateFlow()
 
-    val mapModel = remember { MapModel(settings) }
+    val mapModel = remember { MapModel(settingsManager) }
 
     var gameWindows: MutableMap<String, Profile> by remember {
-        mutableStateOf(settings.gameWindows.value.associateWith { windowName -> Profile(windowName, settings, areMapsReady) }.toMutableMap())
+        mutableStateOf(settings.gameWindows.associateWith { windowName -> Profile(windowName, settingsManager, areMapsReady) }.toMutableMap())
     }
 
     var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
     var currentMainViewModel by remember {mutableStateOf(gameWindows.values.first().mainViewModel)}
 
-    val settingsViewModel = remember { SettingsViewModel(settings) }
-
-    val showMapWindow = remember { mutableStateOf(settings.getFloatingWindowState("MapWindow").show) }
-    val showAdditionalOutputWindow = remember { mutableStateOf(settings.getFloatingWindowState("AdditionalOutput").show) }
-    val state = rememberWindowState(
-        placement = settings.windowPlacement,
-        position = settings.windowPosition,
-        size = settings.windowSize
+    val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
+    val showAdditionalOutputWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("AdditionalOutput").show) }
+    val mainWindowState = rememberWindowState(
+        placement = settings.windowSettings.windowPlacement,
+        position = settings.windowSettings.windowPosition,
+        size = settings.windowSettings.windowSize
     )
 
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -51,10 +49,10 @@ fun main() = application {
                 it.cleanup()
             }
             mapModel.cleanup()
-            settings.cleanup()
+            settingsManager.cleanup()
             exitApplication()
         },
-        state = state,
+        state = mainWindowState,
         title = "Silmaril",
         icon = painterResource("icon.png"),
         ) {
@@ -62,24 +60,24 @@ fun main() = application {
             Menu("Файл") {
                 Item("Toggle Map") {
                     showMapWindow.value = !showMapWindow.value
-                    settings.updateFloatingWindowState("MapWindow", showMapWindow.value)
+                    settingsManager.updateFloatingWindowState("MapWindow", showMapWindow.value)
                 }
                 Item("Toggle Additional Output") {
                     showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value
-                    settings.updateFloatingWindowState("AdditionalOutput", showAdditionalOutputWindow.value)
+                    settingsManager.updateFloatingWindowState("AdditionalOutput", showAdditionalOutputWindow.value)
                 }
                 Item("Toggle Font") {
-                    settingsViewModel.toggleFont()
+                    settingsManager.toggleFont()
                 }
                 Item("Toggle Color Style") {
-                    settingsViewModel.toggleColorStyle()
+                    settingsManager.toggleColorStyle()
                 }
                 Item("Exit") {
                     gameWindows.values.forEach {
                         it.cleanup()
                     }
                     mapModel.cleanup()
-                    settings.cleanup()
+                    settingsManager.cleanup()
                     exitApplication()
                 }
             }
@@ -90,7 +88,7 @@ fun main() = application {
         window.minimumSize = Dimension(800, 600)
 
         // watch for resize, move, fullscreen toggle and save into settings
-        SignUpToWindowEvents(state, settings)
+        SignUpToWindowEvents(mainWindowState, settingsManager)
 
         // Stability is achieved through keys in TabbedView for each tab
         val tabs = gameWindows.values.map { profile ->
@@ -99,7 +97,7 @@ fun main() = application {
                 title = profile.name,
                 content = { isFocused, thisTabId ->
                     HoverManagerProvider(window) {
-                        MainWindow(profile.mainViewModel, settingsViewModel, window, isFocused, thisTabId)
+                        MainWindow(profile.mainViewModel, settingsManager, window, isFocused, thisTabId)
                     }
                 }
             )
@@ -117,22 +115,22 @@ fun main() = application {
 
         // Map widget
         // FloatingWindow will provide real OwnerWindow down the line
-        FloatingWindow(showMapWindow, window, settings, "MapWindow")
+        FloatingWindow(showMapWindow, window, settingsManager, "MapWindow")
         {
             HoverManagerProvider(window) {
-                MapWindow(currentClient, mapModel, settingsViewModel)
+                MapWindow(currentClient, mapModel, settingsManager)
             }
         }
 
         // Additional output widget
-        FloatingWindow(showAdditionalOutputWindow, window, settings,"AdditionalOutput")
+        FloatingWindow(showAdditionalOutputWindow, window, settingsManager,"AdditionalOutput")
         {
-            AdditionalOutputWindow(currentMainViewModel, settingsViewModel)
+            AdditionalOutputWindow(currentMainViewModel, settingsManager)
         }
 
-        ProfileDialog(showProfileDialog, gameWindows, settings,
+        ProfileDialog(showProfileDialog, gameWindows, settingsManager,
             onAddWindow = { windowName ->
-                val newProfile = Profile(windowName, settings, areMapsReady)
+                val newProfile = Profile(windowName, settingsManager, areMapsReady)
                 gameWindows = (gameWindows + (windowName to newProfile)).toMutableMap()
             }
         )
@@ -143,7 +141,7 @@ fun main() = application {
         // @TODO: each connection needs its own log
         FileLogger.initialize("Silmaril")
         currentMainViewModel.displaySystemMessage("Проверяю карты...")
-        val mapsUpdated: Boolean = settings.updateMaps()
+        val mapsUpdated: Boolean = settingsManager.updateMaps()
         currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
         // all Profiles->MainViewModels wait for this bool to become true to connect to the server
         mapModel.loadAllMaps(_areMapsReady)

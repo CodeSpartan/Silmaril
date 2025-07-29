@@ -8,6 +8,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import misc.decryptFile
+import misc.getProgramDirectory
 import xml_schemas.Room
 import xml_schemas.Zone
 import java.awt.Point
@@ -44,7 +45,7 @@ class MapModel(private val settings: SettingsManager) {
     // called from main() after new maps have been downloaded and unzipped (or didn't need an update)
     fun loadAllMaps(modelReady: MutableStateFlow<Boolean>) {
         if (loadMapsJob == null || loadMapsJob?.isActive == false) {
-            val sourceDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
+            val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
             loadMapsJob = loadMapsScope.launch {
                 val xmlMapper = XmlMapper()
 
@@ -79,8 +80,8 @@ class MapModel(private val settings: SettingsManager) {
 
     // Decrypt all maps for debugging purpose
     private fun decryptAllMaps() {
-        val sourceDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
-        val targetDirPath = Paths.get(settings.getProgramDirectory(), "maps", "MapGenerator", "MapDecrypted").toString()
+        val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
+        val targetDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapDecrypted").toString()
         File(targetDirPath).mkdirs()
 
         // Get the list of all .xml files in the source directory

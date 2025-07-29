@@ -6,23 +6,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import visual_styles.StyleManager
 import misc.UiColor
+import model.SettingsManager
 import viewmodel.MainViewModel
-import viewmodel.SettingsViewModel
 
 @Composable
 @Preview
-fun AdditionalOutputWindow(mainViewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
+fun AdditionalOutputWindow(mainViewModel: MainViewModel, settingsManager: SettingsManager) {
 
-    val currentColorStyle by settingsViewModel.currentColorStyleName.collectAsState()
+    val settings = settingsManager.settings.collectAsState()
+    val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
+            .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
     ) {
     }
 }
