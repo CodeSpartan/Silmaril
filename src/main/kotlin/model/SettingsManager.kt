@@ -245,19 +245,15 @@ class SettingsManager {
     }
 
     fun addGameWindow(windowName : String) {
-        val tempMap = settings.value.gameWindows
-        tempMap.add(windowName)
         _settings.update { currentState ->
-            currentState.copy(gameWindows = tempMap)
+            currentState.copy(gameWindows = (settings.value.gameWindows + windowName).toMutableList())
         }
         saveSettings()
     }
 
     fun removeGameWindow(windowName : String) {
-        val tempMap = settings.value.gameWindows
-        tempMap.remove(windowName)
         _settings.update { currentState ->
-            currentState.copy(gameWindows = tempMap)
+            currentState.copy(gameWindows = settings.value.gameWindows.filter { it != windowName }.toMutableList())
         }
         saveSettings()
     }

@@ -1,14 +1,14 @@
 package view
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.Tab
-import androidx.compose.material.TabRow
-import androidx.compose.material.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 
 data class Tab(
@@ -20,7 +20,8 @@ data class Tab(
 fun TabbedView(
     tabs: List<Tab>,
     selectedTabIndex: Int,
-    onTabSelected: (Int, String) -> Unit
+    onTabSelected: (Int, String) -> Unit,
+    onTabClose: (Int, String) -> Unit
 ) {
     val safeSelectedTabIndex = selectedTabIndex.coerceIn(tabs.indices.takeIf { !it.isEmpty() } ?: 0..0)
 
@@ -31,7 +32,27 @@ fun TabbedView(
                 Tab(
                     selected = safeSelectedTabIndex == index,
                     onClick = { onTabSelected(index, tab.title) },
-                    text = { Text(tab.title) }
+                    text = {
+                        Row (
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(tab.title)
+                            // don't display the close button if there's only one tab
+                            if (tabs.size > 1) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            IconButton(
+                                onClick = { onTabClose(index, tab.title) },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close Tab"
+                                )
+                            }
+                                }
+                        }
+                    }
                 )
             }
         }

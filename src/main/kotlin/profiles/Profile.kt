@@ -7,7 +7,7 @@ import model.MudConnection
 import model.SettingsManager
 import viewmodel.MainViewModel
 
-class Profile(val name: String, settingsManager: SettingsManager, areMapsReady: StateFlow<Boolean>) {
+class Profile(val name: String, private val settingsManager: SettingsManager, areMapsReady: StateFlow<Boolean>) {
     val client = MudConnection(settingsManager.settings.value.gameServer, settingsManager.settings.value.gamePort)
     val mainViewModel = MainViewModel(client, settingsManager)
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -32,6 +32,11 @@ class Profile(val name: String, settingsManager: SettingsManager, areMapsReady: 
             areMapsReady.first { it }
             mainViewModel.connect()
         }
+    }
+
+    fun onCloseWindow() {
+        settingsManager.removeGameWindow(name)
+        cleanup()
     }
 
     fun cleanup() {

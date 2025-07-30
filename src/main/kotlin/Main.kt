@@ -110,6 +110,14 @@ fun main() = application {
                 println("Switching to tab: $tabName")
                 currentClient = gameWindows[tabName]!!.client
                 currentMainViewModel = gameWindows[tabName]!!.mainViewModel
+            },
+            onTabClose = { index, tabName ->
+                gameWindows[tabName]?.onCloseWindow()
+                gameWindows = gameWindows.filterKeys { it != tabName }.toMutableMap()
+                // if we're closing the currently opened tab, switch to the first one
+                if (index == selectedTabIndex) {
+                    selectedTabIndex = 0
+                }
             }
         )
 
