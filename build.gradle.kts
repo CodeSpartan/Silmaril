@@ -5,6 +5,8 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     kotlin("plugin.serialization") version "2.0.20"
+    // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
+    id("com.github.ben-manes.versions") version "0.52.0"
 }
 
 group = "ru.adan"
@@ -23,9 +25,9 @@ dependencies {
     // With compose.desktop.common you will also lose @Preview functionality
     implementation(compose.desktop.currentOs)
     // Add the kotlinx-coroutines-swing dependency for enabling Dispatchers.Main on Compose Desktop
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2")
     // json
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     // jackson xml
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.1")
     // this allows us to load fonts from the composeResources folder and load them in a new way
