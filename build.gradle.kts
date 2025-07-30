@@ -4,7 +4,7 @@ plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
-    kotlin("plugin.serialization") version "2.0.20"
+    kotlin("plugin.serialization") version "2.1.10"
     // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
     id("com.github.ben-manes.versions") version "0.52.0"
 }
@@ -32,6 +32,13 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.1")
     // this allows us to load fonts from the composeResources folder and load them in a new way
     implementation(compose.components.resources)
+    // For Kotlin Scripting
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:2.1.10")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:2.1.10")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-common:2.1.10")
+    // for icons
+    implementation("org.jetbrains.compose.material:material-desktop:1.8.2")
+    implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
 }
 
 compose.desktop {

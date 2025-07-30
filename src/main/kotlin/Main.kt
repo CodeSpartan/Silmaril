@@ -1,4 +1,4 @@
-import androidx.compose.ui.res.painterResource
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.*
 import model.FileLogger
 import model.MapModel
 import profiles.Profile
+import ru.adan.silmaril.generated.resources.Res
+import ru.adan.silmaril.generated.resources.icon
 import view.*
 import view.small_dialogs.*
 
@@ -54,7 +56,7 @@ fun main() = application {
         },
         state = mainWindowState,
         title = "Silmaril",
-        icon = painterResource("icon.png"),
+        icon = painterResource(Res.drawable.icon),
         ) {
         MenuBar {
             Menu("Файл") {
