@@ -13,6 +13,10 @@ import java.io.*
 import java.net.Socket
 import java.net.UnknownHostException
 import java.nio.charset.Charset
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.InflaterInputStream
 
 // Useful link: https://www.ascii-code.com/CP1251
@@ -51,9 +55,12 @@ class MudConnection(private val host: String, private val port: Int) {
     private var _compressionInProgress = false
     private var _zlibDecompressionStream: InflaterInputStream? = null
 
-    private val clientScope = CoroutineScope(Dispatchers.IO)
     private var clientJob: Job? = null
+    private val clientScope = CoroutineScope(Dispatchers.IO)
     private val reconnectScope = CoroutineScope(Dispatchers.IO)
+    private val keepAliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val lastSendTimestamp = AtomicLong(System.currentTimeMillis())
 
     object TelnetConstants {
         const val GoAhead: Byte = 0xF9.toByte()
@@ -73,6 +80,10 @@ class MudConnection(private val host: String, private val port: Int) {
         const val CarriageReturn : Byte = 0x0D.toByte() // \r
         const val LineFeed : Byte = 0x0A.toByte() // \n
         const val Escape : Byte = 0x1B.toByte() // escape
+    }
+
+    init {
+        launchKeepAliveJob()
     }
 
     // Attempt to establish the connection
@@ -96,6 +107,8 @@ class MudConnection(private val host: String, private val port: Int) {
 
     // this closes the connection without possibility of reconnection, e.g. when closing the window
     fun closeDefinitive() {
+        keepAliveScope.cancel()
+        reconnectScope.cancel()
         clientScope.cancel()
         close()
     }
@@ -119,6 +132,10 @@ class MudConnection(private val host: String, private val port: Int) {
     private fun reconnect() {
         reconnectScope.launch {
             println("Reconnecting...")
+            val currentDateTime = LocalDateTime.now()
+            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            val formattedDateTime = currentDateTime.format(formatter)
+            println("Current Date and Time: $formattedDateTime")
             //Thread.sleep(100)
             clientJob?.cancel()
             clientJob?.join()
@@ -132,8 +149,10 @@ class MudConnection(private val host: String, private val port: Int) {
     /************** SEND *************/
 
     fun sendMessage(message: String) {
+        lastSendTimestamp.set(System.currentTimeMillis())
+
         // Convert the message to bytes using the correct charset (Windows-1251)
-        val messageBytes = message.toByteArray(charset) + 0x0A.toByte()
+        val messageBytes = message.toByteArray(charset) + ControlCharacters.LineFeed
 
         try {
             outputStream?.let { outStream ->
@@ -148,6 +167,7 @@ class MudConnection(private val host: String, private val port: Int) {
 
     // send raw bytes, don't duplicate IAC bytes
     private fun sendRaw(messageBytes : ByteArray) {
+        lastSendTimestamp.set(System.currentTimeMillis())
         try {
             outputStream?.let { outStream ->
                 outStream.write(messageBytes)
@@ -179,6 +199,20 @@ class MudConnection(private val host: String, private val port: Int) {
         }
 
         return processingBuffer.copyOf(currentInProcessingBuffer)
+    }
+
+    // Sends '\n' every 30 minutes if there hasn't been any messages sent for 30+ minutes
+    private fun launchKeepAliveJob() {
+        keepAliveScope.launch {
+            val keepAliveIntervalMilliseconds = TimeUnit.MINUTES.toMillis(30L)
+            while (true) {
+                delay(keepAliveIntervalMilliseconds)
+                val timeSinceLastSend = System.currentTimeMillis() - lastSendTimestamp.get()
+                if (timeSinceLastSend >= keepAliveIntervalMilliseconds && socket?.isConnected == true) {
+                    sendRaw(byteArrayOf(ControlCharacters.LineFeed))
+                }
+            }
+        }
     }
 
     /**************** RECEIVE ****************/
