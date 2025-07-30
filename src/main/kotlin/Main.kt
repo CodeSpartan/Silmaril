@@ -108,17 +108,27 @@ fun main() = application {
             tabs = tabs,
             selectedTabIndex = selectedTabIndex,
             onTabSelected = { newIndex, tabName ->
-                selectedTabIndex = newIndex
-                println("Switching to tab: $tabName")
                 currentClient = gameWindows[tabName]!!.client
                 currentMainViewModel = gameWindows[tabName]!!.mainViewModel
+                selectedTabIndex = newIndex
             },
             onTabClose = { index, tabName ->
                 gameWindows[tabName]?.onCloseWindow()
                 gameWindows = gameWindows.filterKeys { it != tabName }.toMutableMap()
-                // if we're closing the currently opened tab, switch to the first one
+                // if we're closing the currently opened tab, switch to the first available one
                 if (index == selectedTabIndex) {
-                    selectedTabIndex = 0
+                    val firstValidProfile = gameWindows.values.first()
+                    currentClient = firstValidProfile.client
+                    currentMainViewModel = firstValidProfile.mainViewModel
+
+                    val firstAvailableTabIndex = tabs.indexOfFirst { it.title == firstValidProfile.name }
+                    selectedTabIndex = if (firstAvailableTabIndex > index) firstAvailableTabIndex-1 else firstAvailableTabIndex
+                }
+                // if we're closing a tab to the left of current, the current id will need to be adjusted to the left
+                else {
+                    if (selectedTabIndex > index) {
+                        selectedTabIndex--
+                    }
                 }
             }
         )
