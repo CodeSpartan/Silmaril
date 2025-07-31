@@ -127,6 +127,9 @@ class MudConnection(
         _compressionInProgress = false
         _compressionEnabled = false
         _customProtocolEnabled = false
+        _customMessageType = -1
+        mainBufferPointer = 0
+        mainBuffer.fill(0)
     }
 
     fun forceDisconnect() {
@@ -136,10 +139,6 @@ class MudConnection(
     private fun reconnect() {
         reconnectScope.launch {
             println("Reconnecting...")
-            val currentDateTime = LocalDateTime.now()
-            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            val formattedDateTime = currentDateTime.format(formatter)
-            println("Current Date and Time: $formattedDateTime")
             //Thread.sleep(100)
             clientJob?.cancel()
             clientJob?.join()
@@ -594,6 +593,7 @@ class MudConnection(
             if (mainBuffer[0] != 0x3C.toByte()) { // if xml message doesn't start right away (with '<'), find text inside it and process it
                 skipBytes = processBorkedTextMessage(mainBuffer, mainBufferPointer)
             }
+
             val byteMsg = mainBuffer.copyOfRange(skipBytes, mainBufferPointer)
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
