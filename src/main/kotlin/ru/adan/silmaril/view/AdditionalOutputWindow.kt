@@ -1,0 +1,28 @@
+package ru.adan.silmaril.view
+
+import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Modifier
+import ru.adan.silmaril.visual_styles.StyleManager
+import ru.adan.silmaril.misc.UiColor
+import ru.adan.silmaril.model.SettingsManager
+import ru.adan.silmaril.viewmodel.MainViewModel
+
+@Composable
+@Preview
+fun AdditionalOutputWindow(mainViewModel: MainViewModel, settingsManager: SettingsManager) {
+
+    val settings = settingsManager.settings.collectAsState()
+    val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
+    ) {
+    }
+}
