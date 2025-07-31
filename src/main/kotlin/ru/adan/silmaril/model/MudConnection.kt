@@ -334,6 +334,7 @@ class MudConnection(
             }
 
             // Detect end of custom protocol
+            // It can fail, if IAC has already arrived, but SNE hasn't yet.
             if (_customProtocolEnabled && _customMessageType != -1 && offset + 1 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.SubNegotiationEnd) {
@@ -349,7 +350,25 @@ class MudConnection(
                 continue
             }
 
-            // when "will echo" is on, it means the next thing we enter will be a password, right?
+            // A different attempt to detect end of custom protocol, catching what the first one missed
+            if (_customProtocolEnabled && _customMessageType != -1) {
+                if (data[offset] == TelnetConstants.SubNegotiationEnd) {
+                    if (mainBufferPointer > 0 && mainBuffer[mainBufferPointer-1] == TelnetConstants.InterpretAsCommand) {
+                        mainBufferPointer--
+                        flushMainBuffer()
+                        if (debug) {
+                            val str = "Detected command: custom message end (FALLBACK)"
+                            //println(str)
+                            FileLogger.log("MudConnection", str)
+                        }
+                        _customMessageType = -1
+                        continue
+                    }
+                }
+            }
+
+
+            // when "will echo" is on, it means the next thing we enter will be a password
             if (offset + 2 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.Will
@@ -394,8 +413,11 @@ class MudConnection(
                     FileLogger.log("MudConnection", str)
                 }
                 skipCount = 1
-                _customMessageType = -1 // added after a bug, watch that this doesn't break anything
-                // the reason being, we've had this scenario: custom message 14 arrives, then IAC, and then text, as if IAC ends any custom messages
+                // Update, no I don't think this solves anything. I'm commenting this out.
+                /**
+                * _customMessageType = -1 // added after a bug, watch that this doesn't break anything
+                * // the reason being, we've had this scenario: custom message 14 arrives, then IAC, and then text, as if IAC ends any custom messages
+                 */
                 flushMainBuffer()
                 continue
             }
