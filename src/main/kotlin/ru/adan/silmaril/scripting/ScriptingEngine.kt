@@ -4,9 +4,19 @@ import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
+import kotlin.script.experimental.jvm.dependenciesFromClassloader
 import kotlin.script.experimental.jvm.jvm
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
-import kotlin.script.experimental.jvm.dependenciesFromCurrentContext
+import javax.script.Compilable
+import javax.script.ScriptContext
+import javax.script.ScriptEngineManager
+import javax.script.SimpleBindings
+import kotlin.script.experimental.jvm.dependenciesFromClassloader // This is the correct import and function
+
+//@TODO: google how to do kotlin scripting through:
+// val engine = ScriptEngineManager().getEngineByExtension("kts")!!
+// println (engine.eval("2 + 3"))
+// https://docs.oracle.com/javase/8/docs/technotes/guides/scripting/prog_guide/api.html
 
 class ScriptingEngine(
     // The engine needs a way to interact with the game client (e.g. send data to MUD), which MainViewModel will help with
@@ -44,36 +54,49 @@ class ScriptingEngine(
      * Loads and executes a user's .kts script file.
      */
     fun loadScript(scriptFile: File) {
-        println("[SYSTEM]: Loading script from ${scriptFile.name}...")
-        val host = BasicJvmScriptingHost()
-        val compilationConfig = ScriptCompilationConfiguration {
-            // Here's the magic: we provide the ScriptingEngine instance (this)
-            // as an "implicit receiver" to the script. This makes all of the
-            // engine's public methods and our DSL extension functions available
-            // directly within the script.
-            implicitReceivers(ScriptingEngine::class)
+        println("[HOST]: ScriptingEngine instance is loaded by: ${this.javaClass.classLoader}")
+        println("[SYSTEM]: Loading and evaluating script ${scriptFile.name}...")
 
-            defaultImports(
-                "ru.adan.silmaril.scripting.*", // Imports trigger, echo, send
-                "kotlin.text.MatchResult"     // Imports the type for the 'match' parameter in triggers
-            )
+        try {
+            // 1. Use the low-level host for direct control.
+            val host = BasicJvmScriptingHost()
 
-            jvm {
-                dependenciesFromCurrentContext(wholeClasspath = true)
+            // 2. Define the compilation configuration.
+            val compilationConfig = ScriptCompilationConfiguration {
+                implicitReceivers(ScriptingEngine::class)
+                defaultImports("ru.adan.silmaril.scripting.*", "kotlin.text.MatchResult")
+
+                // This block configures the JVM environment for the script.
+                jvm {
+                    // THIS IS THE CORRECT FUNCTION.
+                    // It solves the 'argument type mismatch' error by forcing the script
+                    // to share the same classloader as our application.
+                    dependenciesFromClassloader(wholeClasspath = true)
+                }
             }
-        }
-        val evaluationConfig = ScriptEvaluationConfiguration {
-            // Pass the actual instance of the engine to be used as the receiver.
-            implicitReceivers(this)
-        }
 
-        val result = host.eval(scriptFile.toScriptSource(), compilationConfig, evaluationConfig)
-
-        // Error handling for script loading
-        result.reports.forEach { report ->
-            if (report.severity > ScriptDiagnostic.Severity.INFO) {
-                println("[SCRIPT ERROR]: ${report.message} at ${report.location}")
+            // 3. Define the evaluation configuration.
+            val evaluationConfig = ScriptEvaluationConfiguration {
+                // Provide the actual 'this' instance for the script to use.
+                implicitReceivers(this@ScriptingEngine)
             }
+
+            // 4. Evaluate the script.
+            // The host will use our compilation config (solving 'Unresolved reference')
+            // and our evaluation config (providing the 'this' instance).
+            val result = host.eval(scriptFile.toScriptSource(), compilationConfig, evaluationConfig)
+
+            // 5. Process any resulting errors or warnings.
+            result.reports.forEach { report ->
+                if (report.severity >= ScriptDiagnostic.Severity.WARNING) {
+                    val location = report.location?.let { "at line ${it.start.line}, col ${it.start.col}" } ?: ""
+                    println("[SCRIPT ${report.severity}]: ${report.message} $location")
+                }
+            }
+
+        } catch (e: Exception) {
+            println("[SYSTEM ERROR]: An exception occurred while setting up the script engine.")
+            e.printStackTrace()
         }
     }
 }
