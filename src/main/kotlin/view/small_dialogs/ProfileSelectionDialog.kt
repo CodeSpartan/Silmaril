@@ -31,12 +31,13 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import model.Profile
 import visual_styles.AppColors
 
 @Composable
 fun ProfileDialog(
     showProfileDialog: MutableState<Boolean>,
-    gameWindows: MutableMap<String, profiles.Profile>,
+    gameWindows: MutableMap<String, Profile>,
     settings: SettingsManager,
     onAddWindow: (windowName: String) -> Unit
 ) {
@@ -58,7 +59,7 @@ fun ProfileDialog(
 @Composable
 fun ProfileSelectionDialogWindow(
     settings: SettingsManager,
-    gameWindows: Map<String, profiles.Profile>,
+    gameWindows: Map<String, Profile>,
     onCloseRequest: () -> Unit,
     onAddWindow: (windowName: String) -> Unit
 ) {

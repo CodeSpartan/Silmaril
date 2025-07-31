@@ -21,7 +21,11 @@ import java.util.zip.InflaterInputStream
 
 // Useful link: https://www.ascii-code.com/CP1251
 
-class MudConnection(private val host: String, private val port: Int) {
+class MudConnection(
+    private val host: String,
+    private val port: Int,
+    private val onMessageReceived: (String) -> Boolean
+) {
 
     private var socket: Socket? = null
     private var inputStream: InputStream? = null
@@ -540,7 +544,7 @@ class MudConnection(private val host: String, private val port: Int) {
     // returns a TextMessageChunk without text, but with correctly set color information
     private fun updateCurrentColor(param1 : String, param2: String)
     {
-        var col = 0
+        var col: Int
         if (param1.isNotEmpty() && param2.isNotEmpty()) {
             isColorBright = param1.toInt() == 1
             col = param2.toInt()
@@ -574,7 +578,7 @@ class MudConnection(private val host: String, private val port: Int) {
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.value = it }
             }
             if (debug) {
-                val str1 = "- Custom message: ${_customMessageType}"
+                val str1 = "- Custom message: $_customMessageType"
                 //println(str1)
                 FileLogger.log("MudConnection", str1)
 
@@ -598,7 +602,8 @@ class MudConnection(private val host: String, private val port: Int) {
         val gluedMessage = bufferToColorfulText(buffer, bufferEndPointer)
         if (gluedMessage.chunks.isNotEmpty()) {
             val gluedString = gluedMessage.chunks.joinToString(separator = "", transform = { chunk -> chunk.text})
-            // @TODO: send gluedString to the trigger system here
+            // send gluedString to the trigger system
+            val displayReceivedMsg = onMessageReceived(gluedString)
             
             if (debug) {
                 var str = "Text message: \n"
@@ -609,7 +614,8 @@ class MudConnection(private val host: String, private val port: Int) {
                 //println(str)
                 FileLogger.log("MudConnection", str)
             }
-            _colorfulTextMessages.emit(gluedMessage)
+            if (displayReceivedMsg)
+                _colorfulTextMessages.emit(gluedMessage)
         } else if (emitEmpty) {
             _colorfulTextMessages.emit(emptyTextMessage())
         }

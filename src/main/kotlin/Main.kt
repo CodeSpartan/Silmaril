@@ -11,7 +11,7 @@ import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.*
 import model.FileLogger
 import model.MapModel
-import profiles.Profile
+import model.Profile
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.icon
 import view.*

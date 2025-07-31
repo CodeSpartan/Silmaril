@@ -68,3 +68,11 @@ fun getProfileDirectory(): String {
         dir.mkdirs()
     return path
 }
+
+fun getTriggersDirectory(): String {
+    val path = Paths.get(getProgramDirectory(), "triggers").toString()
+    val dir = File(path)
+    if (!dir.exists())
+        dir.mkdirs()
+    return path
+}
