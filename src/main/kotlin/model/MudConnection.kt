@@ -201,12 +201,12 @@ class MudConnection(private val host: String, private val port: Int) {
         return processingBuffer.copyOf(currentInProcessingBuffer)
     }
 
-    // Sends '\n' every 30 minutes if there hasn't been any messages sent for 30+ minutes
+    // Sends '\n' every 28-29 minutes if there hasn't been any messages sent in that period
     private fun launchKeepAliveJob() {
         keepAliveScope.launch {
-            val keepAliveIntervalMilliseconds = TimeUnit.MINUTES.toMillis(30L)
+            val keepAliveIntervalMilliseconds = TimeUnit.MINUTES.toMillis(28L)
             while (true) {
-                delay(keepAliveIntervalMilliseconds)
+                delay(TimeUnit.MINUTES.toMillis(1L)) // try every minute
                 val timeSinceLastSend = System.currentTimeMillis() - lastSendTimestamp.get()
                 if (timeSinceLastSend >= keepAliveIntervalMilliseconds && socket?.isConnected == true) {
                     sendRaw(byteArrayOf(ControlCharacters.LineFeed))
