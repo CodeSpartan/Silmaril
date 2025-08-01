@@ -62,18 +62,7 @@ class ScriptingEngine(
             val host = BasicJvmScriptingHost()
 
             // 2. Define the compilation configuration.
-            val compilationConfig = ScriptCompilationConfiguration {
-                implicitReceivers(ScriptingEngine::class)
-                defaultImports("ru.adan.silmaril.scripting.*", "kotlin.text.MatchResult")
-
-                // This block configures the JVM environment for the script.
-                jvm {
-                    // THIS IS THE CORRECT FUNCTION.
-                    // It solves the 'argument type mismatch' error by forcing the script
-                    // to share the same classloader as our application.
-                    dependenciesFromClassloader(wholeClasspath = true)
-                }
-            }
+            val compilationConfig = MudScriptCompilationConfiguration
 
             // 3. Define the evaluation configuration.
             val evaluationConfig = ScriptEvaluationConfiguration {
@@ -93,6 +82,8 @@ class ScriptingEngine(
                     println("[SCRIPT ${report.severity}]: ${report.message} $location")
                 }
             }
+
+            println("Triggers loaded: ${triggers.size}")
 
         } catch (e: Exception) {
             println("[SYSTEM ERROR]: An exception occurred while setting up the script engine.")
