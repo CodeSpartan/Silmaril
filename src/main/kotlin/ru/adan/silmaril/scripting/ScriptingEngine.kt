@@ -62,7 +62,7 @@ class ScriptingEngine(
             val host = BasicJvmScriptingHost()
 
             // 2. Define the compilation configuration.
-            val compilationConfig = MudScriptCompilationConfiguration
+            val compilationConfig = MudScriptDefinition
 
             // 3. Define the evaluation configuration.
             val evaluationConfig = ScriptEvaluationConfiguration {
