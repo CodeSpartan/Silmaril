@@ -24,6 +24,7 @@ class ScriptingEngine(
 ) {
     // @TODO: let triggers add/remove triggers. Currently that would throw an error in the for loop, probably.
     private val triggers = mutableListOf<Trigger>()
+    val foos = listOf("foo1", "foo2", "foo3")
 
     fun addTrigger(trigger: Trigger) {
         triggers.add(trigger)
@@ -42,7 +43,7 @@ class ScriptingEngine(
             val match = trigger.pattern.find(line)
             if (match != null) {
                 // Execute the trigger's action if it matches
-                trigger.action(match)
+                trigger.action.invoke(this, match)
                 //if (trigger.hideMatchedText) hideProcessedLine = true
                 //if (trigger.stopProcess) return hideProcessedLine
             }

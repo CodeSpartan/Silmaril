@@ -2,7 +2,7 @@ package ru.adan.silmaril.scripting
 
 data class Trigger(
     val pattern: Regex,
-    val action: (match: MatchResult) -> Unit,
+    val action: ScriptingEngine.(match: MatchResult) -> Unit,
     //val stopProcess: Boolean,
     //val hideMatchedText: Boolean,
 )
@@ -17,7 +17,7 @@ data class Trigger(
  */
 fun ScriptingEngine.trigger(
     pattern: String,
-    action: (match: MatchResult) -> Unit,
+    action: ScriptingEngine.(match: MatchResult) -> Unit,
     //stopProcess: Boolean, // @TODO: can these be made part of the action code?
     //hideMatchedText: Boolean // @TODO: can these be made part of the action code?
 ) {
