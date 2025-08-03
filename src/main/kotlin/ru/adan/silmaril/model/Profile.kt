@@ -35,6 +35,10 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
 
         scopeDefault.launch {
             compileTriggers()
+            // Wait until the map is ready
+            // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
+            areMapsReady.first { it }
+            mainViewModel.connect()
         }
     }
 
@@ -51,11 +55,6 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             }
         }
         mainViewModel.displaySystemMessage("Триггеров скомпилировано: $triggersLoaded")
-
-        // Wait until the map is ready
-        // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
-        areMapsReady.first { it }
-        mainViewModel.connect()
     }
 
     fun onCloseWindow() {

@@ -22,6 +22,20 @@ fun ScriptingEngine.trigger(
     println("[SYSTEM]: Registered trigger for pattern: $pattern")
 }
 
+///**
+// * DSL function to define an alias.
+// * @param pattern The regex pattern to match.
+// * @param action The block of code to run on a match.
+// */
+//fun ScriptingEngine.alias(
+//    pattern: String,
+//    action: ScriptingEngine.(match: MatchResult) -> Unit
+//) {
+//    val alias = Alias(pattern.toRegex(), action)
+//    this.addAlias(alias)
+//    println("[SYSTEM]: Registered alias for pattern: $pattern")
+//}
+
 /**
  * DSL function to send a command to the MUD.
  */
