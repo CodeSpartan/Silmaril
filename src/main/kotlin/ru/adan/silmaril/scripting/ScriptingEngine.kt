@@ -4,19 +4,7 @@ import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
-import kotlin.script.experimental.jvm.dependenciesFromClassloader
-import kotlin.script.experimental.jvm.jvm
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
-import javax.script.Compilable
-import javax.script.ScriptContext
-import javax.script.ScriptEngineManager
-import javax.script.SimpleBindings
-import kotlin.script.experimental.jvm.dependenciesFromClassloader // This is the correct import and function
-
-//@TODO: google how to do kotlin scripting through:
-// val engine = ScriptEngineManager().getEngineByExtension("kts")!!
-// println (engine.eval("2 + 3"))
-// https://docs.oracle.com/javase/8/docs/technotes/guides/scripting/prog_guide/api.html
 
 class ScriptingEngine(
     // The engine needs a way to interact with the game client (e.g. send data to MUD), which MainViewModel will help with
@@ -24,7 +12,7 @@ class ScriptingEngine(
 ) {
     // @TODO: let triggers add/remove triggers. Currently that would throw an error in the for loop, probably.
     private val triggers = mutableListOf<Trigger>()
-    val foos = listOf("foo1", "foo2", "foo3")
+    var timesAskedPassword: Int = 0
 
     fun addTrigger(trigger: Trigger) {
         triggers.add(trigger)
@@ -37,18 +25,14 @@ class ScriptingEngine(
     /**
      * Checks a line of text from the MUD against all active triggers.
      */
-    fun processLine(line: String) : Boolean {
-        var showProcessedLine = true
+    fun processLine(line: String)  {
         for (trigger in triggers) {
             val match = trigger.pattern.find(line)
             if (match != null) {
                 // Execute the trigger's action if it matches
                 trigger.action.invoke(this, match)
-                //if (trigger.hideMatchedText) hideProcessedLine = true
-                //if (trigger.stopProcess) return hideProcessedLine
             }
         }
-        return showProcessedLine
     }
 
     /**

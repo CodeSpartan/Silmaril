@@ -24,7 +24,7 @@ import java.util.zip.InflaterInputStream
 class MudConnection(
     private val host: String,
     private val port: Int,
-    private val onMessageReceived: (String) -> Boolean
+    private val onMessageReceived: (String) -> Unit
 ) {
 
     private var socket: Socket? = null
@@ -625,7 +625,7 @@ class MudConnection(
         if (gluedMessage.chunks.isNotEmpty()) {
             val gluedString = gluedMessage.chunks.joinToString(separator = "", transform = { chunk -> chunk.text})
             // send gluedString to the trigger system
-            val displayReceivedMsg = onMessageReceived(gluedString)
+            onMessageReceived(gluedString)
             
             if (debug) {
                 var str = "Text message: \n"
@@ -636,8 +636,7 @@ class MudConnection(
                 //println(str)
                 FileLogger.log("MudConnection", str)
             }
-            if (displayReceivedMsg)
-                _colorfulTextMessages.emit(gluedMessage)
+            _colorfulTextMessages.emit(gluedMessage)
         } else if (emitEmpty) {
             _colorfulTextMessages.emit(emptyTextMessage())
         }

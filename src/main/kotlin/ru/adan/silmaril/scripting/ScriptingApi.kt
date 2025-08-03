@@ -2,9 +2,7 @@ package ru.adan.silmaril.scripting
 
 data class Trigger(
     val pattern: Regex,
-    val action: ScriptingEngine.(match: MatchResult) -> Unit,
-    //val stopProcess: Boolean,
-    //val hideMatchedText: Boolean,
+    val action: ScriptingEngine.(match: MatchResult) -> Unit
 )
 
 // By making these extension functions on ScriptingEngine, they can only be called
@@ -17,11 +15,9 @@ data class Trigger(
  */
 fun ScriptingEngine.trigger(
     pattern: String,
-    action: ScriptingEngine.(match: MatchResult) -> Unit,
-    //stopProcess: Boolean, // @TODO: can these be made part of the action code?
-    //hideMatchedText: Boolean // @TODO: can these be made part of the action code?
+    action: ScriptingEngine.(match: MatchResult) -> Unit
 ) {
-    val trigger = Trigger(pattern.toRegex(), action, /*stopProcess, hideMatchedText*/)
+    val trigger = Trigger(pattern.toRegex(), action)
     this.addTrigger(trigger)
     println("[SYSTEM]: Registered trigger for pattern: $pattern")
 }
