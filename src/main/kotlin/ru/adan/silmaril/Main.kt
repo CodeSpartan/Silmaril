@@ -111,7 +111,7 @@ fun main() = application {
         val tabs = gameWindows.values.map { profile ->
             Tab(
                 // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
-                title = profile.name,
+                title = profile.profileName,
                 content = { isFocused, thisTabId ->
                     HoverManagerProvider(window) {
                         MainWindow(profile.mainViewModel, settingsManager, window, isFocused, thisTabId)
@@ -136,7 +136,7 @@ fun main() = application {
                     currentClient = firstValidProfile.client
                     currentMainViewModel = firstValidProfile.mainViewModel
 
-                    val firstAvailableTabIndex = tabs.indexOfFirst { it.title == firstValidProfile.name }
+                    val firstAvailableTabIndex = tabs.indexOfFirst { it.title == firstValidProfile.profileName }
                     selectedTabIndex =
                         if (firstAvailableTabIndex > index) firstAvailableTabIndex - 1 else firstAvailableTabIndex
                 }

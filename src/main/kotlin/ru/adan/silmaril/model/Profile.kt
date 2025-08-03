@@ -4,15 +4,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.getTriggersDirectory
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 
-class Profile(val name: String, private val settingsManager: SettingsManager, val areMapsReady: StateFlow<Boolean>) {
+class Profile(val profileName: String, private val settingsManager: SettingsManager, val areMapsReady: StateFlow<Boolean>) {
     val client = MudConnection(
         host = settingsManager.settings.value.gameServer,
         port = settingsManager.settings.value.gamePort,
@@ -20,22 +22,18 @@ class Profile(val name: String, private val settingsManager: SettingsManager, va
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
     val mainViewModel: MainViewModel = MainViewModel(client, settingsManager)
-    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, name)
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, profileName)
+    private val scopeDefault: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
+    val profileData: StateFlow<ProfileData> = _profileData
 
     init {
-        if (!settingsManager.settings.value.gameWindows.contains(name)) {
-            settingsManager.addGameWindow(name)
+        if (!settingsManager.settings.value.gameWindows.contains(profileName)) {
+            settingsManager.addGameWindow(profileName)
         }
 
-        // if profile doesn't exist (e.g. Default one), create it
-        if (!settingsManager.profiles.value.contains(name)) {
-            settingsManager.createProfile(name)
-        } else {
-            // @TODO: if it exists, load it
-        }
-
-        scope.launch {
+        scopeDefault.launch {
             compileTriggers()
         }
     }
@@ -61,12 +59,12 @@ class Profile(val name: String, private val settingsManager: SettingsManager, va
     }
 
     fun onCloseWindow() {
-        settingsManager.removeGameWindow(name)
+        settingsManager.removeGameWindow(profileName)
         cleanup()
     }
 
     fun cleanup() {
-        scope.cancel()
+        scopeDefault.cancel()
         mainViewModel.cleanup()
     }
 }

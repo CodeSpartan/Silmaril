@@ -35,6 +35,19 @@ data class FloatWindowSettings(
     val windowSize: Dimension = Dimension(400, 400),
 )
 
+@Serializable
+sealed class Variable {
+    data class StringValue(val value: String) : Variable()
+    data class IntValue(val value: Int) : Variable()
+    data class FloatValue(val value: Float) : Variable()
+}
+
+@Serializable
+data class ProfileData(
+    val enabledTriggerGroups: List<String> = emptyList(),
+    val variables: Map<String, Variable> = emptyMap(),
+)
+
 // A custom serializer for type 'Instant'
 object InstantSerializer : KSerializer<Instant> {
     override val descriptor: SerialDescriptor =

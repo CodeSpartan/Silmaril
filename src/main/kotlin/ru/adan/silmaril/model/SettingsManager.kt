@@ -15,6 +15,7 @@ import java.io.FileOutputStream
 import kotlinx.serialization.Serializable
 import ru.adan.silmaril.misc.FloatWindowSettings
 import ru.adan.silmaril.misc.InstantSerializer
+import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.WindowSettings
 import ru.adan.silmaril.misc.getProfileDirectory
 import ru.adan.silmaril.misc.getProgramDirectory
@@ -277,18 +278,30 @@ class SettingsManager {
         saveSettings()
     }
 
-    fun createProfile(newProfileName: String) {
+    fun createProfile(newProfileName: String) : ProfileData {
         val profileFile = File(getProfileDirectory(), "${newProfileName}.json")
+        val profileData = ProfileData()
         if (!profileFile.exists()) {
-            profileFile.writeText("")
-        } else {
-            // abnormal case, if the program started without this profile, but then the user manually placed it into the folder
-            // @TODO: then just load the profile into memory
+            val json = jsonFormat.encodeToString(profileData)
+            profileFile.writeText(json)
         }
         // add to list of profiles
         val currentList = profiles.value.toMutableList()
         currentList.add(newProfileName)
         _profiles.value = currentList
+        return profileData
+    }
+
+    fun loadProfile(profileName: String) : ProfileData {
+        val profileFile = File(getProfileDirectory(), "${profileName}.json")
+        if (profileFile.exists() && profiles.value.contains(profileName))
+        {
+            val json = profileFile.readText()
+            val profileData : ProfileData = Json.decodeFromString(json)
+            return profileData
+        } else {
+            return createProfile(profileName)
+        }
     }
 
     fun deleteProfile(profile: String) {
