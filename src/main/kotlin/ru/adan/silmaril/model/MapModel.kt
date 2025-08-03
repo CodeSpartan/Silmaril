@@ -23,13 +23,6 @@ class MapModel(private val settings: SettingsManager) {
 
     private val squashedZones : MutableSet<Int> = mutableSetOf()
 
-    private val loadMapsScope = CoroutineScope(Dispatchers.IO)
-    private var loadMapsJob: Job? = null
-
-    fun cleanup() {
-        loadMapsJob?.cancel()
-    }
-
     fun getZone(zoneId: Int): Zone? {
         return zonesMap[zoneId]
     }
@@ -44,39 +37,38 @@ class MapModel(private val settings: SettingsManager) {
     }
 
     // called from ru.adan.silmaril.main() after new maps have been downloaded and unzipped (or didn't need an update)
-    fun loadAllMaps(modelReady: MutableStateFlow<Boolean>) {
-        if (loadMapsJob == null || loadMapsJob?.isActive == false) {
-            val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
-            loadMapsJob = loadMapsScope.launch {
-                val xmlMapper = XmlMapper()
+    suspend fun loadAllMaps(modelReady: MutableStateFlow<Boolean>) : String {
+        val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
+        val xmlMapper = XmlMapper()
 
-                // Get the list of all .xml files in the source directory
-                val xmlFiles = File(sourceDirPath).listFiles { _, name ->
-                    name.endsWith(".xml", ignoreCase = true)
-                } ?: emptyArray()
+        // Get the list of all .xml files in the source directory
+        val xmlFiles = File(sourceDirPath).listFiles { _, name ->
+            name.endsWith(".xml", ignoreCase = true)
+        } ?: emptyArray()
 
-                // Process each XML file
-                for (xmlFile in xmlFiles) {
-                    // Get the decrypted content from the file
-                    val decryptedContent = decryptFile(xmlFile.absolutePath)
+        // Process each XML file
+        for (xmlFile in xmlFiles) {
+            // Get the decrypted content from the file
+            val decryptedContent = decryptFile(xmlFile.absolutePath)
 
-                    try {
-                        val zone: Zone = xmlMapper.readValue(decryptedContent, Zone::class.java)
-                        zonesMap[zone.id] = zone
-                    } catch (e: JsonMappingException) {
-                        println("Mapping error in ${xmlFile.name}: ${e.message}")
-                    }
-                }
-
-                println("Zones loaded into memory: ${zonesMap.size}")
-
-                zonesMap.forEach { zone ->
-                    roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
-                }
-
-                modelReady.value = true
+            try {
+                val zone: Zone = xmlMapper.readValue(decryptedContent, Zone::class.java)
+                zonesMap[zone.id] = zone
+            } catch (e: JsonMappingException) {
+                println("Mapping error in ${xmlFile.name}: ${e.message}")
             }
         }
+
+        val mapsLoadedMsg = "Карт загружено: ${zonesMap.size}"
+        println(mapsLoadedMsg)
+
+        zonesMap.forEach { zone ->
+            roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
+        }
+
+        modelReady.value = true
+
+        return mapsLoadedMsg
     }
 
     // Decrypt all maps for debugging purpose

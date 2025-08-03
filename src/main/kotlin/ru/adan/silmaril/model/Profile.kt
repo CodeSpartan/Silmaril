@@ -12,7 +12,7 @@ import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 
-class Profile(val name: String, private val settingsManager: SettingsManager, areMapsReady: StateFlow<Boolean>) {
+class Profile(val name: String, private val settingsManager: SettingsManager, val areMapsReady: StateFlow<Boolean>) {
     val client = MudConnection(
         host = settingsManager.settings.value.gameServer,
         port = settingsManager.settings.value.gamePort,
@@ -20,8 +20,8 @@ class Profile(val name: String, private val settingsManager: SettingsManager, ar
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
     val mainViewModel: MainViewModel = MainViewModel(client, settingsManager)
-    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel)
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, name)
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     init {
         if (!settingsManager.settings.value.gameWindows.contains(name)) {
@@ -32,28 +32,32 @@ class Profile(val name: String, private val settingsManager: SettingsManager, ar
         if (!settingsManager.profiles.value.contains(name)) {
             settingsManager.createProfile(name)
         } else {
-            // if it exists, load it
+            // @TODO: if it exists, load it
         }
 
-
-        // read settings from settings.options dir/user_profiles/profilename.profile
         scope.launch {
-            // Wait until the map is ready
-            // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
-            areMapsReady.first { it }
-            // load triggers
-            mainViewModel.displaySystemMessage("Компилирую триггеры...")
-            val triggersDir = File(getTriggersDirectory())
-            if (triggersDir.exists() && triggersDir.isDirectory) {
-                triggersDir.listFiles()?.forEach { file ->
-                    if (file.isFile && file.extension == "kts") {
-                        scriptingEngine.loadScript(file)
-                    }
+            compileTriggers()
+        }
+    }
+
+    suspend fun compileTriggers() {
+        // load triggers
+        mainViewModel.displaySystemMessage("Компилирую триггеры...")
+        val triggersDir = File(getTriggersDirectory())
+        var triggersLoaded = 0
+        if (triggersDir.exists() && triggersDir.isDirectory) {
+            triggersDir.listFiles()?.forEach { file ->
+                if (file.isFile && file.extension == "kts") {
+                    triggersLoaded += scriptingEngine.loadScript(file)
                 }
             }
-            mainViewModel.displaySystemMessage("Триггеры загружены")
-            mainViewModel.connect()
         }
+        mainViewModel.displaySystemMessage("Триггеров скомпилировано: $triggersLoaded")
+
+        // Wait until the map is ready
+        // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
+        areMapsReady.first { it }
+        mainViewModel.connect()
     }
 
     fun onCloseWindow() {

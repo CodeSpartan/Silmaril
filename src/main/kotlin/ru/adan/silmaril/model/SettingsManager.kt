@@ -19,6 +19,7 @@ import ru.adan.silmaril.misc.WindowSettings
 import ru.adan.silmaril.misc.getProfileDirectory
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.unzipFile
+import ru.adan.silmaril.scripting.ScriptingEngine
 import java.awt.Dimension
 import java.awt.Point
 
@@ -124,8 +125,23 @@ class SettingsManager {
             .launchIn(scope) // Ensure to launch in a defined CoroutineScope
     }
 
+    // Launched in a coroutine
+    suspend fun initMaps(
+        mapModel: MapModel,
+        mapsReady: MutableStateFlow<Boolean>,
+        onFeedback: (message: String) -> Unit
+        ) {
+        println("Проверяю карты...")
+        onFeedback("Проверяю карты...")
+        val mapsUpdated: Boolean = updateMaps()
+        onFeedback(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
+        onFeedback("Загружаю карты...")
+        val msg = mapModel.loadAllMaps(mapsReady)
+        onFeedback(msg)
+    }
+
     // Returns true if update happened
-    fun updateMaps() : Boolean {
+    suspend fun updateMaps() : Boolean {
         val url: String = settings.value.mapsUrl
         val lastChecked: Instant = settings.value.lastMapsUpdateDate
         val urlConnection: HttpURLConnection = URI(url).toURL().openConnection() as HttpURLConnection

@@ -10,7 +10,12 @@ import java.awt.Dimension
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import ru.adan.silmaril.model.FileLogger
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.Profile
@@ -26,6 +31,8 @@ import ru.adan.silmaril.view.TabbedView
 import ru.adan.silmaril.view.small_dialogs.ProfileDialog
 
 fun main() = application {
+    val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     val settingsManager = remember { SettingsManager() }
     val settings by settingsManager.settings.collectAsState()
 
@@ -55,10 +62,10 @@ fun main() = application {
     // Main Window
     Window(
         onCloseRequest = {
+            applicationScope.cancel()
             gameWindows.values.forEach {
                 it.cleanup()
             }
-            mapModel.cleanup()
             settingsManager.cleanup()
             exitApplication()
         },
@@ -83,10 +90,10 @@ fun main() = application {
                     settingsManager.toggleColorStyle()
                 }
                 Item("Exit") {
+                    applicationScope.cancel()
                     gameWindows.values.forEach {
                         it.cleanup()
                     }
-                    mapModel.cleanup()
                     settingsManager.cleanup()
                     exitApplication()
                 }
@@ -166,15 +173,15 @@ fun main() = application {
         )
     }
 
+
+
     // launch only on first composition, when the program starts
     LaunchedEffect(Unit) {
-        // @TODO: each connection needs its own log
-        FileLogger.initialize("Silmaril")
-        currentMainViewModel.displaySystemMessage("Проверяю карты...")
-        val mapsUpdated: Boolean = settingsManager.updateMaps()
-        currentMainViewModel.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
-        // all Profiles->MainViewModels wait for this bool to become true to connect to the server
-        mapModel.loadAllMaps(_areMapsReady)
+        applicationScope.launch(Dispatchers.IO) {
+            // @TODO: each connection needs its own log
+            FileLogger.initialize("Silmaril")
+            settingsManager.initMaps(mapModel, _areMapsReady, onFeedback = {msg -> currentMainViewModel.displaySystemMessage(msg)})
+        }
     }
 }
 

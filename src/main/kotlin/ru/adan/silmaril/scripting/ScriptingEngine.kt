@@ -2,16 +2,19 @@ package ru.adan.silmaril.scripting
 
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 
 class ScriptingEngine(
     // The engine needs a way to interact with the game client (e.g. send data to MUD), which MainViewModel will help with
-    val mainViewModel: MainViewModel
+    val mainViewModel: MainViewModel,
+    val profileName: String,
 ) {
     // @TODO: let triggers add/remove triggers. Currently that would throw an error in the for loop, probably.
-    private val triggers = mutableListOf<Trigger>()
+    // CopyOnWrite is a thread-safe list
+    private val triggers = CopyOnWriteArrayList<Trigger>()
     var timesAskedPassword: Int = 0
 
     fun addTrigger(trigger: Trigger) {
@@ -37,8 +40,9 @@ class ScriptingEngine(
 
     /**
      * Loads and executes a user's .kts script file.
+     * @return number of triggers loaded
      */
-    fun loadScript(scriptFile: File) {
+    fun loadScript(scriptFile: File) : Int {
         println("[HOST]: ScriptingEngine instance is loaded by: ${this.javaClass.classLoader}")
         println("[SYSTEM]: Loading and evaluating script ${scriptFile.name}...")
 
@@ -68,11 +72,14 @@ class ScriptingEngine(
                 }
             }
 
-            println("Triggers loaded: ${triggers.size}")
+            val triggersLoaded = result.reports.filter { report -> report.severity < ScriptDiagnostic.Severity.ERROR }.size
+            println("Triggers loaded: $triggersLoaded")
+            return triggersLoaded
 
         } catch (e: Exception) {
             println("[SYSTEM ERROR]: An exception occurred while setting up the script engine.")
             e.printStackTrace()
+            return 0
         }
     }
 }
