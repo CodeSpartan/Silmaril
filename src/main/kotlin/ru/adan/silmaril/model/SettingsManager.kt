@@ -19,7 +19,6 @@ import ru.adan.silmaril.misc.WindowSettings
 import ru.adan.silmaril.misc.getProfileDirectory
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.unzipFile
-import ru.adan.silmaril.scripting.ScriptingEngine
 import java.awt.Dimension
 import java.awt.Point
 

@@ -39,7 +39,7 @@ fun main() = application {
     val _areMapsReady = remember { MutableStateFlow(false) }
     val areMapsReady = _areMapsReady.asStateFlow()
 
-    val mapModel = remember { MapModel(settingsManager) }
+    val mapModel = remember { MapModel() }
 
     var gameWindows: MutableMap<String, Profile> by remember {
         mutableStateOf(settings.gameWindows.associateWith { windowName -> Profile(windowName, settingsManager, areMapsReady) }.toMutableMap())

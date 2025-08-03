@@ -2,11 +2,7 @@ package ru.adan.silmaril.model
 
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.decryptFile
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.xml_schemas.Room
@@ -17,7 +13,7 @@ import java.nio.file.Paths
 import kotlin.collections.iterator
 import kotlin.math.absoluteValue
 
-class MapModel(private val settings: SettingsManager) {
+class MapModel() {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
     private val roomToZone = mutableMapOf<Int, Zone>()
 
@@ -36,7 +32,7 @@ class MapModel(private val settings: SettingsManager) {
         return zone?.roomsList?.associateBy { it.id } ?: emptyMap()
     }
 
-    // called from ru.adan.silmaril.main() after new maps have been downloaded and unzipped (or didn't need an update)
+    // Called from a coroutine after new maps have been downloaded and unzipped (or didn't need an update)
     suspend fun loadAllMaps(modelReady: MutableStateFlow<Boolean>) : String {
         val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
         val xmlMapper = XmlMapper()
