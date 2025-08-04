@@ -1,6 +1,7 @@
 package ru.adan.silmaril.scripting
 
 import ru.adan.silmaril.GlobalAccess
+import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
@@ -16,7 +17,6 @@ class ScriptingEngine(
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
     private val triggers = CopyOnWriteArrayList<Trigger>()
-    var timesAskedPassword: Int = 0
 
     fun addTrigger(trigger: Trigger) {
         triggers.add(trigger)
@@ -32,6 +32,14 @@ class ScriptingEngine(
 
     fun sendWindowCommand(window: String, command: String) {
         GlobalAccess.gameWindows[window]?.mainViewModel?.treatUserInput(command)
+    }
+
+    fun getVarCommand(varName: String): Variable? {
+        return GlobalAccess.gameWindows[profileName]?.getVariable(varName)
+    }
+
+    fun setVarCommand(varName: String, varValue: Any) {
+        GlobalAccess.gameWindows[profileName]?.setVariable(varName, varValue)
     }
 
     /**

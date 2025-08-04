@@ -1,4 +1,5 @@
 package ru.adan.silmaril.scripting
+import ru.adan.silmaril.misc.*
 
 data class Trigger(
     val pattern: Regex,
@@ -62,4 +63,12 @@ fun ScriptingEngine.sendAll(command: String) {
  */
 fun ScriptingEngine.sendWindow(window: String, command: String) {
     this.sendWindowCommand(window, command)
+}
+
+fun ScriptingEngine.getVar(varName: String): Variable? {
+    return this.getVarCommand(varName)
+}
+
+fun ScriptingEngine.setVar(varName: String, varValue: Any) {
+    this.setVarCommand(varName, varValue)
 }

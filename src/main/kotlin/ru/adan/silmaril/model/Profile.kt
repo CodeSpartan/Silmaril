@@ -164,4 +164,15 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             }
             .launchIn(scopeDefault)
     }
+
+    fun getVariable(varName: String): Variable? {
+        return profileData.value.variables[varName]
+    }
+
+    fun setVariable(varName: String, varValue: Any) {
+        _profileData.update { currentProfile ->
+            val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
+            currentProfile.copy(variables = newVariablesMap)
+        }
+    }
 }

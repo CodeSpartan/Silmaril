@@ -24,6 +24,7 @@ object MudScriptDefinition : ScriptCompilationConfiguration({
     // Imports
     defaultImports(
         "ru.adan.silmaril.scripting.*",
+        "ru.adan.silmaril.misc.*",
         "kotlin.text.MatchResult",
     )
 

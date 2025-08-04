@@ -72,6 +72,15 @@ fun String.toVariable(): Variable {
     }
 }
 
+fun Any.toVariable(): Variable {
+    return when (this) {
+        is String -> Variable.StringValue(this)
+        is Int -> Variable.IntValue(this)
+        is Float -> Variable.FloatValue(this)
+        else -> Variable.StringValue("invalid")
+    }
+}
+
 @Serializable
 data class ProfileData(
     val enabledTriggerGroups: List<String> = emptyList(),
