@@ -90,6 +90,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         when (message.trim().substringBefore(" ")) {
             "#var"-> parseVarCommand(message)
             "#unvar" -> parseUnvarCommand(message)
+            "#vars" -> printAllVars()
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -100,37 +101,59 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
 
     fun parseVarCommand(message: String) {
         // tries to find pattern: #var {varName} {varValue}
-        // varName has to be a word, varValue can be any string with spaces
         val varRegex = """\#var [{]?([\p{L}\p{N}_]+)[}]? \{(.+)\}""".toRegex()
+        // tries to find pattern: #var varName varValue
         val varRegex2 = """\#var [{]?([\p{L}\p{N}_]+)[}]? (.+)""".toRegex()
+        // in both cases, varName has to be a word, varValue can be any string with spaces
+
         var varName : String = ""
         var varValue : String = ""
+        // if #var is followed only by name, updatePattern is false. It means we only want to display the var, no set it
+        var updatePattern = false
         val match1 = varRegex.find(message)
         if (match1 != null) {
             varName = match1.groupValues[1]
             varValue = match1.groupValues[2]
+            updatePattern = true
         } else {
             val match2 = varRegex2.find(message)
             if (match2 != null) {
                 varName = match2.groupValues[1]
                 varValue = match2.groupValues[2]
+                updatePattern = true
             } else {
-                mainViewModel.displayErrorMessage("Ошибка #var - не смог распарсить. Правильный синтаксис: #var {имя} {значение} (фигурные скобки опциональны).")
-                return
+                // Parsing a #var command without a value - when this happens, just display it
+                val varRegex3 = """\#var [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
+                val match3 = varRegex3.find(message)
+                if (match3 != null) {
+                    varName = match3.groupValues[1]
+                } else {
+                    mainViewModel.displayErrorMessage("Ошибка #var - не смог распарсить.")
+                    mainViewModel.displayErrorMessage("Правильный синтаксис: #var {имя} {значение} (фигурные скобки опциональны).")
+                    mainViewModel.displayErrorMessage("Или #var {имя} для отображения значения. Для использования в командах: \$имя.")
+                    return
+                }
             }
         }
-
-        _profileData.update { currentProfile ->
-            val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
-            currentProfile.copy(variables = newVariablesMap)
+        // if updatePattern, update the value
+        if (updatePattern) {
+            _profileData.update { currentProfile ->
+                val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
+                currentProfile.copy(variables = newVariablesMap)
+            }
         }
-        val varType: String = when (_profileData.value.variables[varName]) {
-            is Variable.IntValue -> "целое число"
-            is Variable.FloatValue -> "число с запятой"
-            is Variable.StringValue -> "строка"
-            null -> "ошибка"
+        // now display the variable
+        val foundVar = _profileData.value.variables[varName]
+        if (foundVar != null) {
+            val varType: String = when (foundVar) {
+                is Variable.IntValue -> "целое число"
+                is Variable.FloatValue -> "число с запятой"
+                is Variable.StringValue -> "строка"
+            }
+            mainViewModel.displaySystemMessage("Переменная $varName = $foundVar ($varType).")
+        } else {
+            mainViewModel.displaySystemMessage("Переменная $varName не найдена.")
         }
-        mainViewModel.displaySystemMessage("Переменная $varName = $varValue ($varType).")
     }
 
     fun parseUnvarCommand(message: String) {
@@ -150,6 +173,17 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             }
         } else {
             mainViewModel.displayErrorMessage("Ошибка #unvar - не смог распарсить. Правильный синтаксис: #unvar {имя} (фигурные скобки опциональны).")
+        }
+    }
+
+    fun printAllVars() {
+        profileData.value.variables.forEach { (varName, variable) ->
+            val varType: String = when (variable) {
+                is Variable.IntValue -> "целое число"
+                is Variable.FloatValue -> "число с запятой"
+                is Variable.StringValue -> "строка"
+            }
+            mainViewModel.displaySystemMessage("Переменная $varName = $variable ($varType).")
         }
     }
 
