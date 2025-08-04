@@ -64,19 +64,40 @@ class MainViewModel(
         }
 
         if (message.startsWith("#")) {
-            if (displayAsUserInput)
-                _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, ">> ${message}")))
             val withVariables = onInsertVariables(message)
+            if (displayAsUserInput) {
+                if (withVariables != message) {
+                    _messages.value += ColorfulTextMessage(arrayOf(
+                        TextMessageChunk(AnsiColor.Black, AnsiColor.Black, true, ">> $message "),
+                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, "> $withVariables"),
+                    ))
+                } else {
+                    _messages.value += ColorfulTextMessage(arrayOf(
+                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, ">> $withVariables"),
+                    ))
+                }
+            }
             onSystemMessage(withVariables)
         }
         else {
-            if (displayAsUserInput) {
-                if (isEnteringPassword.value)
-                    _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow,AnsiColor.Black,false,"> ********")))
-                else
-                    _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
-            }
             val withVariables = onInsertVariables(message)
+            if (displayAsUserInput) {
+                if (isEnteringPassword.value) {
+                    _messages.value += ColorfulTextMessage(arrayOf(
+                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> ********")
+                    ))
+                }
+                else if (withVariables != message) {
+                    _messages.value += ColorfulTextMessage(arrayOf(
+                        TextMessageChunk(AnsiColor.Black, AnsiColor.Black, true, "> $message "),
+                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $withVariables"),
+                    ))
+                } else {
+                    _messages.value += ColorfulTextMessage(arrayOf(
+                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $withVariables"),
+                    ))
+                }
+            }
             client.sendMessage(withVariables)
         }
     }

@@ -30,10 +30,10 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
     val mainViewModel: MainViewModel = MainViewModel(
-        client,
-        settingsManager,
-        ::onSystemMessage,
-        ::onInsertVariables
+        client = client,
+        settingsManager = settingsManager,
+        onSystemMessage = ::onSystemMessage,
+        onInsertVariables = ::onInsertVariables
     )
     val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, profileName)
     private val scopeDefault: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -41,7 +41,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
     val profileData: StateFlow<ProfileData> = _profileData
 
-    // matches any $words, including cyrillic
+    // Finds any $words, including cyrillic
     val insertVarRegex = """(\$[\p{L}\p{N}_]+)""".toRegex()
 
     init {
@@ -89,6 +89,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         // get first word of the message
         when (message.trim().substringBefore(" ")) {
             "#var"-> parseVarCommand(message)
+            "#unvar" -> parseUnvarCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -99,8 +100,9 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
 
     fun parseVarCommand(message: String) {
         // tries to find pattern: #var {varName} {varValue}
-        val varRegex = """\#var \{(.+)\} \{(.+)\}""".toRegex()
-        val varRegex2 = """\#var (.+) (.+)""".toRegex()
+        // varName has to be a word, varValue can be any string with spaces
+        val varRegex = """\#var [{]?([\p{L}\p{N}_]+)[}]? \{(.+)\}""".toRegex()
+        val varRegex2 = """\#var [{]?([\p{L}\p{N}_]+)[}]? (.+)""".toRegex()
         var varName : String = ""
         var varValue : String = ""
         val match1 = varRegex.find(message)
@@ -128,7 +130,27 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             is Variable.StringValue -> "строка"
             null -> "ошибка"
         }
-        mainViewModel.displaySystemMessage("Переменная $varName = $varValue ($varType)")
+        mainViewModel.displaySystemMessage("Переменная $varName = $varValue ($varType).")
+    }
+
+    fun parseUnvarCommand(message: String) {
+        // matches #unvar test or #unvar {test}
+        val unvarRegex = """\#unvar [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
+        val match = unvarRegex.find(message)
+        if (match != null) {
+            val varName = match.groupValues[1]
+            if (_profileData.value.variables.containsKey(varName)) {
+                _profileData.update { currentProfile ->
+                    val newVariablesMap = currentProfile.variables - varName
+                    currentProfile.copy(variables = newVariablesMap)
+                }
+                mainViewModel.displaySystemMessage("Переменная $varName удалена.")
+            } else {
+                mainViewModel.displaySystemMessage("Переменной $varName не было.")
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #unvar - не смог распарсить. Правильный синтаксис: #unvar {имя} (фигурные скобки опциональны).")
+        }
     }
 
     // This function can observe very rapid state changes, but will actually only saveSettings after a delay of 500 ms
@@ -138,7 +160,6 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             .drop(1)
             .debounce(debouncePeriod)
             .onEach {
-                println("saving profile")
                 settingsManager.saveProfile(profileName, it)
             }
             .launchIn(scopeDefault)
