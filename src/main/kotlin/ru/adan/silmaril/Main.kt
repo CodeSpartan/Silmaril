@@ -1,5 +1,6 @@
 package ru.adan.silmaril
 
+import androidx.compose.material.Icon
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
@@ -105,6 +106,11 @@ fun main() = application {
                 Item("Добавить окно", onClick = { showProfileDialog.value = true })
             }
             Menu(currentProfileName) {
+                CheckboxItem(
+                    text = "Авто-переподкл.",
+                    checked = settingsManager.settings.value.autoReconnect,
+                    onCheckedChange = { settingsManager.toggleAutoReconnect(it) }
+                )
                 Item("Группы", onClick = { /*showGroupsDialog.value = true*/ })
             }
         }

@@ -30,6 +30,7 @@ import java.awt.Point
 data class Settings(
     val gameServer: String = "adan.ru",
     val gamePort: Int = 4000,
+    val autoReconnect: Boolean = true,
     val mapsUrl: String = "http://adan.ru/files/Maps.zip",
     @Serializable(with = InstantSerializer::class)
     val lastMapsUpdateDate: Instant = Instant.EPOCH,
@@ -352,5 +353,12 @@ class SettingsManager {
                 }
             }
         }
+    }
+
+    fun toggleAutoReconnect(newValue: Boolean) {
+        _settings.update { currentState ->
+            currentState.copy(autoReconnect = newValue)
+        }
+        saveSettings()
     }
 }

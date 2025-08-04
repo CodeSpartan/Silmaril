@@ -27,25 +27,18 @@ class MainViewModel(
     // Coroutine scope tied to the lifecycle of the ViewModel
     private val viewModelScope = CoroutineScope(Dispatchers.IO)
 
-    fun reconnect() {
-        client.forceDisconnect()
-    }
-
-    // Function to connect to the TCP server
-    fun connect() {
-        // Launch a coroutine for network I/O
-        var connected = false
-        while (!connected)
-            connected = client.connect()
+    fun initAndConnect() {
         viewModelScope.launch {
             // Collect the model's flow of received bytes
             client.colorfulTextMessages.collect { message ->
                 //val message = dataToString(data)  // Convert the data (bytes) to String
-
                 // Append the received message to the list and expose it via StateFlow
                 _messages.value += message
             }
         }
+        // Launch a coroutine for network I/O
+        if (settingsManager.settings.value.autoReconnect)
+            client.connect()
     }
 
     // Function that reads user's text input

@@ -13,8 +13,6 @@ import java.io.*
 import java.net.Socket
 import java.net.UnknownHostException
 import java.nio.charset.Charset
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.InflaterInputStream
@@ -22,8 +20,9 @@ import java.util.zip.InflaterInputStream
 // Useful link: https://www.ascii-code.com/CP1251
 
 class MudConnection(
-    private val host: String,
-    private val port: Int,
+    var host: String,
+    var port: Int,
+    private val settingsManager: SettingsManager,
     private val onMessageReceived: (String) -> Unit
 ) {
 
@@ -133,7 +132,7 @@ class MudConnection(
     }
 
     fun forceDisconnect() {
-        socket?.close()
+        close()
     }
 
     private fun reconnect() {
@@ -147,6 +146,10 @@ class MudConnection(
             while (!connected)
                 connected = connect()
         }
+    }
+
+    fun isConnected(): Boolean {
+        return socket?.isConnected ?: false
     }
 
     /************** SEND *************/
@@ -242,7 +245,8 @@ class MudConnection(
                 // If we exit the loop, reconnect (return to ru.adan.silmaril.main thread)
                 // If an exception happens, also reconnect
                 withContext(Dispatchers.Main) {
-                    reconnect()
+                    if (settingsManager.settings.value.autoReconnect)
+                        reconnect()
                 }
             }
         }

@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
-import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.misc.getTriggersDirectory
 import ru.adan.silmaril.misc.toVariable
 import ru.adan.silmaril.scripting.ScriptingEngine
@@ -27,6 +26,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
     val client = MudConnection(
         host = settingsManager.settings.value.gameServer,
         port = settingsManager.settings.value.gamePort,
+        settingsManager = settingsManager,
         // MudConnection sends messages up to the Profile through this callback, and Profile sends it to the trigger system
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
@@ -62,7 +62,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             // Wait until the map is ready
             // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
             areMapsReady.first { it }
-            mainViewModel.connect()
+            mainViewModel.initAndConnect()
         }
 
         debounceSaveProfile()
@@ -102,6 +102,8 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             "#group" -> parseGroupCommand(message)
             "#groups" -> printAllGroups()
             "#act" -> parseSimpleTrigger(message)
+            "#zap" -> client.forceDisconnect()
+            "#conn" -> parseConnect(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -291,6 +293,23 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
         } else {
             mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда}.")
+        }
+    }
+
+    fun parseConnect(message: String) {
+        val actRegex = """\#conn (.+?) (\d+)$""".toRegex()
+        val match = actRegex.find(message)
+        if (match != null) {
+            val host = match.groupValues[1]
+            val port = match.groupValues[2].toIntOrNull() ?: 4000
+            mainViewModel.displaySystemMessage("Connecting to: $host:$port")
+            client.host = host
+            client.port = port
+            client.forceDisconnect()
+            if (!settingsManager.settings.value.autoReconnect)
+                client.connect()
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #conn - не смог распарсить. Правильный синтаксис: #conn host port.")
         }
     }
 }
