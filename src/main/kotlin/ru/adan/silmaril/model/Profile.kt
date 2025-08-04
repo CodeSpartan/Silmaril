@@ -101,6 +101,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             "#vars" -> printAllVars()
             "#group" -> parseGroupCommand(message)
             "#groups" -> printAllGroups()
+            "#act" -> parseSimpleTrigger(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -226,11 +227,11 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
 
     fun parseGroupCommand(message: String) {
         // matches #group {test} enable
-        val groupRegex = """\#group [{]?([\p{L}\p{N}_]+)[}]? (enable|disable)""".toRegex()
+        val groupRegex = """\#group (enable|disable) [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
         val match = groupRegex.find(message)
         if (match != null) {
-            val groupName = match.groupValues[1].uppercase()
-            val enable = match.groupValues[2] // "enable" or "disable"
+            val enable = match.groupValues[1] // "enable" or "disable"
+            val groupName = match.groupValues[2].uppercase()
             if (enable == "enable") {
                 _profileData.update { currentProfile ->
                     val newGroups = currentProfile.enabledTriggerGroups + groupName
@@ -267,6 +268,29 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         }
         disabledGroups.forEach { groupName ->
             mainViewModel.displaySystemMessage("Группа $groupName выключена.")
+        }
+    }
+
+    fun parseSimpleTrigger(message: String) {
+        // matches #act {cond} {trigger} @ {group}, where condition isn't greedy, but trigger is greedy.
+        // this allows the trigger to be multi-layered, e.g. an #act command inside the trigger
+        // some '{' symbols had to be additionally escaped due to kotlin syntax
+        // originally the pattern is: \#act {(.+?)} {(.+)} @ [{]?([\p{L}\p{N}_]+)[}]?
+
+        // full pattern: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}
+        // smaller pattern: \#act {(.+?)} {(.+)} {(\d+)}
+        // smaller pattern: \#act {(.+?)} {(.+)}
+        val actRegex = """\#act \{(.+?)} \{(.+)} @ [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
+        val match = actRegex.find(message)
+        if (match != null) {
+            val entireCommand = match.groupValues[0]
+            val condition = match.groupValues[1]
+            val action = match.groupValues[2]
+            val groupName = match.groupValues[3]
+
+            mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда}.")
         }
     }
 }
