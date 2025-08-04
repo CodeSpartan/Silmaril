@@ -19,6 +19,7 @@ import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.WindowSettings
 import ru.adan.silmaril.misc.getProfileDirectory
 import ru.adan.silmaril.misc.getProgramDirectory
+import ru.adan.silmaril.misc.module
 import ru.adan.silmaril.misc.unzipFile
 import java.awt.Dimension
 import java.awt.Point
@@ -61,6 +62,7 @@ class SettingsManager {
     private val jsonFormat = Json {
         prettyPrint = true
         encodeDefaults = true
+        serializersModule = module
     }
 
     private val _settingsFlow = MutableStateFlow(settings.value.windowSettings)
@@ -310,6 +312,12 @@ class SettingsManager {
         val currentList = profiles.value.toMutableList()
         currentList.remove(profile)
         _profiles.value = currentList
+    }
+
+    fun saveProfile(profile: String, profileData: ProfileData) {
+        val profileFile = File(getProfileDirectory(), "${profile}.json")
+        val json = jsonFormat.encodeToString(profileData)
+        profileFile.writeText(json)
     }
 
     // temp method to toggle font

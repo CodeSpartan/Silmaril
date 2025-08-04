@@ -11,6 +11,9 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import java.awt.Dimension
 import java.awt.Point
 import java.time.Instant
@@ -37,9 +40,22 @@ data class FloatWindowSettings(
 
 @Serializable
 sealed class Variable {
+    @Serializable
     data class StringValue(val value: String) : Variable()
+    @Serializable
     data class IntValue(val value: Int) : Variable()
+    @Serializable
     data class FloatValue(val value: Float) : Variable()
+}
+
+// The module is necessary to serialize the Variable type
+// It needs to be explicitly specified in jsonFormat when reading/writing
+val module = SerializersModule {
+    polymorphic(Variable::class) {
+        subclass(Variable.StringValue::class)
+        subclass(Variable.IntValue::class)
+        subclass(Variable.FloatValue::class)
+    }
 }
 
 fun String.toVariable(): Variable {
@@ -53,7 +69,7 @@ fun String.toVariable(): Variable {
 @Serializable
 data class ProfileData(
     val enabledTriggerGroups: List<String> = emptyList(),
-    val variables: MutableMap<String, Variable> = mutableMapOf(),
+    val variables: Map<String, Variable> = mapOf(),
 )
 
 // A custom serializer for type 'Instant'

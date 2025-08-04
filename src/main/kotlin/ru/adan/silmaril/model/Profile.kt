@@ -2,11 +2,17 @@ package ru.adan.silmaril.model
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
@@ -42,6 +48,8 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             areMapsReady.first { it }
             mainViewModel.connect()
         }
+
+        debounceSaveProfile()
     }
 
     suspend fun compileTriggers() {
@@ -98,14 +106,29 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             }
         }
 
-        _profileData.value.variables[varName] = varValue.toVariable()
-        var varType: String = ""
-        when (_profileData.value.variables[varName]) {
-            is Variable.IntValue -> varType = "целое число"
-            is Variable.FloatValue -> varType = "число с запятой"
-            is Variable.StringValue -> varType = "строка"
-            null -> varType = "ошибка"
+        _profileData.update { currentProfile ->
+            val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
+            currentProfile.copy(variables = newVariablesMap)
+        }
+        val varType: String = when (_profileData.value.variables[varName]) {
+            is Variable.IntValue -> "целое число"
+            is Variable.FloatValue -> "число с запятой"
+            is Variable.StringValue -> "строка"
+            null -> "ошибка"
         }
         mainViewModel.displaySystemMessage("Переменная $varName = $varValue ($varType)")
+    }
+
+    // This function can observe very rapid state changes, but will actually only saveSettings after a delay of 500 ms
+    @OptIn(FlowPreview::class)
+    private fun debounceSaveProfile(debouncePeriod: Long = 500L) {
+        profileData
+            .drop(1)
+            .debounce(debouncePeriod)
+            .onEach {
+                println("saving profile")
+                settingsManager.saveProfile(profileName, it)
+            }
+            .launchIn(scopeDefault)
     }
 }
