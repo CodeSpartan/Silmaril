@@ -76,3 +76,7 @@ fun getTriggersDirectory(): String {
         dir.mkdirs()
     return path
 }
+
+fun String.capitalized(): String {
+    return this.replaceFirstChar { it.uppercaseChar() }
+}

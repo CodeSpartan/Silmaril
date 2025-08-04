@@ -13,13 +13,19 @@ class ScriptingEngine(
     // The engine needs a way to interact with the game client (e.g. send data to MUD), which MainViewModel will help with
     val mainViewModel: MainViewModel,
     val profileName: String,
+    val isGroupActive: (String) -> Boolean,
 ) {
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
-    private val triggers = CopyOnWriteArrayList<Trigger>()
+    private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf()
+    private var currentlyLoadingScript = ""
 
     fun addTrigger(trigger: Trigger) {
-        triggers.add(trigger)
+        val group = currentlyLoadingScript
+        if (!triggers.containsKey(group)) {
+            triggers[group] = CopyOnWriteArrayList<Trigger>()
+        }
+        triggers[group]!!.add(trigger)
     }
 
     fun sendCommand(command: String) {
@@ -46,11 +52,15 @@ class ScriptingEngine(
      * Checks a line of text from the MUD against all active triggers.
      */
     fun processLine(line: String)  {
-        for (trigger in triggers) {
-            val match = trigger.pattern.find(line)
-            if (match != null) {
-                // Execute the trigger's action if it matches
-                trigger.action.invoke(this, match)
+        for ((groupName, triggerList) in triggers) {
+            if (isGroupActive(groupName)) {
+                for (trigger in triggerList) {
+                    val match = trigger.pattern.find(line)
+                    if (match != null) {
+                        // Execute the trigger's action if it matches
+                        trigger.action.invoke(this, match)
+                    }
+                }
             }
         }
     }
@@ -62,6 +72,7 @@ class ScriptingEngine(
     fun loadScript(scriptFile: File) : Int {
         println("[HOST]: ScriptingEngine instance is loaded by: ${this.javaClass.classLoader}")
         println("[SYSTEM]: Loading and evaluating script ${scriptFile.name}...")
+        currentlyLoadingScript = scriptFile.name.replace(".mud.kts", "")
 
         try {
             // 1. Use the low-level host for direct control.

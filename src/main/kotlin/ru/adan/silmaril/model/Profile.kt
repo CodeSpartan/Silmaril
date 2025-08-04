@@ -35,7 +35,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         onSystemMessage = ::onSystemMessage,
         onInsertVariables = ::onInsertVariables
     )
-    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, profileName)
+    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, profileName, ::isGroupActive)
     private val scopeDefault: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
@@ -208,5 +208,9 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
             currentProfile.copy(variables = newVariablesMap)
         }
+    }
+
+    fun isGroupActive(groupName: String): Boolean {
+        return profileData.value.enabledTriggerGroups.contains(groupName)
     }
 }

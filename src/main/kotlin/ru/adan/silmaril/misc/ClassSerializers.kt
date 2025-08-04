@@ -83,7 +83,7 @@ fun Any.toVariable(): Variable {
 
 @Serializable
 data class ProfileData(
-    val enabledTriggerGroups: List<String> = emptyList(),
+    val enabledTriggerGroups: Set<String> = emptySet(),
     val variables: Map<String, Variable> = mapOf(),
 )
 

@@ -29,6 +29,7 @@ import ru.adan.silmaril.view.MapWindow
 import ru.adan.silmaril.view.Tab
 import ru.adan.silmaril.view.TabbedView
 import ru.adan.silmaril.view.small_dialogs.ProfileDialog
+import ru.adan.silmaril.misc.capitalized
 
 fun main() = application {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -48,6 +49,7 @@ fun main() = application {
 
     var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
     var currentMainViewModel by remember {mutableStateOf(gameWindows.values.first().mainViewModel)}
+    var currentProfileName by remember {mutableStateOf(gameWindows.values.first().profileName.capitalized()) }
 
     val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
     val showAdditionalOutputWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("AdditionalOutput").show) }
@@ -102,6 +104,9 @@ fun main() = application {
             Menu("Вид") {
                 Item("Добавить окно", onClick = { showProfileDialog.value = true })
             }
+            Menu(currentProfileName) {
+                Item("Группы", onClick = { /*showGroupsDialog.value = true*/ })
+            }
         }
         window.minimumSize = Dimension(800, 600)
 
@@ -127,6 +132,7 @@ fun main() = application {
                 currentClient = gameWindows[tabName]!!.client
                 currentMainViewModel = gameWindows[tabName]!!.mainViewModel
                 selectedTabIndex = newIndex
+                currentProfileName = tabName.capitalized()
             },
             onTabClose = { index, tabName ->
                 gameWindows[tabName]?.onCloseWindow()
@@ -140,6 +146,7 @@ fun main() = application {
                     val firstAvailableTabIndex = tabs.indexOfFirst { it.title == firstValidProfile.profileName }
                     selectedTabIndex =
                         if (firstAvailableTabIndex > index) firstAvailableTabIndex - 1 else firstAvailableTabIndex
+                    currentProfileName = firstValidProfile.profileName.capitalized()
                 }
                 // if we're closing a tab to the left of current, the current id will need to be adjusted to the left
                 else {
