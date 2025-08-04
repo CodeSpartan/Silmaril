@@ -8,11 +8,14 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
+import ru.adan.silmaril.misc.capitalized
+import ru.adan.silmaril.model.SettingsManager
 
 class ScriptingEngine(
+    val profileName: String,
+    val settingsManager: SettingsManager,
     // The engine needs a way to interact with the game client (e.g. send data to MUD), which MainViewModel will help with
     val mainViewModel: MainViewModel,
-    val profileName: String,
     val isGroupActive: (String) -> Boolean,
 ) {
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
@@ -72,7 +75,8 @@ class ScriptingEngine(
     fun loadScript(scriptFile: File) : Int {
         println("[HOST]: ScriptingEngine instance is loaded by: ${this.javaClass.classLoader}")
         println("[SYSTEM]: Loading and evaluating script ${scriptFile.name}...")
-        currentlyLoadingScript = scriptFile.name.replace(".mud.kts", "")
+        currentlyLoadingScript = scriptFile.name.replace(".mud.kts", "").uppercase()
+        settingsManager.addGroup(currentlyLoadingScript)
 
         try {
             // 1. Use the low-level host for direct control.

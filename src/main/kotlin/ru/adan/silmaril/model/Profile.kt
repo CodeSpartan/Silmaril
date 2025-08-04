@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
+import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.misc.getTriggersDirectory
 import ru.adan.silmaril.misc.toVariable
 import ru.adan.silmaril.scripting.ScriptingEngine
@@ -26,22 +27,29 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
     val client = MudConnection(
         host = settingsManager.settings.value.gameServer,
         port = settingsManager.settings.value.gamePort,
-        // Profile catches text messages from the MudConnection and sends them to the scripting engine
+        // MudConnection sends messages up to the Profile through this callback, and Profile sends it to the trigger system
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
     val mainViewModel: MainViewModel = MainViewModel(
         client = client,
         settingsManager = settingsManager,
         onSystemMessage = ::onSystemMessage,
-        onInsertVariables = ::onInsertVariables
+        onInsertVariables = ::onInsertVariables,
+        // MainViewModel can emit system messages, which we also process for triggers
+        onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
-    val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, profileName, ::isGroupActive)
+    val scriptingEngine: ScriptingEngine = ScriptingEngine(
+        profileName = profileName,
+        settingsManager = settingsManager,
+        mainViewModel = mainViewModel,
+        isGroupActive = ::isGroupActive
+    )
     private val scopeDefault: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
     val profileData: StateFlow<ProfileData> = _profileData
 
-    // Finds any $words, including cyrillic
+    // A regex to find any $variables in user's input, including cyrillic, in order to substitute with values
     val insertVarRegex = """(\$[\p{L}\p{N}_]+)""".toRegex()
 
     init {
@@ -91,6 +99,8 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             "#var"-> parseVarCommand(message)
             "#unvar" -> parseUnvarCommand(message)
             "#vars" -> printAllVars()
+            "#group" -> parseGroupCommand(message)
+            "#groups" -> printAllGroups()
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -212,5 +222,44 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
 
     fun isGroupActive(groupName: String): Boolean {
         return profileData.value.enabledTriggerGroups.contains(groupName)
+    }
+
+    fun parseGroupCommand(message: String) {
+        // matches #group {test} enable
+        val groupRegex = """\#group [{]?([\p{L}\p{N}_]+)[}]? (enable|disable)""".toRegex()
+        val match = groupRegex.find(message)
+        if (match != null) {
+            val groupName = match.groupValues[1].uppercase()
+            val enable = match.groupValues[2] // "enable" or "disable"
+            if (enable == "enable") {
+                _profileData.update { currentProfile ->
+                    val newGroups = currentProfile.enabledTriggerGroups + groupName
+                    currentProfile.copy(enabledTriggerGroups = newGroups)
+                }
+                mainViewModel.displaySystemMessage("Группа $groupName включена. ${if (!settingsManager.groups.value.contains(groupName)) "Предупреждение: такой группы нет." else ""}.")
+            } else if (enable == "disable") {
+                _profileData.update { currentProfile ->
+                    val newGroups = currentProfile.enabledTriggerGroups - groupName
+                    currentProfile.copy(enabledTriggerGroups = newGroups)
+                }
+                mainViewModel.displaySystemMessage("Группа $groupName выключена.")
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #group - не смог распарсить. Правильный синтаксис: #group {имя} enable или disable.")
+        }
+    }
+
+    // a command that displays all groups
+    fun printAllGroups() {
+        profileData.value.enabledTriggerGroups.forEach { groupName ->
+            mainViewModel.displaySystemMessage("Группа $groupName включена.")
+        }
+        val disabledGroups = settingsManager.groups.value.subtract(profileData.value.enabledTriggerGroups)
+        if (disabledGroups.isNotEmpty()) {
+            mainViewModel.displaySystemMessage("-----------")
+        }
+        disabledGroups.forEach { groupName ->
+            mainViewModel.displaySystemMessage("Группа $groupName выключена.")
+        }
     }
 }

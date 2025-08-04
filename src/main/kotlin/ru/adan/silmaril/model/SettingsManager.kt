@@ -74,6 +74,11 @@ class SettingsManager {
     private val _profiles = MutableStateFlow(mutableListOf<String>())
     val profiles: StateFlow<MutableList<String>> get() = _profiles
 
+    // Groups aren't a real entity. The variable is populated from all triggers/aliases/etc that belong to groups.
+    // If a new trigger/alias is created, we simply update the list
+    private val _groups = MutableStateFlow(mutableSetOf<String>())
+    val groups: StateFlow<MutableSet<String>> get() = _groups
+
     private val scope = CoroutineScope(Dispatchers.Default)
 
     init {
@@ -335,5 +340,17 @@ class SettingsManager {
             "ModernDarkRed" -> "ClassicBlack"
             else -> "ClassicBlack"
         })
+    }
+
+    fun addGroup(newGroupName: String) {
+        if (!_groups.value.contains(newGroupName)) {
+            _groups.update { currentList ->
+                // Create a new mutable list based on the old one, add the new item, and return it.
+                // This new list becomes the new value of the StateFlow.
+                currentList.toMutableSet().apply {
+                    add(newGroupName)
+                }
+            }
+        }
     }
 }

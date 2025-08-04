@@ -15,6 +15,7 @@ class MainViewModel(
     private val settingsManager: SettingsManager,
     val onSystemMessage: (String) -> Unit,
     val onInsertVariables: (String) -> String,
+    private val onMessageReceived: (String) -> Unit
 ) {
 
     // Expose the list of messages as a StateFlow for UI to observe
@@ -130,10 +131,12 @@ class MainViewModel(
     }
 
     fun displaySystemMessage(message: String) {
+        onMessageReceived(message)
         _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.Black, true, message)))
     }
 
     fun displayErrorMessage(message: String) {
+        onMessageReceived(message)
         _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, message)))
     }
 
