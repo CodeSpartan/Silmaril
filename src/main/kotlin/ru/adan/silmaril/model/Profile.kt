@@ -277,23 +277,31 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         // matches #act {cond} {trigger} @ {group}, where condition isn't greedy, but trigger is greedy.
         // this allows the trigger to be multi-layered, e.g. an #act command inside the trigger
         // some '{' symbols had to be additionally escaped due to kotlin syntax
-        // originally the pattern is: \#act {(.+?)} {(.+)} @ [{]?([\p{L}\p{N}_]+)[}]?
 
-        // full pattern: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}
-        // smaller pattern: \#act {(.+?)} {(.+)} {(\d+)}
-        // smaller pattern: \#act {(.+?)} {(.+)}
-        val actRegex = """\#act \{(.+?)} \{(.+)} @ [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
-        val match = actRegex.find(message)
-        if (match != null) {
-            val entireCommand = match.groupValues[0]
-            val condition = match.groupValues[1]
-            val action = match.groupValues[2]
-            val groupName = match.groupValues[3]
+        // match against 3 patterns
+        // full pattern first: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}$ - this will match #act {cond} {trig} {5} {group}
+        // if not, smaller pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
+        // if not, even smaller pattern: \#act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
+        val actRegexBig = """\#act \{(.+?)} \{(.+)} \{(\d+)} \{([\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexMedium = """\#act \{(.+?)} \{(.+)} \{(\d+)}$""".toRegex()
+        val actRegexSmall = """\#act \{(.+?)} \{(.+)}$""".toRegex()
 
-            mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
-        } else {
-            mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда}.")
+        val match = actRegexBig.find(message) ?: actRegexMedium.find(message) ?: actRegexSmall.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда} {приоритет} {группа}.")
+            return
         }
+        val entireCommand = match.groupValues[0]
+        val condition = match.groupValues[1]
+        val action = match.groupValues[2]
+        val priority = if (match.groupValues.size >= 4) match.groupValues[3].toIntOrNull() ?: 5 else 5
+        val groupName = if (match.groupValues.size >= 5) match.groupValues[4] else "DEFAULT"
+        mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
+        println("Condition: $condition")
+        println("Action: $action")
+        println("Priority: $priority")
+        println("Group: $groupName")
+
     }
 
     fun parseConnect(message: String) {
