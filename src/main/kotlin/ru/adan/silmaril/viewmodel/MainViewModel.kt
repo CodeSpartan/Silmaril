@@ -14,6 +14,7 @@ class MainViewModel(
     private val client: MudConnection,
     private val settingsManager: SettingsManager,
     val onSystemMessage: (String) -> Unit,
+    val onInsertVariables: (String) -> String,
 ) {
 
     // Expose the list of messages as a StateFlow for UI to observe
@@ -65,7 +66,8 @@ class MainViewModel(
         if (message.startsWith("#")) {
             if (displayAsUserInput)
                 _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, ">> ${message}")))
-            onSystemMessage(message)
+            val withVariables = onInsertVariables(message)
+            onSystemMessage(withVariables)
         }
         else {
             if (displayAsUserInput) {
@@ -74,7 +76,8 @@ class MainViewModel(
                 else
                     _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
             }
-            client.sendMessage(message)
+            val withVariables = onInsertVariables(message)
+            client.sendMessage(withVariables)
         }
     }
 

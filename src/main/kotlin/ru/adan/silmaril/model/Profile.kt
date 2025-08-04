@@ -29,12 +29,20 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         // Profile catches text messages from the MudConnection and sends them to the scripting engine
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
-    val mainViewModel: MainViewModel = MainViewModel(client, settingsManager, ::onSystemMessage)
+    val mainViewModel: MainViewModel = MainViewModel(
+        client,
+        settingsManager,
+        ::onSystemMessage,
+        ::onInsertVariables
+    )
     val scriptingEngine: ScriptingEngine = ScriptingEngine(mainViewModel, profileName)
     private val scopeDefault: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
     val profileData: StateFlow<ProfileData> = _profileData
+
+    // matches any $words, including cyrillic
+    val insertVarRegex = """(\$[\p{L}\p{N}_]+)""".toRegex()
 
     init {
         if (!settingsManager.settings.value.gameWindows.contains(profileName)) {
@@ -83,6 +91,10 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
             "#var"-> parseVarCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
+    }
+
+    fun onInsertVariables(message: String) : String {
+        return message.replace(insertVarRegex) { profileData.value.variables[it.value.drop(1)]?.toString() ?: it.value }
     }
 
     fun parseVarCommand(message: String) {

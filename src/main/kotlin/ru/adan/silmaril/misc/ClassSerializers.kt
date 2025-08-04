@@ -41,11 +41,17 @@ data class FloatWindowSettings(
 @Serializable
 sealed class Variable {
     @Serializable
-    data class StringValue(val value: String) : Variable()
+    data class StringValue(val value: String) : Variable() {
+        override fun toString(): String = value
+    }
     @Serializable
-    data class IntValue(val value: Int) : Variable()
+    data class IntValue(val value: Int) : Variable() {
+        override fun toString(): String = value.toString()
+    }
     @Serializable
-    data class FloatValue(val value: Float) : Variable()
+    data class FloatValue(val value: Float) : Variable() {
+        override fun toString(): String = value.toString()
+    }
 }
 
 // The module is necessary to serialize the Variable type
