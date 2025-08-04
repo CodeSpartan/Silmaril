@@ -236,7 +236,7 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
                     val newGroups = currentProfile.enabledTriggerGroups + groupName
                     currentProfile.copy(enabledTriggerGroups = newGroups)
                 }
-                mainViewModel.displaySystemMessage("Группа $groupName включена. ${if (!settingsManager.groups.value.contains(groupName)) "Предупреждение: такой группы нет." else ""}.")
+                mainViewModel.displaySystemMessage("Группа $groupName включена.${if (!settingsManager.groups.value.contains(groupName)) " Предупреждение: такой группы нет." else ""}")
             } else if (enable == "disable") {
                 _profileData.update { currentProfile ->
                     val newGroups = currentProfile.enabledTriggerGroups - groupName
@@ -245,7 +245,14 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
                 mainViewModel.displaySystemMessage("Группа $groupName выключена.")
             }
         } else {
-            mainViewModel.displayErrorMessage("Ошибка #group - не смог распарсить. Правильный синтаксис: #group {имя} enable или disable.")
+            val groupRegex2 = """\#group [{]?([\p{L}\p{N}_]+)[}]?$""".toRegex()
+            val match2 = groupRegex2.find(message)
+            if (match2 != null) {
+                val groupName = match2.groupValues[1].uppercase()
+                mainViewModel.displaySystemMessage("Группа $groupName ${if (profileData.value.enabledTriggerGroups.contains(groupName)) "включена" else "выключена"}.")
+            } else {
+                mainViewModel.displayErrorMessage("Ошибка #group - не смог распарсить. Правильный синтаксис: #group {имя} enable или disable.")
+            }
         }
     }
 
