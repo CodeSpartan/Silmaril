@@ -10,7 +10,11 @@ import ru.adan.silmaril.mud_messages.TextMessageChunk
 import ru.adan.silmaril.mud_messages.ColorfulTextMessage
 
 // ViewModel that holds the list of strings and manages the TCP connection
-class MainViewModel(private val client: MudConnection, private val settingsManager: SettingsManager) {
+class MainViewModel(
+    private val client: MudConnection,
+    private val settingsManager: SettingsManager,
+    val onSystemMessage: (String) -> Unit,
+) {
 
     // Expose the list of messages as a StateFlow for UI to observe
     private val _messages = MutableStateFlow<List<ColorfulTextMessage>>(emptyList())
@@ -42,8 +46,8 @@ class MainViewModel(private val client: MudConnection, private val settingsManag
         }
     }
 
-    // Function to send a message via TCP
-    fun sendMessage(message: String, displayAsUserInput: Boolean = true) {
+    // Function that reads user's text input
+    fun treatUserInput(message: String, displayAsUserInput: Boolean = true) {
         // println("Sending: $message")
         val playerCommands = splitOnTopLevelSemicolon(message)
         val splitCommands = settingsManager.settings.value.splitCommands
@@ -53,15 +57,15 @@ class MainViewModel(private val client: MudConnection, private val settingsManag
                 _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
             }
             for (command in playerCommands) {
-                sendMessage(command, splitCommands)
+                treatUserInput(command, splitCommands)
             }
             return
         }
 
         if (message.startsWith("#")) {
-            // @TODO: Add some class that treats input messages here. If it's a system message, there's a lot to do.
             if (displayAsUserInput)
-                _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.Black, true, "> $message")))
+                _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, ">> ${message}")))
+            onSystemMessage(message)
         }
         else {
             if (displayAsUserInput) {
@@ -103,6 +107,10 @@ class MainViewModel(private val client: MudConnection, private val settingsManag
 
     fun displaySystemMessage(message: String) {
         _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.Black, true, message)))
+    }
+
+    fun displayErrorMessage(message: String) {
+        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, message)))
     }
 
     // Clean up when needed

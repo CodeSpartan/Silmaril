@@ -44,6 +44,7 @@ fun main() = application {
     var gameWindows: MutableMap<String, Profile> by remember {
         mutableStateOf(settings.gameWindows.associateWith { windowName -> Profile(windowName, settingsManager, areMapsReady) }.toMutableMap())
     }
+    GlobalAccess.gameWindows = gameWindows
 
     var currentClient by remember {mutableStateOf(gameWindows.values.first().client)}
     var currentMainViewModel by remember {mutableStateOf(gameWindows.values.first().mainViewModel)}
@@ -146,6 +147,7 @@ fun main() = application {
                         selectedTabIndex--
                     }
                 }
+                GlobalAccess.gameWindows = gameWindows
             }
         )
 
@@ -169,6 +171,7 @@ fun main() = application {
             onAddWindow = { windowName ->
                 val newProfile = Profile(windowName, settingsManager, areMapsReady)
                 gameWindows = (gameWindows + (windowName to newProfile)).toMutableMap()
+                GlobalAccess.gameWindows = gameWindows
             }
         )
     }
@@ -207,3 +210,6 @@ private fun onWindowStateUpdated(state: WindowState, settings: SettingsManager) 
     settings.updateWindowState(state)
 }
 
+object GlobalAccess {
+    var gameWindows: MutableMap<String, Profile> = mutableMapOf()
+}

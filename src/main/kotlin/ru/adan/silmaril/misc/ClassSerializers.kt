@@ -42,10 +42,18 @@ sealed class Variable {
     data class FloatValue(val value: Float) : Variable()
 }
 
+fun String.toVariable(): Variable {
+    return when {
+        this.toIntOrNull() != null -> Variable.IntValue(this.toInt())
+        this.toFloatOrNull() != null -> Variable.FloatValue(this.toFloat())
+        else -> Variable.StringValue(this)
+    }
+}
+
 @Serializable
 data class ProfileData(
     val enabledTriggerGroups: List<String> = emptyList(),
-    val variables: Map<String, Variable> = emptyMap(),
+    val variables: MutableMap<String, Variable> = mutableMapOf(),
 )
 
 // A custom serializer for type 'Instant'

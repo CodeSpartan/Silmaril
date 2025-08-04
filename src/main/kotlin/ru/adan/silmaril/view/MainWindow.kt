@@ -186,7 +186,7 @@ fun MainWindow(
                                 inputTextField = inputTextField.copy(
                                     selection = TextRange(0, inputTextField.text.length) // Select all text
                                 )
-                                mainViewModel.sendMessage(inputTextField.text)
+                                mainViewModel.treatUserInput(inputTextField.text)
                             }
                         ),
                         decorationBox = { innerTextField ->

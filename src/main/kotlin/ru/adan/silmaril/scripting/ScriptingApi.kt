@@ -49,3 +49,17 @@ fun ScriptingEngine.send(command: String) {
 fun ScriptingEngine.echo(message: String) {
     println("[ECHO]: $message")
 }
+
+/**
+ * DSL function to send a command to all windows.
+ */
+fun ScriptingEngine.sendAll(command: String) {
+    this.sendAllCommand(command)
+}
+
+/**
+ * DSL function to send a command to a specific window.
+ */
+fun ScriptingEngine.sendWindow(window: String, command: String) {
+    this.sendWindowCommand(window, command)
+}
