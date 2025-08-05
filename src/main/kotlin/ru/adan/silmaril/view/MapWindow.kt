@@ -1,6 +1,5 @@
 package ru.adan.silmaril.view
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.material.Text
@@ -44,7 +43,6 @@ import kotlin.collections.get
 
 
 @Composable
-@Preview
 fun MapWindow(client: MudConnection, mapModel: MapModel, settingsManager: SettingsManager) {
 
     val settings by settingsManager.settings.collectAsState()

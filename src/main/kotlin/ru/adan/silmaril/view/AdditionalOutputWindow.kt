@@ -1,6 +1,5 @@
 package ru.adan.silmaril.view
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +12,6 @@ import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.viewmodel.MainViewModel
 
 @Composable
-@Preview
 fun AdditionalOutputWindow(mainViewModel: MainViewModel, settingsManager: SettingsManager) {
 
     val settings = settingsManager.settings.collectAsState()

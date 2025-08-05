@@ -1,5 +1,4 @@
 package ru.adan.silmaril.view
-import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,7 +38,6 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 
 @Composable
-@Preview
 fun MainWindow(
     mainViewModel: MainViewModel,
     settingsManager: SettingsManager,
