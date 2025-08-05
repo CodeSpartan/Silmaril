@@ -60,12 +60,14 @@ fun MainWindow(
     val currentFontFamily = settings.font
     val currentFontSize = settings.fontSize
     val currentColorStyleName = settings.colorStyle
-    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
+    val currentColorStyle = remember(currentColorStyleName) {StyleManager.getStyle(currentColorStyleName)}
 
-    val customTextSelectionColors = TextSelectionColors(
-        handleColor = Color.Transparent,
-        backgroundColor = currentColorStyle.getUiColor(UiColor.MainWindowSelectionBackground)
-    )
+    val customTextSelectionColors = remember(currentColorStyle) {
+        TextSelectionColors(
+            handleColor = Color.Transparent,
+            backgroundColor = currentColorStyle.getUiColor(UiColor.MainWindowSelectionBackground)
+        )
+    }
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
