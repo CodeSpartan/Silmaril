@@ -6,7 +6,7 @@ import ru.adan.silmaril.misc.UiColor
 
 object StyleManager {
 
-    private val styles = mapOf(
+    val styles = mapOf(
         "ClassicBlack" to ClassicBlackColorStyle(),
         "ModernBlack" to ModernBlackColorStyle(),
         "ModernDarkRed" to ModernDarkRedColorStyle(),

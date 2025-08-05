@@ -2,15 +2,12 @@ package ru.adan.silmaril.misc
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import org.jetbrains.compose.resources.Font
 import ru.adan.silmaril.generated.resources.*
-import androidx.compose.ui.text.font.Font
 
 
 object FontManager {
@@ -41,7 +38,7 @@ object FontManager {
 //        Font("fonts/Fixedsys_Excelsior/FSEX302.ttf", FontWeight.Normal)
 //    )
 
-    private val jetbrains = FontFamily(
+    private val jetbrainsMono = FontFamily(
         Font("fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf", FontWeight.ExtraLight),
         Font("fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf", FontWeight.Light),
         Font("fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf", FontWeight.Normal),
@@ -103,12 +100,12 @@ object FontManager {
     )
 
     val fontFamilies = mapOf(
+        "RobotoMono" to robotoMono,
+        "JetbrainsMono" to jetbrainsMono,
         "Consolas" to consolas,
         "Cousine" to cousine,
         "FiraMono" to firaMono,
-        "Jetbrains" to jetbrains,
         "RobotoClassic" to robotoClassic,
-        "RobotoMono" to robotoMono,
         "SourceCodePro" to sourceCodePro,
     )
 

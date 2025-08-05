@@ -22,6 +22,7 @@ import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.icon
+import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.view.AdditionalOutputWindow
 import ru.adan.silmaril.view.FloatingWindow
 import ru.adan.silmaril.view.HoverManagerProvider
@@ -31,6 +32,7 @@ import ru.adan.silmaril.view.Tab
 import ru.adan.silmaril.view.TabbedView
 import ru.adan.silmaril.view.small_dialogs.ProfileDialog
 import ru.adan.silmaril.misc.capitalized
+import ru.adan.silmaril.visual_styles.StyleManager
 
 fun main() = application {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -63,55 +65,81 @@ fun main() = application {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val showProfileDialog = remember { mutableStateOf(false) }
 
+    fun exitApp() {
+        applicationScope.cancel()
+        gameWindows.values.forEach {
+            it.cleanup()
+        }
+        settingsManager.cleanup()
+        exitApplication()
+    }
+
     // Main Window
     Window(
         onCloseRequest = {
-            applicationScope.cancel()
-            gameWindows.values.forEach {
-                it.cleanup()
-            }
-            settingsManager.cleanup()
-            exitApplication()
+            exitApp()
         },
         state = mainWindowState,
         title = "Silmaril",
         icon = painterResource(Res.drawable.icon),
         ) {
         MenuBar {
-            Menu("Файл") {
-                Item("Toggle Map") {
-                    showMapWindow.value = !showMapWindow.value
-                    settingsManager.updateFloatingWindowState("MapWindow", showMapWindow.value)
+            Menu("Файл",  mnemonic = 'Ф') {
+                Item("Выход", mnemonic = 'В') {
+                    exitApp()
                 }
-                Item("Toggle Additional Output") {
-                    showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value
-                    settingsManager.updateFloatingWindowState("AdditionalOutput", showAdditionalOutputWindow.value)
-                }
-                Item("Toggle Font") {
-                    settingsManager.toggleFont()
-                }
-                Item("Toggle Color Style") {
-                    settingsManager.toggleColorStyle()
-                }
-                Item("Exit") {
-                    applicationScope.cancel()
-                    gameWindows.values.forEach {
-                        it.cleanup()
+            }
+            Menu("Вид", mnemonic = 'В') {
+                Menu("Шрифт", mnemonic = 'Ш') {
+                    FontManager.fontFamilies.keys.filter{it != "RobotoClassic" && it != "SourceCodePro"}.forEach { key ->
+                        CheckboxItem(
+                            text = key,
+                            checked = settings.font == key,
+                            onCheckedChange = {
+                                settingsManager.updateFont(key)
+                            }
+                        )
                     }
-                    settingsManager.cleanup()
-                    exitApplication()
                 }
+                Menu("Цветовая тема", mnemonic = 'Ц') {
+                    StyleManager.styles.keys.forEach { key ->
+                        CheckboxItem(
+                            text = key,
+                            checked = settings.colorStyle == key,
+                            onCheckedChange = {
+                                settingsManager.updateColorStyle(key)
+                            }
+                        )
+                    }
+                }
+                CheckboxItem(
+                    text = "Карта",
+                    mnemonic = 'К',
+                    checked = showMapWindow.value,
+                    onCheckedChange = {
+                        showMapWindow.value = it
+                        settingsManager.updateFloatingWindowState("MapWindow", it)
+                    }
+                )
+                CheckboxItem(
+                    text = "Окно вывода",
+                    mnemonic = 'О',
+                    checked = showAdditionalOutputWindow.value,
+                    onCheckedChange = {
+                        showAdditionalOutputWindow.value = it
+                        settingsManager.updateFloatingWindowState("AdditionalOutput", it)
+                    }
+                )
+                Item("Добавить окно", mnemonic = 'Д', onClick = { showProfileDialog.value = true })
             }
-            Menu("Вид") {
-                Item("Добавить окно", onClick = { showProfileDialog.value = true })
-            }
-            Menu(currentProfileName) {
+            Menu(currentProfileName, mnemonic = currentProfileName.first()) {
                 CheckboxItem(
                     text = "Авто-переподкл.",
+                    mnemonic = 'А',
                     checked = settingsManager.settings.value.autoReconnect,
                     onCheckedChange = { settingsManager.toggleAutoReconnect(it) }
                 )
-                Item("Группы", onClick = { /*showGroupsDialog.value = true*/ })
+                Item("Группы", mnemonic = 'Г', onClick = { /*showGroupsDialog.value = true*/ })
             }
         }
         window.minimumSize = Dimension(800, 600)

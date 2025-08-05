@@ -329,7 +329,7 @@ class SettingsManager {
     // temp method to toggle font
     fun toggleFont() {
         if (settings.value.font == "FiraMono")
-            updateFont("RobotoMono" )
+            updateFont("RobotoMono")
         else
             updateFont("FiraMono")
     }
