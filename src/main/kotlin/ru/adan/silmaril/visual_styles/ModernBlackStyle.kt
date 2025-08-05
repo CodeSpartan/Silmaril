@@ -37,6 +37,7 @@ class ModernBlackColorStyle : ColorStyle() {
     override fun getUiColor(color: UiColor): Color {
         return when (color) {
             UiColor.MainWindowBackground -> Color(0xff141414) // brightness 8%
+            UiColor.MainWindowSelectionBackground -> Color(0x4d696e78) // almost neutral
             UiColor.AdditionalWindowBackground -> Color(0xFF1a1a1a)
             UiColor.InputField -> Color(0xFF3d3d3d)
             UiColor.InputFieldText -> Color(0xFFe8e8e8)

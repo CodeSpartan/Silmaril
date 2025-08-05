@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.Surface
@@ -37,6 +38,7 @@ import ru.adan.silmaril.model.SettingsManager
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -53,12 +55,17 @@ fun MainWindow(
 ) {
     // Observe messages from the ViewModel
     val messages by mainViewModel.messages.collectAsState()
-
     val settings by settingsManager.settings.collectAsState()
 
     val currentFontFamily = settings.font
     val currentFontSize = settings.fontSize
     val currentColorStyleName = settings.colorStyle
+    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
+
+    val customTextSelectionColors = TextSelectionColors(
+        handleColor = Color.Transparent,
+        backgroundColor = currentColorStyle.getUiColor(UiColor.MainWindowSelectionBackground)
+    )
 
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -94,8 +101,6 @@ fun MainWindow(
         }
     })
 
-    val currentColorStyle = StyleManager.getStyle(currentColorStyleName)
-
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -113,43 +118,46 @@ fun MainWindow(
                     .padding(start=paddingLeft)
                     .weight(1f)
                 ) {
-                    SelectionContainer (
-                        // keeps the arrow when hovering text, stop the cursor from turning into a caret
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Default, overrideDescendants = true)
-                    ){
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f, true) // true = take up all remaining space horizontally
-                                .padding(end = paddingRight)
-                                .fillMaxHeight(),
-                            state = listState,
-                            verticalArrangement = Arrangement.Bottom,
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
+                        SelectionContainer(
+                            // keeps the arrow when hovering text, stop the cursor from turning into a caret
+                            modifier = Modifier.pointerHoverIcon(PointerIcon.Default, overrideDescendants = true)
                         ) {
-                            items(messages) { message ->
-                                // Combine chunks into a single AnnotatedString
-                                val annotatedText = buildAnnotatedString {
-                                    message.chunks.forEach { chunk ->
-                                        withStyle(
-                                            style = SpanStyle(
-                                                color = currentColorStyle.getAnsiColor(
-                                                    chunk.foregroundColor,
-                                                    chunk.isBright
-                                                ),
-                                                // You can add other styles like fontWeight here if needed
-                                            )
-                                        ) {
-                                            append(chunk.text)
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f, true) // true = take up all remaining space horizontally
+                                    .padding(end = paddingRight)
+                                    .fillMaxHeight(),
+                                state = listState,
+                                verticalArrangement = Arrangement.Bottom,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                items(messages) { message ->
+                                    // Combine chunks into a single AnnotatedString
+                                    val annotatedText = buildAnnotatedString {
+                                        message.chunks.forEach { chunk ->
+                                            withStyle(
+                                                style = SpanStyle(
+                                                    color = currentColorStyle.getAnsiColor(
+                                                        chunk.foregroundColor,
+                                                        chunk.isBright
+                                                    ),
+                                                    // You can add other styles like fontWeight here if needed
+                                                )
+                                            ) {
+                                                append(chunk.text)
+                                            }
                                         }
+                                        append("\r") // helps format the copied text, otherwise it has no newlines
                                     }
-                                }
 
-                                Text(
-                                    text = annotatedText,
-                                    modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
-                                    fontSize = currentFontSize.sp,
-                                    fontFamily = FontManager.getFont(currentFontFamily)
-                                )
+                                    Text(
+                                        text = annotatedText,
+                                        modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
+                                        fontSize = currentFontSize.sp,
+                                        fontFamily = FontManager.getFont(currentFontFamily)
+                                    )
+                                }
                             }
                         }
                     }

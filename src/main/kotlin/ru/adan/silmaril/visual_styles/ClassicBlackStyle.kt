@@ -13,6 +13,7 @@ class ClassicBlackColorStyle : ColorStyle() {
     override fun getUiColor(color: UiColor): Color {
         return when (color) {
             UiColor.MainWindowBackground -> Color.Black
+            UiColor.MainWindowSelectionBackground -> Color(0x4d999999)
             UiColor.AdditionalWindowBackground -> Color.Black
             UiColor.InputField -> Color(0xFF424242)
             UiColor.InputFieldText -> Color.White
