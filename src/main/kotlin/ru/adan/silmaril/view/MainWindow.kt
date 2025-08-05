@@ -36,6 +36,12 @@ import ru.adan.silmaril.misc.UiColor
 import ru.adan.silmaril.model.SettingsManager
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 @Composable
 fun MainWindow(
@@ -107,29 +113,43 @@ fun MainWindow(
                     .padding(start=paddingLeft)
                     .weight(1f)
                 ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f, true) // true = take up all remaining space horizontally
-                            .padding(end=paddingRight)
-                            .fillMaxHeight(),
-                        state = listState,
-                        verticalArrangement = Arrangement.Bottom,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        items(messages) { message ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start
-                            ) {
-                                message.chunks.forEach { chunk ->
-                                    Text(
-                                        text = chunk.text,
-                                        color = currentColorStyle.getAnsiColor(chunk.foregroundColor, chunk.isBright),
-                                        fontSize = currentFontSize.sp,
-                                        fontFamily = FontManager.getFont(currentFontFamily),
-                                        // fontWeight = FontWeight.Bold,
-                                    )
+                    SelectionContainer (
+                        // keeps the arrow when hovering text, stop the cursor from turning into a caret
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Default, overrideDescendants = true)
+                    ){
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f, true) // true = take up all remaining space horizontally
+                                .padding(end = paddingRight)
+                                .fillMaxHeight(),
+                            state = listState,
+                            verticalArrangement = Arrangement.Bottom,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            items(messages) { message ->
+                                // Combine chunks into a single AnnotatedString
+                                val annotatedText = buildAnnotatedString {
+                                    message.chunks.forEach { chunk ->
+                                        withStyle(
+                                            style = SpanStyle(
+                                                color = currentColorStyle.getAnsiColor(
+                                                    chunk.foregroundColor,
+                                                    chunk.isBright
+                                                ),
+                                                // You can add other styles like fontWeight here if needed
+                                            )
+                                        ) {
+                                            append(chunk.text)
+                                        }
+                                    }
                                 }
+
+                                Text(
+                                    text = annotatedText,
+                                    modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
+                                    fontSize = currentFontSize.sp,
+                                    fontFamily = FontManager.getFont(currentFontFamily)
+                                )
                             }
                         }
                     }
