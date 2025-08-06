@@ -93,8 +93,8 @@ fun main() {
                 TabbedView(
                     tabs = tabs,
                     selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { newIndex -> selectedTabIndex = newIndex },
-                    onTabClose = { newIndex -> selectedTabIndex = newIndex }
+                    onTabSelected = { selectedTabIndex = it },
+                    onTabClose = { selectedTabIndex = it }
                 )
 
                 // Map widget
