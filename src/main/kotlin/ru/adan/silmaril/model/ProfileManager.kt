@@ -47,34 +47,4 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
     fun displaySystemMessage(msg: String) {
         currentMainViewModel.value.displaySystemMessage(msg)
     }
-
-    fun tabSwitched(newIndex: Int, tabName: String) : Int {
-        currentClient.value = gameWindows.value[tabName]!!.client
-        currentMainViewModel.value = gameWindows.value[tabName]!!.mainViewModel
-        currentProfileName.value = tabName.capitalized()
-        return newIndex
-    }
-
-    fun tabClosed(tabs: List<Tab>, index: Int, tabName: String, selectedTabIndex: Int) : Int {
-        var returnIndex = selectedTabIndex
-        gameWindows.value[tabName]?.onCloseWindow()
-        assignNewWindowsTemp(gameWindows.value.filterKeys { it != tabName }.toMap())
-        // if we're closing the currently opened tab, switch to the first available one
-        if (index == selectedTabIndex) {
-            val firstValidProfile = gameWindows.value.values.first()
-            currentClient.value = firstValidProfile.client
-            currentMainViewModel.value = firstValidProfile.mainViewModel
-
-            val firstAvailableTabIndex = tabs.indexOfFirst { it.title == firstValidProfile.profileName }
-            returnIndex = if (firstAvailableTabIndex > index) firstAvailableTabIndex - 1 else firstAvailableTabIndex
-            currentProfileName.value = firstValidProfile.profileName.capitalized()
-        }
-        // if we're closing a tab to the left of current, the current id will need to be adjusted to the left
-        else {
-            if (selectedTabIndex > index) {
-                returnIndex--
-            }
-        }
-        return returnIndex
-    }
 }

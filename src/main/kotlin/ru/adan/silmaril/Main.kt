@@ -93,16 +93,11 @@ fun main() {
                 TabbedView(
                     tabs = tabs,
                     selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { newIndex, tabName ->
-                        selectedTabIndex = profileManager.tabSwitched(newIndex, tabName)
-                    },
-                    onTabClose = { index, tabName ->
-                        selectedTabIndex = profileManager.tabClosed(tabs, index, tabName, selectedTabIndex)
-                    }
+                    onTabSelected = { newIndex -> selectedTabIndex = newIndex },
+                    onTabClose = { newIndex -> selectedTabIndex = newIndex }
                 )
 
                 // Map widget
-                // FloatingWindow will provide real OwnerWindow down the line
                 FloatingWindow(showMapWindow, window, settingsManager, "MapWindow")
                 {
                     HoverManagerProvider(window) {
@@ -116,6 +111,7 @@ fun main() {
                     AdditionalOutputWindow(profileManager.currentMainViewModel.value)
                 }
 
+                // Hidden by default, "Open new game window from profile" dialog
                 ProfileDialog(
                     showProfileDialog, profileManager.gameWindows.value,
                     onAddWindow = { windowName -> profileManager.addProfile(windowName) }
