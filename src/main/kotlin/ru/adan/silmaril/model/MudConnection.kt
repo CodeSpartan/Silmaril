@@ -22,8 +22,8 @@ import java.util.zip.InflaterInputStream
 class MudConnection(
     var host: String,
     var port: Int,
+    private val onMessageReceived: (String) -> Unit,
     private val settingsManager: SettingsManager,
-    private val onMessageReceived: (String) -> Unit
 ) {
 
     private var socket: Socket? = null

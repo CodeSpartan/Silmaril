@@ -12,10 +12,10 @@ import ru.adan.silmaril.mud_messages.ColorfulTextMessage
 // ViewModel that holds the list of strings and manages the TCP connection
 class MainViewModel(
     private val client: MudConnection,
-    private val settingsManager: SettingsManager,
     val onSystemMessage: (String) -> Unit,
     val onInsertVariables: (String) -> String,
-    private val onMessageReceived: (String) -> Unit
+    private val onMessageReceived: (String) -> Unit,
+    private val settingsManager: SettingsManager
 ) {
 
     // Expose the list of messages as a StateFlow for UI to observe

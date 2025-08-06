@@ -98,7 +98,7 @@ fun main() {
                 )
 
                 // Map widget
-                FloatingWindow(showMapWindow, window, settingsManager, "MapWindow")
+                FloatingWindow(showMapWindow, window, "MapWindow")
                 {
                     HoverManagerProvider(window) {
                         MapWindow(profileManager.currentClient.value)
@@ -106,7 +106,7 @@ fun main() {
                 }
 
                 // Additional output widget
-                FloatingWindow(showAdditionalOutputWindow, window, settingsManager, "AdditionalOutput")
+                FloatingWindow(showAdditionalOutputWindow, window, "AdditionalOutput")
                 {
                     AdditionalOutputWindow(profileManager.currentMainViewModel.value)
                 }

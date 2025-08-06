@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.awt.ComposeDialog
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.unit.Dp
+import org.koin.compose.koinInject
 import ru.adan.silmaril.model.SettingsManager
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
@@ -27,15 +28,15 @@ import java.awt.event.ComponentEvent
 fun FloatingWindow(
     show: MutableState<Boolean>,
     owner: ComposeWindow, // owner is necessary for correct focus behavior
-    settings: SettingsManager,
     windowName: String,
     content: @Composable () -> Unit
 ) {
+    val settingsManager: SettingsManager = koinInject()
     if (show.value) {
         DialogWindow(
             create = {
                 ComposeDialog(owner = owner).apply { // Set the owner as the window
-                    val windowInitialState = settings.getFloatingWindowState(windowName)
+                    val windowInitialState = settingsManager.getFloatingWindowState(windowName)
                     size = Dimension(windowInitialState.windowSize.width, windowInitialState.windowSize.height)
                     isFocusable = true
                     isUndecorated = true
@@ -45,18 +46,18 @@ fun FloatingWindow(
                     addWindowListener(object : WindowAdapter() {
                         override fun windowClosing(e: WindowEvent) {
                             show.value = false
-                            settings.updateFloatingWindowState(windowName, false)
+                            settingsManager.updateFloatingWindowState(windowName, false)
                         }
                     })
 
                     // Listen to position/size changes
                     addComponentListener(object : ComponentAdapter() {
                         override fun componentMoved(e: ComponentEvent) {
-                            settings.updateFloatingWindow(windowName, location, size)
+                            settingsManager.updateFloatingWindow(windowName, location, size)
                         }
 
                         override fun componentResized(e: ComponentEvent) {
-                            settings.updateFloatingWindow(windowName, location, size)
+                            settingsManager.updateFloatingWindow(windowName, location, size)
                         }
                     })
                 }

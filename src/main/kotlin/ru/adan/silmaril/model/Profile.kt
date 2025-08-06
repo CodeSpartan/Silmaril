@@ -30,21 +30,25 @@ class Profile(
     private val settingsManager: SettingsManager,
     private val mapModel: MapModel,
 ) : KoinComponent {
-    val client = MudConnection(
-        host = settingsManager.settings.value.gameServer,
-        port = settingsManager.settings.value.gamePort,
-        settingsManager = settingsManager,
-        // MudConnection sends messages up to the Profile through this callback, and Profile sends it to the trigger system
-        onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
-    )
-    val mainViewModel: MainViewModel = MainViewModel(
-        client = client,
-        settingsManager = settingsManager,
-        onSystemMessage = ::onSystemMessage,
-        onInsertVariables = ::onInsertVariables,
-        // MainViewModel can emit system messages, which we also process for triggers
-        onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
-    )
+    val client: MudConnection by lazy {
+        get {
+            parametersOf(
+                settingsManager.settings.value.gameServer,
+                settingsManager.settings.value.gamePort,
+                { msg: String -> scriptingEngine.processLine(msg) }
+            )
+        }
+    }
+    val mainViewModel: MainViewModel by lazy {
+        get {
+            parametersOf(
+                client,
+                ::onSystemMessage,
+                ::onInsertVariables,
+                { msg: String -> scriptingEngine.processLine(msg) }
+            )
+        }
+    }
 
     val scriptingEngine: ScriptingEngine by lazy {
         get<ScriptingEngine> { parametersOf(profileName, mainViewModel, ::isGroupActive) }
