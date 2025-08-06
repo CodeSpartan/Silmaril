@@ -51,7 +51,6 @@ class Profile(
     }
 
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val mapModelScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
     val profileData: StateFlow<ProfileData> = _profileData
@@ -96,7 +95,6 @@ class Profile(
 
     fun cleanup() {
         scopeDefault.cancel()
-        mapModelScope.cancel()
         mainViewModel.cleanup()
     }
 
