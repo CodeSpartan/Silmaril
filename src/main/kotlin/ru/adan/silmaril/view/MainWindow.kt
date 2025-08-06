@@ -44,15 +44,16 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import org.koin.compose.koinInject
 
 @Composable
 fun MainWindow(
     mainViewModel: MainViewModel,
-    settingsManager: SettingsManager,
     owner: ComposeWindow,
     isFocused: Boolean,
     windowId: Int,
 ) {
+    val settingsManager: SettingsManager = koinInject()
     // Observe messages from the ViewModel
     val messages by mainViewModel.messages.collectAsState()
     val settings by settingsManager.settings.collectAsState()

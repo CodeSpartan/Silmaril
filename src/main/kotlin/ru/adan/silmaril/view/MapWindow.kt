@@ -40,13 +40,14 @@ import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
+import org.koin.dsl.koinApplication
 
 
 @Composable
-fun MapWindow(client: MudConnection, settingsManager: SettingsManager) {
+fun MapWindow(client: MudConnection) {
 
     val mapModel: MapModel = koinInject()
-
+    val settingsManager: SettingsManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
     val currentColorStyle = settings.colorStyle
 

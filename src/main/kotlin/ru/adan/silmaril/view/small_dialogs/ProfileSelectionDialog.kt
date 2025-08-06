@@ -31,6 +31,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import org.koin.compose.koinInject
 import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.visual_styles.AppColors
 
@@ -38,12 +39,10 @@ import ru.adan.silmaril.visual_styles.AppColors
 fun ProfileDialog(
     showProfileDialog: MutableState<Boolean>,
     gameWindows: Map<String, Profile>,
-    settings: SettingsManager,
     onAddWindow: (windowName: String) -> Unit
 ) {
     if (showProfileDialog.value) {
         ProfileSelectionDialogWindow(
-            settings = settings,
             gameWindows = gameWindows,
             onCloseRequest = {
                 showProfileDialog.value = false
@@ -58,16 +57,16 @@ fun ProfileDialog(
 
 @Composable
 fun ProfileSelectionDialogWindow(
-    settings: SettingsManager,
     gameWindows: Map<String, Profile>,
     onCloseRequest: () -> Unit,
     onAddWindow: (windowName: String) -> Unit
 ) {
+    val settingsManager: SettingsManager = koinInject()
     var selectedProfile by remember { mutableStateOf<String?>(null) }
     var newProfileName by remember { mutableStateOf("") }
     var isAddWindowEnabled by remember { mutableStateOf(false) }
 
-    val profileList by settings.profiles.collectAsState()
+    val profileList by settingsManager.profiles.collectAsState()
     val robotoFont = remember { FontManager.getFont("RobotoClassic") }
 
     MaterialTheme(colors = AppColors.DarkColorPalette) {
@@ -229,7 +228,7 @@ fun ProfileSelectionDialogWindow(
                                 if (newProfileName.isNotBlank()) {
                                     selectedProfile = newProfileName
                                     isAddWindowEnabled = true
-                                    settings.createProfile(newProfileName)
+                                    settingsManager.createProfile(newProfileName)
                                     newProfileName = ""
                                 }
                             }, enabled = !profileList.contains(newProfileName) && newProfileName.isNotBlank()) {
@@ -255,7 +254,7 @@ fun ProfileSelectionDialogWindow(
                                     selectedProfile?.let { profileToDelete ->
                                         selectedProfile = ""
                                         isAddWindowEnabled = false
-                                        settings.deleteProfile(profileToDelete)
+                                        settingsManager.deleteProfile(profileToDelete)
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(

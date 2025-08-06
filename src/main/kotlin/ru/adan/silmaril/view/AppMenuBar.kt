@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.MenuBar
+import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
@@ -13,13 +14,13 @@ import ru.adan.silmaril.visual_styles.StyleManager
 
 @Composable
 fun FrameWindowScope.AppMenuBar(
-    settingsManager: SettingsManager,
-    profileManager: ProfileManager,
     showMapWindow: MutableState<Boolean>,
     showAdditionalOutputWindow: MutableState<Boolean>,
     showProfileDialog: MutableState<Boolean>,
     onExit: () -> Unit
 ) {
+    val settingsManager: SettingsManager = koinInject()
+    val profileManager: ProfileManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
 
     MenuBar {

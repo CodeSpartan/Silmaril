@@ -65,8 +65,6 @@ fun main() {
                 icon = painterResource(Res.drawable.icon),
             ) {
                 AppMenuBar(
-                    settingsManager = settingsManager,
-                    profileManager = profileManager,
                     showMapWindow = showMapWindow,
                     showAdditionalOutputWindow = showAdditionalOutputWindow,
                     showProfileDialog = showProfileDialog,
@@ -78,7 +76,7 @@ fun main() {
                 window.minimumSize = Dimension(800, 600)
 
                 // watch for resize, move, fullscreen toggle and save into settings
-                SignUpToWindowEvents(mainWindowState, settingsManager)
+                SignUpToWindowEvents(mainWindowState)
 
                 // Stability is achieved through keys in TabbedView for each tab
                 val tabs = profileManager.gameWindows.value.values.map { profile ->
@@ -87,7 +85,7 @@ fun main() {
                         title = profile.profileName,
                         content = { isFocused, thisTabId ->
                             HoverManagerProvider(window) {
-                                MainWindow(profile.mainViewModel, settingsManager, window, isFocused, thisTabId)
+                                MainWindow(profile.mainViewModel, window, isFocused, thisTabId)
                             }
                         }
                     )
@@ -108,18 +106,18 @@ fun main() {
                 FloatingWindow(showMapWindow, window, settingsManager, "MapWindow")
                 {
                     HoverManagerProvider(window) {
-                        MapWindow(profileManager.currentClient.value, settingsManager)
+                        MapWindow(profileManager.currentClient.value)
                     }
                 }
 
                 // Additional output widget
                 FloatingWindow(showAdditionalOutputWindow, window, settingsManager, "AdditionalOutput")
                 {
-                    AdditionalOutputWindow(profileManager.currentMainViewModel.value, settingsManager)
+                    AdditionalOutputWindow(profileManager.currentMainViewModel.value)
                 }
 
                 ProfileDialog(
-                    showProfileDialog, profileManager.gameWindows.value, settingsManager,
+                    showProfileDialog, profileManager.gameWindows.value,
                     onAddWindow = { windowName -> profileManager.addProfile(windowName) }
                 )
             }
@@ -138,19 +136,20 @@ fun cleanupOnExit(mapModel: MapModel, profileManager: ProfileManager, settingsMa
 }
 
 @Composable
-private fun SignUpToWindowEvents(state: WindowState, settings: SettingsManager) {
+private fun SignUpToWindowEvents(state: WindowState) {
+    val settingsManager: SettingsManager = koinInject()
     LaunchedEffect(state) {
         snapshotFlow { state.size }
-            .onEach{ onWindowStateUpdated(state, settings)}
+            .onEach{ onWindowStateUpdated(state, settingsManager)}
             .launchIn(this)
 
         snapshotFlow { state.position }
             .filter { it.isSpecified }
-            .onEach{ onWindowStateUpdated(state, settings)}
+            .onEach{ onWindowStateUpdated(state, settingsManager)}
             .launchIn(this)
 
         snapshotFlow { state.placement }
-            .onEach{ onWindowStateUpdated(state, settings)}
+            .onEach{ onWindowStateUpdated(state, settingsManager)}
             .launchIn(this)
     }
 }
