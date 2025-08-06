@@ -25,7 +25,6 @@ fun TabbedView(
 ) {
     val safeSelectedTabIndex = selectedTabIndex.coerceIn(tabs.indices.takeIf { !it.isEmpty() } ?: 0..0)
 
-    // @TODO: profile tabs need an RMB -> Close, which should call cleanup and make a note in settings
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTabIndex) {
             tabs.forEachIndexed { index, tab ->

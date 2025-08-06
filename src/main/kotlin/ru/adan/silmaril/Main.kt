@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.koin.compose.KoinContext
 import org.koin.compose.koinInject
+import org.koin.core.component.get
 import ru.adan.silmaril.model.FileLogger
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.Profile
@@ -36,6 +37,9 @@ import ru.adan.silmaril.view.small_dialogs.ProfileDialog
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.visual_styles.StyleManager
 import org.koin.core.context.startKoin
+import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.model.ProfileManager
+import org.koin.core.component.get
 
 fun main() {
     startKoin {
@@ -48,30 +52,16 @@ fun main() {
         KoinContext {
             val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-            //val settingsManager = remember { SettingsManager() }
             val settingsManager: SettingsManager = koinInject()
             val settings by settingsManager.settings.collectAsState()
 
-            val _areMapsReady = remember { MutableStateFlow(false) }
-            val areMapsReady = _areMapsReady.asStateFlow()
-
-            //val mapModel = remember { MapModel() }
+            val profileManager: ProfileManager = koinInject()
             val mapModel: MapModel = koinInject()
 
-            var gameWindows: MutableMap<String, Profile> by remember {
-                mutableStateOf(settings.gameWindows.associateWith { windowName ->
-                    Profile(
-                        windowName,
-                        settingsManager,
-                        areMapsReady
-                    )
-                }.toMutableMap())
-            }
-            GlobalAccess.gameWindows = gameWindows
-
-            var currentClient by remember { mutableStateOf(gameWindows.values.first().client) }
-            var currentMainViewModel by remember { mutableStateOf(gameWindows.values.first().mainViewModel) }
-            var currentProfileName by remember { mutableStateOf(gameWindows.values.first().profileName.capitalized()) }
+            // temporary
+            var currentClient by remember { mutableStateOf(profileManager.gameWindows.value.values.first().client) }
+            var currentMainViewModel by remember { mutableStateOf(profileManager.gameWindows.value.values.first().mainViewModel) }
+            var currentProfileName by remember { mutableStateOf(profileManager.gameWindows.value.values.first().profileName.capitalized()) }
 
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
             val showAdditionalOutputWindow =
@@ -87,7 +77,7 @@ fun main() {
 
             fun exitApp() {
                 applicationScope.cancel()
-                gameWindows.values.forEach {
+                profileManager.gameWindows.value.values.forEach {
                     it.cleanup()
                 }
                 settingsManager.cleanup()
@@ -169,7 +159,7 @@ fun main() {
                 SignUpToWindowEvents(mainWindowState, settingsManager)
 
                 // Stability is achieved through keys in TabbedView for each tab
-                val tabs = gameWindows.values.map { profile ->
+                val tabs = profileManager.gameWindows.value.values.map { profile ->
                     Tab(
                         // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
                         title = profile.profileName,
@@ -184,17 +174,17 @@ fun main() {
                     tabs = tabs,
                     selectedTabIndex = selectedTabIndex,
                     onTabSelected = { newIndex, tabName ->
-                        currentClient = gameWindows[tabName]!!.client
-                        currentMainViewModel = gameWindows[tabName]!!.mainViewModel
+                        currentClient = profileManager.gameWindows.value[tabName]!!.client
+                        currentMainViewModel = profileManager.gameWindows.value[tabName]!!.mainViewModel
                         selectedTabIndex = newIndex
                         currentProfileName = tabName.capitalized()
                     },
                     onTabClose = { index, tabName ->
-                        gameWindows[tabName]?.onCloseWindow()
-                        gameWindows = gameWindows.filterKeys { it != tabName }.toMutableMap()
+                        profileManager.gameWindows.value[tabName]?.onCloseWindow()
+                        profileManager.assignNewWindowsTemp(profileManager.gameWindows.value.filterKeys { it != tabName }.toMap())
                         // if we're closing the currently opened tab, switch to the first available one
                         if (index == selectedTabIndex) {
-                            val firstValidProfile = gameWindows.values.first()
+                            val firstValidProfile = profileManager.gameWindows.value.values.first()
                             currentClient = firstValidProfile.client
                             currentMainViewModel = firstValidProfile.mainViewModel
 
@@ -209,7 +199,6 @@ fun main() {
                                 selectedTabIndex--
                             }
                         }
-                        GlobalAccess.gameWindows = gameWindows
                     }
                 )
 
@@ -229,12 +218,8 @@ fun main() {
                 }
 
                 ProfileDialog(
-                    showProfileDialog, gameWindows, settingsManager,
-                    onAddWindow = { windowName ->
-                        val newProfile = Profile(windowName, settingsManager, areMapsReady)
-                        gameWindows = (gameWindows + (windowName to newProfile)).toMutableMap()
-                        GlobalAccess.gameWindows = gameWindows
-                    }
+                    showProfileDialog, profileManager.gameWindows.value, settingsManager,
+                    onAddWindow = { windowName -> profileManager.addProfile(windowName) }
                 )
             }
 
@@ -244,9 +229,7 @@ fun main() {
                 applicationScope.launch(Dispatchers.IO) {
                     // @TODO: each connection needs its own log
                     FileLogger.initialize("Silmaril")
-                    mapModel.initMaps(
-                        _areMapsReady,
-                        onFeedback = { msg -> currentMainViewModel.displaySystemMessage(msg) })
+                    mapModel.initMaps(onFeedback = { msg -> currentMainViewModel.displaySystemMessage(msg) })
                 }
             }
         }
@@ -273,8 +256,4 @@ private fun SignUpToWindowEvents(state: WindowState, settings: SettingsManager) 
 
 private fun onWindowStateUpdated(state: WindowState, settings: SettingsManager) {
     settings.updateWindowState(state)
-}
-
-object GlobalAccess {
-    var gameWindows: MutableMap<String, Profile> = mutableMapOf()
 }

@@ -1,6 +1,6 @@
 package ru.adan.silmaril.scripting
 
-import ru.adan.silmaril.GlobalAccess
+import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
@@ -13,10 +13,10 @@ import ru.adan.silmaril.model.SettingsManager
 
 class ScriptingEngine(
     val profileName: String,
-    val settingsManager: SettingsManager,
-    // The engine needs a way to interact with the game client (e.g. send data to MUD), which MainViewModel will help with
     val mainViewModel: MainViewModel,
     val isGroupActive: (String) -> Boolean,
+    val settingsManager: SettingsManager,
+    private val profileManager: ProfileManager
 ) {
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
@@ -36,19 +36,19 @@ class ScriptingEngine(
     }
 
     fun sendAllCommand(command: String) {
-        GlobalAccess.gameWindows.values.forEach { profile -> profile.mainViewModel.treatUserInput(command) }
+        profileManager.gameWindows.value.values.forEach { profile -> profile.mainViewModel.treatUserInput(command) }
     }
 
     fun sendWindowCommand(window: String, command: String) {
-        GlobalAccess.gameWindows[window]?.mainViewModel?.treatUserInput(command)
+        profileManager.gameWindows.value[window]?.mainViewModel?.treatUserInput(command)
     }
 
     fun getVarCommand(varName: String): Variable? {
-        return GlobalAccess.gameWindows[profileName]?.getVariable(varName)
+        return profileManager.gameWindows.value[profileName]?.getVariable(varName)
     }
 
     fun setVarCommand(varName: String, varValue: Any) {
-        GlobalAccess.gameWindows[profileName]?.setVariable(varName, varValue)
+        profileManager.gameWindows.value[profileName]?.setVariable(varName, varValue)
     }
 
     /**

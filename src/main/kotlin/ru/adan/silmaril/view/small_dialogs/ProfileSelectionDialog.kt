@@ -37,7 +37,7 @@ import ru.adan.silmaril.visual_styles.AppColors
 @Composable
 fun ProfileDialog(
     showProfileDialog: MutableState<Boolean>,
-    gameWindows: MutableMap<String, Profile>,
+    gameWindows: Map<String, Profile>,
     settings: SettingsManager,
     onAddWindow: (windowName: String) -> Unit
 ) {

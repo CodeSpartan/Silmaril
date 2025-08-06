@@ -1,8 +1,10 @@
 package ru.adan.silmaril.model
 
+import androidx.compose.runtime.remember
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import ru.adan.silmaril.misc.decryptFile
 import ru.adan.silmaril.misc.getProgramDirectory
@@ -27,6 +29,9 @@ class MapModel(private val settingsManager: SettingsManager) {
 
     private val squashedZones : MutableSet<Int> = mutableSetOf()
 
+    val _areMapsReady = MutableStateFlow(false)
+    val areMapsReady = _areMapsReady.asStateFlow()
+
     fun getZone(zoneId: Int): Zone? {
         return zonesMap[zoneId]
     }
@@ -41,16 +46,13 @@ class MapModel(private val settingsManager: SettingsManager) {
     }
 
     // Launched in a coroutine
-    suspend fun initMaps(
-        mapsReady: MutableStateFlow<Boolean>,
-        onFeedback: (message: String) -> Unit
-    ) {
+    suspend fun initMaps(onFeedback: (message: String) -> Unit) {
         println("Проверяю карты...")
         onFeedback("Проверяю карты...")
         val mapsUpdated: Boolean = updateMaps()
         onFeedback(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
         onFeedback("Загружаю карты...")
-        val msg = loadAllMaps(mapsReady)
+        val msg = loadAllMaps(_areMapsReady)
         onFeedback(msg)
     }
 

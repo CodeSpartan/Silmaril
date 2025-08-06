@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
 import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.misc.getTriggersDirectory
@@ -21,8 +22,14 @@ import ru.adan.silmaril.misc.toVariable
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
+import org.koin.core.component.get
+import org.koin.core.parameter.parametersOf
 
-class Profile(val profileName: String, private val settingsManager: SettingsManager, val areMapsReady: StateFlow<Boolean>) {
+class Profile(
+    val profileName: String,
+    private val settingsManager: SettingsManager,
+    private val mapModel: MapModel,
+) : KoinComponent {
     val client = MudConnection(
         host = settingsManager.settings.value.gameServer,
         port = settingsManager.settings.value.gamePort,
@@ -38,12 +45,11 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
         // MainViewModel can emit system messages, which we also process for triggers
         onMessageReceived = { msg -> scriptingEngine.processLine(msg) }
     )
-    val scriptingEngine: ScriptingEngine = ScriptingEngine(
-        profileName = profileName,
-        settingsManager = settingsManager,
-        mainViewModel = mainViewModel,
-        isGroupActive = ::isGroupActive
-    )
+
+    val scriptingEngine: ScriptingEngine by lazy {
+        get<ScriptingEngine> { parametersOf(profileName, mainViewModel, ::isGroupActive) }
+    }
+
     private val scopeDefault: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
@@ -59,9 +65,8 @@ class Profile(val profileName: String, private val settingsManager: SettingsMana
 
         scopeDefault.launch {
             compileTriggers()
-            // Wait until the map is ready
-            // The 'first' operator suspends the coroutine until the StateFlow has a 'true'
-            areMapsReady.first { it }
+            mapModel.areMapsReady.first { it }
+            // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
         }
 
