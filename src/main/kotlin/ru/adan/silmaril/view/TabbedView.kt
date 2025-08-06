@@ -13,7 +13,7 @@ import androidx.compose.ui.zIndex
 
 data class Tab(
     val title: String,
-    val content: @Composable (isFocused : Boolean, thisTabId: Int) -> Unit
+    val content: @Composable (isFocused: Boolean, thisTabId: Int) -> Unit
 )
 
 @Composable
@@ -33,13 +33,14 @@ fun TabbedView(
                     selected = safeSelectedTabIndex == index,
                     onClick = { onTabSelected(index, tab.title) },
                     text = {
-                        Row (
+                        Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Text(tab.title)
                             // don't display the close button if there's only one tab
-                            if (tabs.size > 1) {
+                            if (tabs.size < 2)
+                                return@Row
                             Spacer(modifier = Modifier.width(4.dp))
                             IconButton(
                                 onClick = { onTabClose(index, tab.title) },
@@ -50,7 +51,6 @@ fun TabbedView(
                                     contentDescription = "Close Tab"
                                 )
                             }
-                                }
                         }
                     }
                 )

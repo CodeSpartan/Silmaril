@@ -54,7 +54,6 @@ fun MapWindow(client: MudConnection, mapModel: MapModel, settingsManager: Settin
     val curZoneState = remember { mutableStateOf(mapModel.getZone(lastZone)) }
     var curZoneRooms: Map<Int, Room> = mapModel.getRooms(lastZone)
     val curRoomState = remember { mutableStateOf(curZoneRooms[lastRoom]) }
-    var lastRoomMessage: CurrentRoomMessage? by remember { mutableStateOf(null) }
 
     // State to hold the ID of the room to center on. This will be passed to the RoomsCanvas.
     var centerOnRoomId by remember { mutableStateOf<Int?>(null) }
@@ -69,15 +68,8 @@ fun MapWindow(client: MudConnection, mapModel: MapModel, settingsManager: Settin
     val dpi = LocalDensity.current.density
 
     LaunchedEffect(client) {
-        client.currentRoomMessages.collect { message ->
+        client.currentRoomMessages.collect { roomMessage ->
             // Update the state with the new message to trigger recomposition
-            lastRoomMessage = message
-        }
-    }
-
-    // React to changes from the currentRoom message
-    LaunchedEffect(lastRoomMessage) {
-        lastRoomMessage?.let { roomMessage ->
             if (roomMessage.zoneId != lastZone) {
                 curZoneState.value = mapModel.getZone(roomMessage.zoneId)
                 curZoneRooms = mapModel.getRooms(roomMessage.zoneId)
@@ -112,23 +104,23 @@ fun MapWindow(client: MudConnection, mapModel: MapModel, settingsManager: Settin
             onRoomHover = { room, position ->
                 // This callback is executed inside RoomsCanvas whenever a hover event occurs.
                 // It updates the state that is held here, in the parent.
-                if (room != null) {
-                    if (currentHoverRoom != room) {
-                        tooltipOffset = (position + internalPadding) / dpi
-                        hoverManager.show(
-                            ownerWindow,
-                            tooltipOffset,
-                            500,
-                            room.id,
-                        ) {
-                            MapHoverTooltip(room, curZoneState.value, mapModel, StyleManager.getStyle(currentColorStyle))
-                        }
-                        currentHoverRoom = room
-                    }
-                } else {
+                if (room == null) {
                     currentHoverRoom = null
                     hoverManager.hide()
+                    return@RoomsCanvas
                 }
+                if (currentHoverRoom == room)
+                    return@RoomsCanvas
+                tooltipOffset = (position + internalPadding) / dpi
+                hoverManager.show(
+                    ownerWindow,
+                    tooltipOffset,
+                    500,
+                    room.id,
+                ) {
+                    MapHoverTooltip(room, curZoneState.value, mapModel, StyleManager.getStyle(currentColorStyle))
+                }
+                currentHoverRoom = room
             }
         )
 
