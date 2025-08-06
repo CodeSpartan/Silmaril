@@ -3,17 +3,25 @@ package ru.adan.silmaril.model
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import ru.adan.silmaril.misc.decryptFile
 import ru.adan.silmaril.misc.getProgramDirectory
+import ru.adan.silmaril.misc.unzipFile
 import ru.adan.silmaril.xml_schemas.Room
 import ru.adan.silmaril.xml_schemas.Zone
 import java.awt.Point
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URI
 import java.nio.file.Paths
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.collections.iterator
 import kotlin.math.absoluteValue
 
-class MapModel() {
+class MapModel(private val settingsManager: SettingsManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
     private val roomToZone = mutableMapOf<Int, Zone>()
 
@@ -30,6 +38,82 @@ class MapModel() {
     fun getRooms(zoneId: Int): Map<Int, Room> {
         val zone = getZone(zoneId)
         return zone?.roomsList?.associateBy { it.id } ?: emptyMap()
+    }
+
+    // Launched in a coroutine
+    suspend fun initMaps(
+        mapsReady: MutableStateFlow<Boolean>,
+        onFeedback: (message: String) -> Unit
+    ) {
+        println("Проверяю карты...")
+        onFeedback("Проверяю карты...")
+        val mapsUpdated: Boolean = updateMaps()
+        onFeedback(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
+        onFeedback("Загружаю карты...")
+        val msg = loadAllMaps(mapsReady)
+        onFeedback(msg)
+    }
+
+    // Returns true if update happened
+    suspend fun updateMaps() : Boolean {
+        val url: String = settingsManager.settings.value.mapsUrl
+        val lastChecked: Instant = settingsManager.settings.value.lastMapsUpdateDate
+        val urlConnection: HttpURLConnection = URI(url).toURL().openConnection() as HttpURLConnection
+
+        // Format the Instant to the HTTP Date format (RFC 1123)
+        val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
+        val dateInUtc = lastChecked.atZone(ZoneId.of("UTC"))
+        val formattedDate = formatter.format(dateInUtc)
+
+        // Set the HTTP header for If-Modified-Since
+        urlConnection.setRequestProperty("If-Modified-Since", formattedDate)
+
+        try {
+            urlConnection.connect()
+
+            when (val responseCode = urlConnection.responseCode) {
+                HttpURLConnection.HTTP_OK -> {
+                    println("Maps have been modified since the given date.")
+
+                    val destinationFile = File(Paths.get(getProgramDirectory(), "maps.zip").toString())
+
+                    // Download the file
+                    urlConnection.inputStream.use { input ->
+                        FileOutputStream(destinationFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    settingsManager.updateLastMapsUpdateDate(Instant.ofEpochMilli(urlConnection.lastModified))
+
+                    // delete old .xml files (in case some area ceases to exist, so we don't keep loading it into memory)
+                    val oldFilesDir = File(Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString())
+                    if (oldFilesDir.exists()) {
+                        val xmlFiles = oldFilesDir.listFiles { file -> file.isFile && file.extension == "xml" }
+                        xmlFiles?.forEach { file -> file.delete()  }
+                    }
+
+                    val unzippedMapsDirectory : String = Paths.get(getProgramDirectory(), "maps").toString()
+                    val mapsDir = File(unzippedMapsDirectory)
+                    if (!mapsDir.exists()) {
+                        mapsDir.mkdir()
+                    }
+                    unzipFile(Paths.get(getProgramDirectory(), "maps.zip").toString(), unzippedMapsDirectory)
+                    destinationFile.delete()
+
+                    return true
+                }
+                HttpURLConnection.HTTP_NOT_MODIFIED -> {
+                    println("Maps have not been modified since the given date.")
+                    return false
+                }
+                else -> {
+                    println("Maps received unexpected response code: $responseCode")
+                    return false
+                }
+            }
+        } finally {
+            urlConnection.disconnect()
+        }
     }
 
     // Called from a coroutine after new maps have been downloaded and unzipped (or didn't need an update)

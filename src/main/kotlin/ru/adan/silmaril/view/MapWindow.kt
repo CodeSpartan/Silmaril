@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.adan.silmaril.visual_styles.StyleManager
 import ru.adan.silmaril.misc.UiColor
-import ru.adan.silmaril.mud_messages.CurrentRoomMessage
 import ru.adan.silmaril.xml_schemas.Room
 import ru.adan.silmaril.xml_schemas.Zone
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -40,10 +39,13 @@ import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
+import org.koin.compose.koinInject
 
 
 @Composable
-fun MapWindow(client: MudConnection, mapModel: MapModel, settingsManager: SettingsManager) {
+fun MapWindow(client: MudConnection, settingsManager: SettingsManager) {
+
+    val mapModel: MapModel = koinInject()
 
     val settings by settingsManager.settings.collectAsState()
     val currentColorStyle = settings.colorStyle

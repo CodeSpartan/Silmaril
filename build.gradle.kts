@@ -7,6 +7,7 @@ plugins {
     kotlin("plugin.serialization") version "2.1.21"
     // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
     id("com.github.ben-manes.versions") version "0.52.0"
+    id("com.google.devtools.ksp") version "2.1.21-2.0.2"
 }
 
 group = "ru.adan"
@@ -44,6 +45,18 @@ dependencies {
     // for icons
     implementation("org.jetbrains.compose.material:material-desktop:1.8.2")
     implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
+    // Koin
+    implementation(project.dependencies.platform("io.insert-koin:koin-bom:4.0.3"))
+    implementation("io.insert-koin:koin-core")
+    implementation("io.insert-koin:koin-compose")
+    implementation("io.insert-koin:koin-compose-viewmodel")
+    implementation("io.insert-koin:koin-compose-viewmodel-navigation")
+    // The Koin compiler that KSP will use
+    ksp("io.insert-koin:koin-ksp-compiler:2.1.0")
+    // Koin for Ktor
+    implementation("io.insert-koin:koin-ktor")
+    // SLF4J Logger
+    implementation("io.insert-koin:koin-logger-slf4j")
 }
 
 compose.desktop {

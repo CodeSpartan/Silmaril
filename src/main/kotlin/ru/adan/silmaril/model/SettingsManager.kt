@@ -133,86 +133,6 @@ class SettingsManager {
             .launchIn(scope) // Ensure to launch in a defined CoroutineScope
     }
 
-    // Launched in a coroutine
-    suspend fun initMaps(
-        mapModel: MapModel,
-        mapsReady: MutableStateFlow<Boolean>,
-        onFeedback: (message: String) -> Unit
-        ) {
-        println("Проверяю карты...")
-        onFeedback("Проверяю карты...")
-        val mapsUpdated: Boolean = updateMaps()
-        onFeedback(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
-        onFeedback("Загружаю карты...")
-        val msg = mapModel.loadAllMaps(mapsReady)
-        onFeedback(msg)
-    }
-
-    // Returns true if update happened
-    suspend fun updateMaps() : Boolean {
-        val url: String = settings.value.mapsUrl
-        val lastChecked: Instant = settings.value.lastMapsUpdateDate
-        val urlConnection: HttpURLConnection = URI(url).toURL().openConnection() as HttpURLConnection
-
-        // Format the Instant to the HTTP Date format (RFC 1123)
-        val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
-        val dateInUtc = lastChecked.atZone(ZoneId.of("UTC"))
-        val formattedDate = formatter.format(dateInUtc)
-
-        // Set the HTTP header for If-Modified-Since
-        urlConnection.setRequestProperty("If-Modified-Since", formattedDate)
-
-        try {
-            urlConnection.connect()
-
-            when (val responseCode = urlConnection.responseCode) {
-                HttpURLConnection.HTTP_OK -> {
-                    println("Maps have been modified since the given date.")
-
-                    val destinationFile = File(Paths.get(getProgramDirectory(), "maps.zip").toString())
-
-                    // Download the file
-                    urlConnection.inputStream.use { input ->
-                        FileOutputStream(destinationFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    _settings.update { currentState ->
-                        currentState.copy(lastMapsUpdateDate = Instant.ofEpochMilli(urlConnection.lastModified))
-                    }
-                    saveSettings()
-
-                    // delete old .xml files (in case some area ceases to exist, so we don't keep loading it into memory)
-                    val oldFilesDir = File(Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString())
-                    if (oldFilesDir.exists()) {
-                        val xmlFiles = oldFilesDir.listFiles { file -> file.isFile && file.extension == "xml" }
-                        xmlFiles?.forEach { file -> file.delete()  }
-                    }
-
-                    val unzippedMapsDirectory : String = Paths.get(getProgramDirectory(), "maps").toString()
-                    val mapsDir = File(unzippedMapsDirectory)
-                    if (!mapsDir.exists()) {
-                        mapsDir.mkdir()
-                    }
-                    unzipFile(Paths.get(getProgramDirectory(), "maps.zip").toString(), unzippedMapsDirectory)
-                    destinationFile.delete()
-
-                    return true
-                }
-                HttpURLConnection.HTTP_NOT_MODIFIED -> {
-                    println("Maps have not been modified since the given date.")
-                    return false
-                }
-                else -> {
-                    println("Maps received unexpected response code: $responseCode")
-                    return false
-                }
-            }
-        } finally {
-            urlConnection.disconnect()
-        }
-    }
-
     fun updateFont(newFont: String) {
         _settings.update { currentState ->
             currentState.copy(font = newFont)
@@ -358,6 +278,13 @@ class SettingsManager {
     fun toggleAutoReconnect(newValue: Boolean) {
         _settings.update { currentState ->
             currentState.copy(autoReconnect = newValue)
+        }
+        saveSettings()
+    }
+
+    fun updateLastMapsUpdateDate(newValue: Instant) {
+        _settings.update { currentState ->
+            currentState.copy(lastMapsUpdateDate = newValue)
         }
         saveSettings()
     }
