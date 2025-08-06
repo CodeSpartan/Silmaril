@@ -14,7 +14,6 @@ import ru.adan.silmaril.scripting.ScriptingEngine
 val appModule = module {
     singleOf (::SettingsManager)
     singleOf (::MapModel)
-
     singleOf(::ProfileManager)
 
     factory { params -> // 'params' holds our runtime parameters

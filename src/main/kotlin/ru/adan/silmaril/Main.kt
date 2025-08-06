@@ -44,24 +44,16 @@ import org.koin.core.component.get
 fun main() {
     startKoin {
         printLogger() // Optional: helps see what Koin is doing
-        modules(appModule) // Load your recipes
+        modules(appModule)
     }
 
     // it's a Composable
     application {
         KoinContext {
-            val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
             val settingsManager: SettingsManager = koinInject()
             val settings by settingsManager.settings.collectAsState()
-
             val profileManager: ProfileManager = koinInject()
             val mapModel: MapModel = koinInject()
-
-            // temporary
-            var currentClient by remember { mutableStateOf(profileManager.gameWindows.value.values.first().client) }
-            var currentMainViewModel by remember { mutableStateOf(profileManager.gameWindows.value.values.first().mainViewModel) }
-            var currentProfileName by remember { mutableStateOf(profileManager.gameWindows.value.values.first().profileName.capitalized()) }
 
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
             val showAdditionalOutputWindow =
@@ -76,10 +68,8 @@ fun main() {
             val showProfileDialog = remember { mutableStateOf(false) }
 
             fun exitApp() {
-                applicationScope.cancel()
-                profileManager.gameWindows.value.values.forEach {
-                    it.cleanup()
-                }
+                mapModel.cleanup()
+                profileManager.cleanup()
                 settingsManager.cleanup()
                 exitApplication()
             }
@@ -143,7 +133,7 @@ fun main() {
                         )
                         Item("Добавить окно", mnemonic = 'Д', onClick = { showProfileDialog.value = true })
                     }
-                    Menu(currentProfileName, mnemonic = currentProfileName.first()) {
+                    Menu(profileManager.currentProfileName.value, mnemonic = profileManager.currentProfileName.value.first()) {
                         CheckboxItem(
                             text = "Авто-переподкл.",
                             mnemonic = 'А',
@@ -174,10 +164,10 @@ fun main() {
                     tabs = tabs,
                     selectedTabIndex = selectedTabIndex,
                     onTabSelected = { newIndex, tabName ->
-                        currentClient = profileManager.gameWindows.value[tabName]!!.client
-                        currentMainViewModel = profileManager.gameWindows.value[tabName]!!.mainViewModel
+                        profileManager.currentClient.value = profileManager.gameWindows.value[tabName]!!.client
+                        profileManager.currentMainViewModel.value = profileManager.gameWindows.value[tabName]!!.mainViewModel
                         selectedTabIndex = newIndex
-                        currentProfileName = tabName.capitalized()
+                        profileManager.currentProfileName.value = tabName.capitalized()
                     },
                     onTabClose = { index, tabName ->
                         profileManager.gameWindows.value[tabName]?.onCloseWindow()
@@ -185,13 +175,13 @@ fun main() {
                         // if we're closing the currently opened tab, switch to the first available one
                         if (index == selectedTabIndex) {
                             val firstValidProfile = profileManager.gameWindows.value.values.first()
-                            currentClient = firstValidProfile.client
-                            currentMainViewModel = firstValidProfile.mainViewModel
+                            profileManager.currentClient.value = firstValidProfile.client
+                            profileManager.currentMainViewModel.value = firstValidProfile.mainViewModel
 
                             val firstAvailableTabIndex = tabs.indexOfFirst { it.title == firstValidProfile.profileName }
                             selectedTabIndex =
                                 if (firstAvailableTabIndex > index) firstAvailableTabIndex - 1 else firstAvailableTabIndex
-                            currentProfileName = firstValidProfile.profileName.capitalized()
+                            profileManager.currentProfileName.value = firstValidProfile.profileName.capitalized()
                         }
                         // if we're closing a tab to the left of current, the current id will need to be adjusted to the left
                         else {
@@ -207,14 +197,14 @@ fun main() {
                 FloatingWindow(showMapWindow, window, settingsManager, "MapWindow")
                 {
                     HoverManagerProvider(window) {
-                        MapWindow(currentClient, settingsManager)
+                        MapWindow(profileManager.currentClient.value, settingsManager)
                     }
                 }
 
                 // Additional output widget
                 FloatingWindow(showAdditionalOutputWindow, window, settingsManager, "AdditionalOutput")
                 {
-                    AdditionalOutputWindow(currentMainViewModel, settingsManager)
+                    AdditionalOutputWindow(profileManager.currentMainViewModel.value, settingsManager)
                 }
 
                 ProfileDialog(
@@ -223,14 +213,8 @@ fun main() {
                 )
             }
 
-
-            // launch only on first composition, when the program starts
-            LaunchedEffect(Unit) {
-                applicationScope.launch(Dispatchers.IO) {
-                    // @TODO: each connection needs its own log
-                    FileLogger.initialize("Silmaril")
-                    mapModel.initMaps(onFeedback = { msg -> currentMainViewModel.displaySystemMessage(msg) })
-                }
+            LaunchedEffect(Unit) { // launch only on first composition, when the program starts
+                mapModel.initMaps(profileManager)
             }
         }
     }

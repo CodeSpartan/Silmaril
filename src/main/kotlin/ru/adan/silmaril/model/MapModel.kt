@@ -3,12 +3,18 @@ package ru.adan.silmaril.model
 import androidx.compose.runtime.remember
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.decryptFile
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.unzipFile
+import ru.adan.silmaril.viewmodel.MainViewModel
 import ru.adan.silmaril.xml_schemas.Room
 import ru.adan.silmaril.xml_schemas.Zone
 import java.awt.Point
@@ -32,6 +38,8 @@ class MapModel(private val settingsManager: SettingsManager) {
     val _areMapsReady = MutableStateFlow(false)
     val areMapsReady = _areMapsReady.asStateFlow()
 
+    val mapModelScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     fun getZone(zoneId: Int): Zone? {
         return zonesMap[zoneId]
     }
@@ -45,15 +53,23 @@ class MapModel(private val settingsManager: SettingsManager) {
         return zone?.roomsList?.associateBy { it.id } ?: emptyMap()
     }
 
-    // Launched in a coroutine
-    suspend fun initMaps(onFeedback: (message: String) -> Unit) {
-        println("Проверяю карты...")
-        onFeedback("Проверяю карты...")
-        val mapsUpdated: Boolean = updateMaps()
-        onFeedback(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
-        onFeedback("Загружаю карты...")
-        val msg = loadAllMaps(_areMapsReady)
-        onFeedback(msg)
+    suspend fun initMaps(profileManager: ProfileManager) {
+        mapModelScope.launch(Dispatchers.IO) {
+            // @TODO: remove
+            FileLogger.initialize("Silmaril")
+
+            println("Проверяю карты...")
+            profileManager.displaySystemMessage("Проверяю карты...")
+            val mapsUpdated: Boolean = updateMaps()
+            profileManager.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
+            profileManager.displaySystemMessage("Загружаю карты...")
+            val msg = loadAllMaps(_areMapsReady)
+            profileManager.displaySystemMessage(msg)
+        }
+    }
+
+    fun cleanup() {
+        mapModelScope.cancel()
     }
 
     // Returns true if update happened
