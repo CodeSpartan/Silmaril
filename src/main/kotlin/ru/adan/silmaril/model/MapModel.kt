@@ -55,9 +55,6 @@ class MapModel(private val settingsManager: SettingsManager) {
 
     suspend fun initMaps(profileManager: ProfileManager) {
         mapModelScope.launch(Dispatchers.IO) {
-            // @TODO: remove
-            FileLogger.initialize("Silmaril")
-
             println("Проверяю карты...")
             profileManager.displaySystemMessage("Проверяю карты...")
             val mapsUpdated: Boolean = updateMaps()

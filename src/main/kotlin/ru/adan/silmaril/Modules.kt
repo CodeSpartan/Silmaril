@@ -28,8 +28,9 @@ val appModule = module {
 
     factory { params ->
         MudConnection(
-            host = params.get(),
+            host = params[0],
             port = params.get(),
+            profileName = params[2],
             onMessageReceived = params.get(),
             settingsManager = get()
         )

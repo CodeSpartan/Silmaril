@@ -25,14 +25,19 @@ import ru.adan.silmaril.view.Tab
 import ru.adan.silmaril.view.TabbedView
 import ru.adan.silmaril.view.small_dialogs.ProfileDialog
 import org.koin.core.context.startKoin
+import org.koin.logger.slf4jLogger
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.view.AppMenuBar
+import org.koin.core.logger.Level
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 fun main() {
     startKoin {
-        printLogger() // Optional: helps see what Koin is doing
+        slf4jLogger(Level.DEBUG) // logback.xml actually limits this to INFO
         modules(appModule)
     }
+
+    val logger = KotlinLogging.logger {}
 
     // it's a Composable
     application {

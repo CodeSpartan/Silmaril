@@ -55,8 +55,14 @@ dependencies {
     ksp("io.insert-koin:koin-ksp-compiler:2.1.0")
     // Koin for Ktor
     implementation("io.insert-koin:koin-ktor")
-    // SLF4J Logger
+    // SLF4J Logger for Koin
     implementation("io.insert-koin:koin-logger-slf4j")
+    // SLF4J Backend (Logback)
+    implementation("ch.qos.logback:logback-classic:1.5.16")
+    // Kotlin Logging, the facade for idiomatic logging in Kotlin
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.12")
+    // Something that solves the MDC/Coroutine issue for SLF4J
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.10.1")
 }
 
 compose.desktop {

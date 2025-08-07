@@ -2,7 +2,7 @@ package ru.adan.silmaril.mud_messages
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
-import ru.adan.silmaril.model.FileLogger
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 /***
  * Construct this object from xml:
@@ -16,18 +16,20 @@ data class CurrentRoomMessage(
     val zoneId: Int
 ) {
     companion object {
+        private val logger = KotlinLogging.logger {}
+
+        val EMPTY = CurrentRoomMessage(roomId = -1, zoneId = -100)
+
         fun fromXml(xml: String): CurrentRoomMessage? {
             val xmlMapper = XmlMapper()
             return try {
                 xmlMapper.readValue(xml, CurrentRoomMessage::class.java)
             } catch (e: Exception) {
-                System.err.println("Offending XML: $xml")
-                e.printStackTrace()
-                FileLogger.log("CurrentRoomMessage", "Offending XML: $xml")
-                FileLogger.log("CurrentRoomMessage", e.stackTrace.toString())
+
+                logger.warn { "Offending XML: $xml" }
+                logger.error(e) { "An unexpected error occurred." }
                 null
             }
         }
-        val EMPTY = CurrentRoomMessage(roomId = -1, zoneId = -100)
     }
 }

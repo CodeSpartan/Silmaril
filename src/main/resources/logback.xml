@@ -1,0 +1,60 @@
+<configuration>
+
+    <!-- Appender 1: Log to Console (STDOUT) -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- Defines the format of the log message -->
+            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{16} %X{profile:-GLOBAL} - %msg%n</pattern>
+        </encoder>
+
+        <!-- Add a filter to only allow INFO and higher to the console -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+    </appender>
+
+    <!-- Appender 2: Log to a Rolling File (FILE) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${user.home}/.silmaril/logs/app.log</file>
+        <encoder>
+            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{16} %X{profile:-GLOBAL} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- daily rollover -->
+            <fileNamePattern>${user.home}/.silmaril/logs/archived/silmaril.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- keep 5 days' worth of history -->
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!--
+        Set the logging level for your specific application package.
+        Set name to your application's root package name.
+        Set the level to "DEBUG" to see debug messages from your app.
+    -->
+    <logger name="ru.adan.silmaril" level="DEBUG" additivity="false">
+        <!-- Send this logger's output to both console and file -->
+        <appender-ref ref="STDOUT" /> <!-- the STDOUT has a filter to only accept INFO, so DEBUG will be ignored -->
+        <appender-ref ref="FILE" />
+    </logger>
+
+    <!--
+      Set the logging level for Koin's internal logs.
+      Set this to DEBUG when troubleshooting DI issues.
+      Set it to INFO or WARN for normal production runs.
+    -->
+    <logger name="org.koin" level="INFO" additivity="false">
+        <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE" />
+    </logger>
+
+    <!--
+        This is the root logger. It catches all logs from all libraries.
+        Setting it to INFO keeps the output clean from excessive third-party library logs.
+    -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+</configuration>

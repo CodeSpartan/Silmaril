@@ -35,6 +35,7 @@ class Profile(
             parametersOf(
                 settingsManager.settings.value.gameServer,
                 settingsManager.settings.value.gamePort,
+                profileName,
                 { msg: String -> scriptingEngine.processLine(msg) }
             )
         }
