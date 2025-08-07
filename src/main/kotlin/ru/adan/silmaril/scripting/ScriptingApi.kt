@@ -20,7 +20,7 @@ fun ScriptingEngine.trigger(
 ) {
     val trigger = Trigger(pattern.toRegex(), action)
     this.addTrigger(trigger)
-    println("[SYSTEM]: Registered trigger for pattern: $pattern")
+    logger.trace { "Registered trigger for pattern: $pattern" }
 }
 
 ///**
@@ -48,7 +48,7 @@ fun ScriptingEngine.send(command: String) {
  * DSL function to print text to the client's local console (not sent to the MUD).
  */
 fun ScriptingEngine.echo(message: String) {
-    println("[ECHO]: $message")
+    logger.info { "[ECHO]: $message" }
 }
 
 /**

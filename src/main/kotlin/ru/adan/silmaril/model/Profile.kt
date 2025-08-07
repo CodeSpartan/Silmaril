@@ -1,5 +1,6 @@
 package ru.adan.silmaril.model
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -62,6 +63,8 @@ class Profile(
 
     // A regex to find any $variables in user's input, including cyrillic, in order to substitute with values
     val insertVarRegex = """(\$[\p{L}\p{N}_]+)""".toRegex()
+
+    val logger = KotlinLogging.logger {}
 
     init {
         if (!settingsManager.settings.value.gameWindows.contains(profileName)) {
@@ -307,10 +310,10 @@ class Profile(
         val priority = if (match.groupValues.size >= 4) match.groupValues[3].toIntOrNull() ?: 5 else 5
         val groupName = if (match.groupValues.size >= 5) match.groupValues[4] else "DEFAULT"
         mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
-        println("Condition: $condition")
-        println("Action: $action")
-        println("Priority: $priority")
-        println("Group: $groupName")
+        logger.info { "Condition: $condition" }
+        logger.info { "Action: $action" }
+        logger.info { "Priority: $priority" }
+        logger.info { "Group: $groupName" }
 
     }
 

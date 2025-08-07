@@ -3,6 +3,7 @@ package ru.adan.silmaril.model
 import androidx.compose.runtime.remember
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ru.adan.silmaril.misc.decryptFile
+import ru.adan.silmaril.misc.AesDecryptor
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.unzipFile
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -32,6 +33,8 @@ import kotlin.math.absoluteValue
 class MapModel(private val settingsManager: SettingsManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
     private val roomToZone = mutableMapOf<Int, Zone>()
+
+    val logger = KotlinLogging.logger {}
 
     private val squashedZones : MutableSet<Int> = mutableSetOf()
 
@@ -55,7 +58,7 @@ class MapModel(private val settingsManager: SettingsManager) {
 
     suspend fun initMaps(profileManager: ProfileManager) {
         mapModelScope.launch(Dispatchers.IO) {
-            println("Проверяю карты...")
+            logger.info { "Проверяю карты..." }
             profileManager.displaySystemMessage("Проверяю карты...")
             val mapsUpdated: Boolean = updateMaps()
             profileManager.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
@@ -88,7 +91,7 @@ class MapModel(private val settingsManager: SettingsManager) {
 
             when (val responseCode = urlConnection.responseCode) {
                 HttpURLConnection.HTTP_OK -> {
-                    println("Maps have been modified since the given date.")
+                    logger.info { "Maps have been modified since the given date." }
 
                     val destinationFile = File(Paths.get(getProgramDirectory(), "maps.zip").toString())
 
@@ -118,11 +121,11 @@ class MapModel(private val settingsManager: SettingsManager) {
                     return true
                 }
                 HttpURLConnection.HTTP_NOT_MODIFIED -> {
-                    println("Maps have not been modified since the given date.")
+                    logger.info { "Maps have not been modified since the given date." }
                     return false
                 }
                 else -> {
-                    println("Maps received unexpected response code: $responseCode")
+                    logger.info { "Maps received unexpected response code: $responseCode" }
                     return false
                 }
             }
@@ -144,18 +147,18 @@ class MapModel(private val settingsManager: SettingsManager) {
         // Process each XML file
         for (xmlFile in xmlFiles) {
             // Get the decrypted content from the file
-            val decryptedContent = decryptFile(xmlFile.absolutePath)
+            val decryptedContent = AesDecryptor.decryptFile(xmlFile.absolutePath)
 
             try {
                 val zone: Zone = xmlMapper.readValue(decryptedContent, Zone::class.java)
                 zonesMap[zone.id] = zone
             } catch (e: JsonMappingException) {
-                println("Mapping error in ${xmlFile.name}: ${e.message}")
+                logger.error(e) { "Mapping error in ${xmlFile.name}." }
             }
         }
 
         val mapsLoadedMsg = "Карт загружено: ${zonesMap.size}"
-        println(mapsLoadedMsg)
+        logger.info { mapsLoadedMsg }
 
         zonesMap.forEach { zone ->
             roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
@@ -180,7 +183,7 @@ class MapModel(private val settingsManager: SettingsManager) {
         // Process each XML file
         for (xmlFile in xmlFiles) {
             // Get the decrypted content from the file
-            val decryptedContent = decryptFile(xmlFile.absolutePath)
+            val decryptedContent = AesDecryptor.decryptFile(xmlFile.absolutePath)
 
             // Specify the target file path
             val targetFilePath = "$targetDirPath\\${xmlFile.name}"

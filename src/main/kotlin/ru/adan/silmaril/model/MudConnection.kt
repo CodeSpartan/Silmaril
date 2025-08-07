@@ -97,18 +97,18 @@ class MudConnection(
     // Attempt to establish the connection
     fun connect(): Boolean {
         return try {
-            println("Connecting to $host:$port (thread: ${Thread.currentThread().name})")
+            logger.info { "Connecting to $host:$port" }
             socket = Socket(host, port)  // Try to connect to the host, a blocking call
-            println("Connection established to $host:$port")
+            logger.info { "Connection established to $host:$port" }
             inputStream = socket?.getInputStream()
             outputStream = socket?.getOutputStream()
             startReadingData()
             true  // Connection successful, return true
         } catch (e: UnknownHostException) {
-            println("Unknown host: ${e.message}")
+            logger.warn { "Unknown host: ${e.message}" }
             false  // Connection failed, return false
         } catch (e: IOException) {
-            println("Connection failed: ${e.message}")
+            logger.warn { "Connection failed: ${e.message}" }
             false  // Connection failed, return false
         }
     }
@@ -142,7 +142,7 @@ class MudConnection(
 
     private fun reconnect() {
         reconnectScope.launch {
-            println("Reconnecting...")
+            logger.info { "Reconnecting..." }
             //Thread.sleep(100)
             clientJob?.cancel()
             clientJob?.join()
@@ -172,7 +172,7 @@ class MudConnection(
                 outStream.flush()  // Flush to ensure all bytes are sent
             }
         } catch (e: Exception) {
-            println("Error sending string message: ${e.message}")
+            logger.warn { "Error sending string message: ${e.message}" }
         }
     }
 
@@ -185,7 +185,7 @@ class MudConnection(
                 outStream.flush()  // Flush to ensure all bytes are sent
             }
         } catch (e: Exception) {
-            println("Error sending raw message: ${e.message}")
+            logger.warn { "Error sending raw message: ${e.message}" }
         }
     }
 
@@ -265,7 +265,6 @@ class MudConnection(
 
     private suspend fun processData(data : ByteArray, byteLength: Int)
     {
-        val debug = true
         var skipCount = 0
         for (offset in 0 until byteLength) {
             if (skipCount > 0) {
@@ -549,7 +548,6 @@ class MudConnection(
 
     private suspend fun flushMainBuffer() {
         if (_customMessageType != -1) {
-            val debug = true
             var skipBytes = 0
 
             // Due to an ADAN bug, some messages can arrive inside a custom message, e.g.
@@ -577,7 +575,6 @@ class MudConnection(
     }
 
     private suspend fun processTextMessage(buffer: ByteArray, bufferEndPointer: Int, emitEmpty: Boolean) {
-        val debug = true
         val gluedMessage = bufferToColorfulText(buffer, bufferEndPointer)
         if (gluedMessage.chunks.isNotEmpty()) {
             val gluedString = gluedMessage.chunks.joinToString(separator = "", transform = { chunk -> chunk.text})

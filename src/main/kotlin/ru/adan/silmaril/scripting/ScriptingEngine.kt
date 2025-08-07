@@ -1,5 +1,6 @@
 package ru.adan.silmaril.scripting
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -18,6 +19,7 @@ class ScriptingEngine(
     val settingsManager: SettingsManager,
     private val profileManager: ProfileManager
 ) {
+    val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
     private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf()
@@ -73,8 +75,9 @@ class ScriptingEngine(
      * @return number of triggers loaded
      */
     fun loadScript(scriptFile: File) : Int {
-        println("[HOST]: ScriptingEngine instance is loaded by: ${this.javaClass.classLoader}")
-        println("[SYSTEM]: Loading and evaluating script ${scriptFile.name}...")
+        //println("[HOST]: ScriptingEngine instance is loaded by: ${this.javaClass.classLoader}")
+
+        logger.info {"[SYSTEM]: Loading and evaluating script ${scriptFile.name}..."}
         currentlyLoadingScript = scriptFile.name.replace(".mud.kts", "").uppercase()
         settingsManager.addGroup(currentlyLoadingScript)
 
@@ -100,17 +103,16 @@ class ScriptingEngine(
             result.reports.forEach { report ->
                 if (report.severity >= ScriptDiagnostic.Severity.WARNING) {
                     val location = report.location?.let { "at line ${it.start.line}, col ${it.start.col}" } ?: ""
-                    println("[SCRIPT ${report.severity}]: ${report.message} $location")
+                    logger.warn { "[SCRIPT]: ${report.message} $location" }
                 }
             }
 
             val triggersLoaded = result.reports.filter { report -> report.severity < ScriptDiagnostic.Severity.ERROR }.size
-            println("Triggers loaded: $triggersLoaded")
+            logger.info { "Triggers loaded: $triggersLoaded" }
             return triggersLoaded
 
         } catch (e: Exception) {
-            println("[SYSTEM ERROR]: An exception occurred while setting up the script engine.")
-            e.printStackTrace()
+            logger.error(e) { "An exception occurred while setting up the script engine." }
             return 0
         }
     }
