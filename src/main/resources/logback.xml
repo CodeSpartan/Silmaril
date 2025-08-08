@@ -91,6 +91,7 @@
     <!-- ===================================================================== -->
     <!-- Async Appender Wrapper Definitions -->
     <!-- ===================================================================== -->
+
     <appender name="ASYNC_SIFTING_GAME_LOG" class="ch.qos.logback.classic.AsyncAppender">
         <!-- It simply references the real worker appender -->
         <appender-ref ref="SIFTING_GAME_LOG" />
@@ -141,7 +142,7 @@
       Set it to INFO or WARN for normal production runs.
     -->
     <logger name="org.koin" level="INFO" additivity="false">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="STDOUT" /> <!-- the STDOUT has a filter to only accept INFO, so DEBUG will be ignored -->
         <appender-ref ref="ASYNC_FILE" />
     </logger>
 

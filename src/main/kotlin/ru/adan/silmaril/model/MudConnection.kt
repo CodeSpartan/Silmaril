@@ -154,10 +154,6 @@ class MudConnection(
         }
     }
 
-    fun isConnected(): Boolean {
-        return socket?.isConnected ?: false
-    }
-
     /************** SEND *************/
 
     inline fun <T> withMdc(vararg pairs: Pair<String, String>, block: () -> T): T {
