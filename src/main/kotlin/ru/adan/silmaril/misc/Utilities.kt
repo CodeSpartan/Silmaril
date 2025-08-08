@@ -44,11 +44,10 @@ fun getProgramDirectory(): String {
     val userHome = System.getProperty("user.home")
     val os = getOperatingSystem()
     val programPath: String = when {
-        // for Windows, we're in user's /Documents/Silmaril
-        // for MacOS, we're in ~/Documents/Silmaril
-        // for Linux, we're in ~/.Silmaril
-        os == "Windows" || os == "MacOS" -> Paths.get(userHome, "Documents", "Silmaril").toString()
-        os == "Linux" -> Paths.get(userHome, ".Silmaril").toString()
+        // for Windows, we're in user's Documents\Silmaril -- C:\Users\<YourUsername>\Documents\Silmaril\
+        // for macOS, we're in ~/Documents/Silmaril -- /Users/<YourUsername>/Documents/Silmaril/
+        // for Linux, we're in ~/.Silmaril -- /home/<YourUsername>/Documents/Silmaril/
+        os == "Windows" || os == "MacOS" || os == "Linux" -> Paths.get(userHome, "Documents", "Silmaril").toString()
         else -> Paths.get(userHome, "Silmaril").toString()
     }
 

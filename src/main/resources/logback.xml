@@ -1,5 +1,26 @@
 <configuration>
 
+    <!-- It will print Logback's own errors to the console. -->
+    <!-- <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" /> -->
+
+    <!-- ===================================================================== -->
+    <!-- Property Definitions -->
+    <!-- ===================================================================== -->
+
+    <!-- Windows: C:\Users\<YourUsername>\.silmaril\logs\   -->
+    <!-- macOS: /Users/<YourUsername>/.silmaril/logs/       -->
+    <!-- linux: /home/<YourUsername>/.silmaril/logs/        -->
+    <property name="SYSTEM_LOG_PATH" value="${user.home}/.silmaril/logs" />
+
+    <!-- Windows: C:\Users\<YourUsername>\Documents\Silmaril\logs\  -->
+    <!-- macOS: /Users/<YourUsername>/Documents/Silmaril/log/       -->
+    <!-- linux: /home/<YourUsername>/Documents/Silmaril/log/        -->
+    <property name="GAME_LOG_PATH" value="${user.home}/Documents/Silmaril/logs" />
+
+    <!-- ===================================================================== -->
+    <!-- Appender Definitions -->
+    <!-- ===================================================================== -->
+
     <!-- Appender 1: Log to Console (STDOUT) -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -15,18 +36,66 @@
 
     <!-- Appender 2: Log to a Rolling File (FILE) -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${user.home}/.silmaril/logs/app.log</file>
+        <file>${SYSTEM_LOG_PATH}/app.log</file>
         <encoder>
             <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{16} %X{profile:-GLOBAL} - %msg%n</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- daily rollover -->
-            <fileNamePattern>${user.home}/.silmaril/logs/archived/silmaril.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${SYSTEM_LOG_PATH}/archived/silmaril.%d{yyyy-MM-dd}.log</fileNamePattern>
             <!-- keep 5 days' worth of history -->
             <maxHistory>5</maxHistory>
             <totalSizeCap>100MB</totalSizeCap>
         </rollingPolicy>
     </appender>
+
+    <!--  Appender 3: Sifting Appender for logging Gameplay -->
+    <appender name="SIFTING_GAME_LOG" class="ch.qos.logback.classic.sift.SiftingAppender">
+
+        <!-- This is the MDC key we will use to separate files. -->
+        <discriminator>
+            <key>profile</key>
+            <defaultValue>default</defaultValue>
+        </discriminator>
+
+        <sift>
+            <!-- This is a template for the appender that will be created for each unique profile. -->
+            <!-- It rolls on date AND size -->
+            <appender name="FILE-${profile}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+                <!-- Define the ACTIVE log file's name. We use the profile name to create a sub-directory. -->
+                <file>${GAME_LOG_PATH}/${profile}.log</file>
+
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+
+                    <!-- Define the pattern for archived files. -->
+                    <fileNamePattern>${GAME_LOG_PATH}/${profile}-архив/%d{yyyy-MM-dd}-${profile}.%i.log</fileNamePattern>
+
+                    <!-- Start a new file if the current one exceeds 50MB -->
+                    <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                        <maxFileSize>10MB</maxFileSize>
+                    </timeBasedFileNamingAndTriggeringPolicy>
+
+                </rollingPolicy>
+                <!-- No maxHistory. This files will never be deleted. -->
+                <append>true</append>
+                <encoder>
+                    <!-- A simpler pattern for game events -->
+                    <pattern>%msg%n</pattern>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
+
+    <!-- ===================================================================== -->
+    <!-- Logger Definitions -->
+    <!-- ===================================================================== -->
+
+    <!-- A specific logger for capturing Gameplay -->
+    <logger name="GameEvents" level="INFO" additivity="false">
+        <appender-ref ref="SIFTING_GAME_LOG" />
+    </logger>
 
     <!--
         Set the logging level for your specific application package.

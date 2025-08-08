@@ -50,6 +50,7 @@ class MainViewModel(
         if (playerCommands.size > 1) {
             if (!splitCommands) {
                 _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
+                client.logGameplayTextSynchronously("> $message")
             }
             for (command in playerCommands) {
                 treatUserInput(command, splitCommands)
@@ -65,10 +66,12 @@ class MainViewModel(
                         TextMessageChunk(AnsiColor.Black, AnsiColor.Black, true, ">> $message "),
                         TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, "> $withVariables"),
                     ))
+                    client.logGameplayTextSynchronously(">> $message > $withVariables")
                 } else {
                     _messages.value += ColorfulTextMessage(arrayOf(
                         TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, ">> $withVariables"),
                     ))
+                    client.logGameplayTextSynchronously(">> $withVariables")
                 }
             }
             onSystemMessage(withVariables)
@@ -80,16 +83,19 @@ class MainViewModel(
                     _messages.value += ColorfulTextMessage(arrayOf(
                         TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> ********")
                     ))
+                    client.logGameplayTextSynchronously("> ********")
                 }
                 else if (withVariables != message) {
                     _messages.value += ColorfulTextMessage(arrayOf(
                         TextMessageChunk(AnsiColor.Black, AnsiColor.Black, true, "> $message "),
                         TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $withVariables"),
                     ))
+                    client.logGameplayTextSynchronously("> $message > $withVariables")
                 } else {
                     _messages.value += ColorfulTextMessage(arrayOf(
                         TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $withVariables"),
                     ))
+                    client.logGameplayTextSynchronously("> $withVariables")
                 }
             }
             client.sendMessage(withVariables)

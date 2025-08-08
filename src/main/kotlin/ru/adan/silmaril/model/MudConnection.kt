@@ -30,6 +30,7 @@ class MudConnection(
     private val settingsManager: SettingsManager,
 ) {
     private val logger = KotlinLogging.logger {}
+    private val gameEventsLogger = KotlinLogging.logger("GameEvents")
 
     private var socket: Socket? = null
     private var inputStream: InputStream? = null
@@ -158,6 +159,25 @@ class MudConnection(
     }
 
     /************** SEND *************/
+
+    inline fun <T> withMdc(vararg pairs: Pair<String, String>, block: () -> T): T {
+        val keys = pairs.map { it.first }
+        try {
+            pairs.forEach { (key, value) -> MDC.put(key, value) }
+            return block()
+        } finally {
+            keys.forEach { MDC.remove(it) }
+        }
+    }
+
+    // use it to log user's input
+    fun logGameplayTextSynchronously(eventMessage: String) {
+        // Use the withMdc helper to wrap the logging call.
+        // The MDC context only exists for the duration of this lambda.
+        withMdc("profile" to profileName) {
+            gameEventsLogger.info { eventMessage } // Use lazy evaluation for performance
+        }
+    }
 
     fun sendMessage(message: String) {
         lastSendTimestamp.set(System.currentTimeMillis())
@@ -578,7 +598,10 @@ class MudConnection(
         val gluedMessage = bufferToColorfulText(buffer, bufferEndPointer)
         if (gluedMessage.chunks.isNotEmpty()) {
             val gluedString = gluedMessage.chunks.joinToString(separator = "", transform = { chunk -> chunk.text})
-            // send gluedString to the trigger system
+            // send glued string to the logger
+            gameEventsLogger.info { gluedString }
+
+            // send glued string to the trigger system
             onMessageReceived(gluedString)
 
             var str = "Text message: \n"
@@ -590,6 +613,7 @@ class MudConnection(
 
             _colorfulTextMessages.emit(gluedMessage)
         } else if (emitEmpty) {
+            gameEventsLogger.info { "" }
             _colorfulTextMessages.emit(emptyTextMessage())
         }
     }
