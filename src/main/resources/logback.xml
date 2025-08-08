@@ -89,12 +89,39 @@
 
 
     <!-- ===================================================================== -->
+    <!-- Async Appender Wrapper Definitions -->
+    <!-- ===================================================================== -->
+    <appender name="ASYNC_SIFTING_GAME_LOG" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- It simply references the real worker appender -->
+        <appender-ref ref="SIFTING_GAME_LOG" />
+
+        <!-- You can configure the queue size. Default is 256. -->
+        <!-- <queueSize>256</queueSize> -->
+
+        <!-- OPTIONAL: By default, if the queue is full, it drops TRACE, DEBUG, and INFO messages.
+             Set to true to block the caller thread instead of dropping messages. -->
+        <!-- <neverBlock>true</neverBlock> -->
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- It simply references the real worker appender -->
+        <appender-ref ref="FILE" />
+
+        <!-- You can configure the queue size. Default is 256. -->
+        <!-- <queueSize>256</queueSize> -->
+
+        <!-- OPTIONAL: By default, if the queue is full, it drops TRACE, DEBUG, and INFO messages.
+             Set to true to block the caller thread instead of dropping messages. -->
+        <!-- <neverBlock>true</neverBlock> -->
+    </appender>
+
+    <!-- ===================================================================== -->
     <!-- Logger Definitions -->
     <!-- ===================================================================== -->
 
     <!-- A specific logger for capturing Gameplay -->
     <logger name="GameEvents" level="INFO" additivity="false">
-        <appender-ref ref="SIFTING_GAME_LOG" />
+        <appender-ref ref="ASYNC_SIFTING_GAME_LOG" />
     </logger>
 
     <!--
@@ -105,7 +132,7 @@
     <logger name="ru.adan.silmaril" level="DEBUG" additivity="false">
         <!-- Send this logger's output to both console and file -->
         <appender-ref ref="STDOUT" /> <!-- the STDOUT has a filter to only accept INFO, so DEBUG will be ignored -->
-        <appender-ref ref="FILE" />
+        <appender-ref ref="ASYNC_FILE" />
     </logger>
 
     <!--
@@ -115,7 +142,7 @@
     -->
     <logger name="org.koin" level="INFO" additivity="false">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE" />
+        <appender-ref ref="ASYNC_FILE" />
     </logger>
 
     <!--
