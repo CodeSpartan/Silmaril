@@ -61,8 +61,12 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.16")
     // Kotlin Logging, the facade for idiomatic logging in Kotlin
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.12")
-    // Something that solves the MDC/Coroutine issue for SLF4J
+    // Something that solves the MDC/Coroutine issue for SLF4J (in this case, Logback)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.10.1")
+    // ktor.io
+    implementation("io.ktor:ktor-network:3.2.3")
+    // zlib
+    implementation("com.jcraft:jzlib:1.1.3")
 }
 
 compose.desktop {

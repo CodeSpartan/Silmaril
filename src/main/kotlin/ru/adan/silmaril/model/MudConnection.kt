@@ -12,15 +12,26 @@ import kotlinx.coroutines.slf4j.MDCContext
 import ru.adan.silmaril.mud_messages.TextMessageChunk
 import ru.adan.silmaril.mud_messages.ColorfulTextMessage
 import java.io.*
-import java.net.Socket
+import io.ktor.network.selector.*
+import io.ktor.network.sockets.*
+import io.ktor.utils.io.*
 import java.net.UnknownHostException
 import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import java.util.zip.InflaterInputStream
 import org.slf4j.MDC
+import com.jcraft.jzlib.Inflater
+import com.jcraft.jzlib.JZlib
+import kotlinx.coroutines.flow.asStateFlow
 
 // Useful link: https://www.ascii-code.com/CP1251
+
+enum class ConnectionState {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,
+    FAILED
+}
 
 class MudConnection(
     var host: String,
@@ -33,8 +44,19 @@ class MudConnection(
     private val gameEventsLogger = KotlinLogging.logger("GameEvents")
 
     private var socket: Socket? = null
-    private var inputStream: InputStream? = null
-    private var outputStream: OutputStream? = null
+    private var readChannel: ByteReadChannel? = null
+    private var writeChannel: ByteWriteChannel? = null
+    val isConnected: Boolean
+        get() { // The connection is alive if both channels are non-null and not closed.
+            return readChannel?.isClosedForRead == false &&
+                    writeChannel?.isClosedForWrite == false
+        }
+
+    // Private mutable state that the class can change
+    private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
+    // Public, read-only state for the UI to collect
+    val connectionState = _connectionState.asStateFlow()
+
 
     // Flow to emit received text messages to whoever is listening (MainViewModel in this case)
     private val _colorfulTextMessages = MutableSharedFlow<ColorfulTextMessage>()
@@ -62,11 +84,11 @@ class MudConnection(
     private var _compressionEnabled = false
     private var _customProtocolEnabled = false
     private var _compressionInProgress = false
-    private var _zlibDecompressionStream: InflaterInputStream? = null
+    //private var _zlibDecompressionStream: InflaterInputStream? = null
+    private var inflater: Inflater? = null
 
     private var clientJob: Job? = null
-    private val clientScope = CoroutineScope(Dispatchers.IO)
-    private val reconnectScope = CoroutineScope(Dispatchers.IO)
+    private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val keepAliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val lastSendTimestamp = AtomicLong(System.currentTimeMillis())
@@ -95,62 +117,101 @@ class MudConnection(
         launchKeepAliveJob()
     }
 
+    fun connect() {
+        // Prevent multiple connection attempts
+        if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) {
+            return
+        }
+
+        _connectionState.value = ConnectionState.CONNECTING
+        connectionScope.launch {
+            var success = false
+            while (!success) {
+                success = performConnect() // Call the internal suspend function
+                if (success) {
+                    _connectionState.value = ConnectionState.CONNECTED
+                    startReadingData() // Start the read loop only after a successful connection
+                } else {
+                    _connectionState.value = ConnectionState.FAILED
+                }
+            }
+        }
+    }
+
+
     // Attempt to establish the connection
-    fun connect(): Boolean {
+    suspend fun performConnect(): Boolean {
         return try {
             logger.info { "Connecting to $host:$port" }
-            socket = Socket(host, port)  // Try to connect to the host, a blocking call
+            val selectorManager = SelectorManager(Dispatchers.IO)
+            // aSocket().tcp().connect is a suspend function for non-blocking connection
+            socket = aSocket(selectorManager).tcp().connect(host, port)
             logger.info { "Connection established to $host:$port" }
-            inputStream = socket?.getInputStream()
-            outputStream = socket?.getOutputStream()
-            startReadingData()
+
+            // Get the read and write channels from the socket
+            readChannel = socket?.openReadChannel()
+            writeChannel = socket?.openWriteChannel(autoFlush = true)
+
             true  // Connection successful, return true
         } catch (e: UnknownHostException) {
             logger.warn { "Unknown host: ${e.message}" }
-            false  // Connection failed, return false
+            cleanupOnDisconnect()
+            false
         } catch (e: IOException) {
             logger.warn { "Connection failed: ${e.message}" }
-            false  // Connection failed, return false
+            cleanupOnDisconnect()
+            false
         }
     }
 
     // this closes the connection without possibility of reconnection, e.g. when closing the window
     fun closeDefinitive() {
         keepAliveScope.cancel()
-        reconnectScope.cancel()
-        clientScope.cancel()
-        close()
+        connectionScope.cancel()
+        closeClientJob()
+    }
+
+    private fun cleanupOnDisconnect() {
+        try {
+            stopDecompression()
+            socket?.close()
+        } catch (e: Exception) {
+            logger.warn(e) { "Error while closing connection" }
+        } finally {
+            socket = null
+            _compressionEnabled = false
+            _customProtocolEnabled = false
+            _customMessageType = -1
+            mainBufferPointer = 0
+            mainBuffer.fill(0)
+        }
     }
 
     // Close the connection during reconnect
-    private fun close() {
-        inputStream?.close()
-        outputStream?.close()
-        socket?.close()
-        _zlibDecompressionStream?.close()
-        _zlibDecompressionStream = null
-        _compressionInProgress = false
-        _compressionEnabled = false
-        _customProtocolEnabled = false
-        _customMessageType = -1
-        mainBufferPointer = 0
-        mainBuffer.fill(0)
+    private fun closeClientJob() {
+        println("close")
+        try {
+            cleanupOnDisconnect()
+            clientJob?.cancel()
+        } catch (e: Exception) {
+            logger.warn(e) { "Error while closing connection" }
+        } finally {
+            clientJob = null
+        }
     }
 
     fun forceDisconnect() {
-        close()
+        closeClientJob()
     }
 
     private fun reconnect() {
-        reconnectScope.launch {
+        // Don't try to reconnect if another attempt is already in progress
+        if (_connectionState.value != ConnectionState.DISCONNECTED) return
+
+        connectionScope.launch {
+            cleanupOnDisconnect()
             logger.info { "Reconnecting..." }
-            //Thread.sleep(100)
-            clientJob?.cancel()
-            clientJob?.join()
-            close()
-            var connected = false
-            while (!connected)
-                connected = connect()
+            connect()
         }
     }
 
@@ -176,30 +237,32 @@ class MudConnection(
     }
 
     fun sendMessage(message: String) {
+        // Don't try to send if not connected
+        if (_connectionState.value != ConnectionState.CONNECTED) return
+        connectionScope.launch {
+            performSend(message)
+        }
+    }
+
+    private suspend fun performSend(message: String) {
         lastSendTimestamp.set(System.currentTimeMillis())
 
         // Convert the message to bytes using the correct charset (Windows-1251)
         val messageBytes = message.toByteArray(charset) + ControlCharacters.LineFeed
+        val processedMessage = duplicateIACBytes(messageBytes)
 
         try {
-            outputStream?.let { outStream ->
-                val processedMessage = duplicateIACBytes(messageBytes)
-                outStream.write(processedMessage)
-                outStream.flush()  // Flush to ensure all bytes are sent
-            }
+            writeChannel?.writeByteArray(processedMessage)
         } catch (e: Exception) {
             logger.warn { "Error sending string message: ${e.message}" }
         }
     }
 
     // send raw bytes, don't duplicate IAC bytes
-    private fun sendRaw(messageBytes : ByteArray) {
+    private suspend fun sendRaw(messageBytes : ByteArray) {
         lastSendTimestamp.set(System.currentTimeMillis())
         try {
-            outputStream?.let { outStream ->
-                outStream.write(messageBytes)
-                outStream.flush()  // Flush to ensure all bytes are sent
-            }
+            writeChannel?.writeByteArray(messageBytes)
         } catch (e: Exception) {
             logger.warn { "Error sending raw message: ${e.message}" }
         }
@@ -235,7 +298,7 @@ class MudConnection(
             while (true) {
                 delay(TimeUnit.MINUTES.toMillis(1L)) // try every minute
                 val timeSinceLastSend = System.currentTimeMillis() - lastSendTimestamp.get()
-                if (timeSinceLastSend >= keepAliveIntervalMilliseconds && socket?.isConnected == true) {
+                if (timeSinceLastSend >= keepAliveIntervalMilliseconds && isConnected) {
                     sendRaw(byteArrayOf(ControlCharacters.LineFeed))
                 }
             }
@@ -246,35 +309,72 @@ class MudConnection(
 
     // Start receiving messages asynchronously using a coroutine
     private fun startReadingData() {
-        clientJob = clientScope.launch (
+        clientJob = connectionScope.launch (
             // this provides the "profile" to the SLF4J logger
             MDCContext(mapOf("profile" to profileName))
         ){
             try {
-                val buffer = ByteArray(32767)
-                while (true) {
-                    // Choose the input stream based on whether compression is on or off
-                    val currentStream = if (_compressionInProgress) {
-                        _zlibDecompressionStream
-                    } else {
-                        inputStream
+                val socketBuffer = ByteArray(32767)
+                // Reading from a ByteReadChannel is suspending
+                while (isActive) {
+                    val bytesRead = readChannel?.readAvailable(socketBuffer) ?: -1
+                    if (bytesRead == -1) break // Connection closed by peer
+
+                    if (bytesRead > 0) {
+                        // Create a view of the buffer with only the data we read
+                        val dataChunk = socketBuffer.copyOf(bytesRead)
+
+                        if (_compressionInProgress) {
+                            val decompressedData = decompress(dataChunk)
+                            processData(decompressedData, decompressedData.size)
+                        } else {
+                            processData(dataChunk, dataChunk.size)
+                        }
                     }
-                    val bytesRead = currentStream?.read(buffer)
-                    if (bytesRead == -1) break // Connection closed
-                    processData(buffer, bytesRead!!)
                 }
-            } catch (e: IOException) {
+            } catch (e: io.ktor.utils.io.CancellationException) {
+                logger.info { "Reading data job was cancelled." }
+            }
+            catch (e: IOException) {
                 logger.error { "Error while receiving data" }
-                //logger.error(e) { "Error while receiving data" }
             } finally {
-                // If we exit the loop, reconnect (return to ru.adan.silmaril.main thread)
-                // If an exception happens, also reconnect
-                withContext(Dispatchers.Main) {
-                    if (settingsManager.settings.value.autoReconnect)
-                        reconnect()
+                _connectionState.value = ConnectionState.DISCONNECTED
+                if (settingsManager.settings.value.autoReconnect) {
+                    reconnect()
                 }
             }
         }
+    }
+
+    private fun startDecompression() {
+        _compressionInProgress = true
+        inflater = Inflater()
+        inflater?.init(JZlib.W_ZLIB)
+    }
+
+    private fun decompress(data: ByteArray): ByteArray {
+        inflater?.setInput(data)
+        // This buffer will hold the decompressed output
+        val outputBuffer = ByteArray(32767)
+        var totalDecompressed = 0
+
+        while ((inflater?.avail_in ?: 0) > 0) {
+            inflater?.setOutput(outputBuffer, totalDecompressed, outputBuffer.size - totalDecompressed)
+            val err = inflater?.inflate(JZlib.Z_SYNC_FLUSH)
+            if (err != JZlib.Z_OK) {
+                logger.warn { "Zlib inflation error: $err" }
+                break
+            }
+            totalDecompressed += (inflater?.next_out_index ?: 0) - totalDecompressed
+        }
+        return outputBuffer.copyOf(totalDecompressed)
+    }
+
+    private fun stopDecompression() {
+        _compressionInProgress = false
+        inflater?.end()
+        inflater = null
+        // logger.info { "Stopped ZLIB decompression." }
     }
 
     /**************** PROCESS ****************/
@@ -324,8 +424,7 @@ class MudConnection(
                 && data[offset + 3] == TelnetConstants.Will
                 && data[offset + 4] == TelnetConstants.SubNegotiationEnd) {
                 logger.debug { "Detected command: IAC SUB_START COMPRESS WILL SUB_STOP" }
-                _compressionInProgress = true
-                _zlibDecompressionStream = InflaterInputStream(inputStream)  // Start decompression
+                startDecompression()
                 skipCount = 4
                 //flushMainBuffer()
                 continue
