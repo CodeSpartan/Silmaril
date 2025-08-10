@@ -78,7 +78,7 @@ fun FrameWindowScope.AppMenuBar(
             CheckboxItem(
                 text = "Авто-переподкл.",
                 mnemonic = 'А',
-                checked = settingsManager.settings.value.autoReconnect,
+                checked = settings.autoReconnect,
                 onCheckedChange = { settingsManager.toggleAutoReconnect(it) }
             )
             Item("Группы", mnemonic = 'Г', onClick = { /*showGroupsDialog.value = true*/ })
