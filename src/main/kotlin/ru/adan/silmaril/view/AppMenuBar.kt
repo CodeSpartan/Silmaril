@@ -8,6 +8,7 @@ import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.MenuBar
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.FontManager
+import ru.adan.silmaril.model.ConnectionState
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
@@ -22,9 +23,14 @@ fun FrameWindowScope.AppMenuBar(
     val settingsManager: SettingsManager = koinInject()
     val profileManager: ProfileManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
+    val currentWindowConnectionState by profileManager.currentClient.value.connectionState.collectAsState()
 
     MenuBar {
         Menu("Файл", mnemonic = 'Ф') {
+            Item("Подключиться", mnemonic = 'В',
+                enabled = currentWindowConnectionState != ConnectionState.CONNECTED && currentWindowConnectionState != ConnectionState.CONNECTING) {
+                profileManager.currentClient.value.connect()
+            }
             Item("Выход", mnemonic = 'В') {
                 onExit()
             }
