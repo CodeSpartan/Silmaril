@@ -28,7 +28,7 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         logger.debug { "Added regex trigger: $this" }
     }
 
-    infix fun String.find(action: ScriptingEngine.(match: MatchResult) -> Unit) {
+    infix fun String.act(action: ScriptingEngine.(match: MatchResult) -> Unit) {
         val condition = SimpleCondition(this)
         val newTrigger = Trigger(condition, action)
         this@MudScriptHost.addTrigger(newTrigger)
