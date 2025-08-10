@@ -15,7 +15,6 @@ import java.io.*
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
-import java.net.UnknownHostException
 import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -157,12 +156,10 @@ class MudConnection(
             writeChannel = socket?.openWriteChannel(autoFlush = true)
 
             true  // Connection successful, return true
-        } catch (e: UnknownHostException) {
-            logger.warn { "Unknown host: ${e.message}" }
-            cleanupOnDisconnect()
-            false
-        } catch (e: IOException) {
-            logger.warn { "Connection failed: ${e.message}" }
+        }
+        catch (e: Exception) {
+            // Log the specific exception for better debugging
+            logger.warn(e) { "Connection failed to $host:$port" }
             cleanupOnDisconnect()
             false
         }
