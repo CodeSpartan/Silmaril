@@ -34,6 +34,13 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         this@MudScriptHost.addTrigger(newTrigger)
         logger.debug { "Added simple trigger: $this" }
     }
+
+    infix fun String.act(textCommand: String) {
+        val condition = SimpleCondition(this)
+        val newTrigger = Trigger(condition) { sendCommand(textCommand) }
+        this@MudScriptHost.addTrigger(newTrigger)
+        logger.debug { "Added simple trigger: $this" }
+    }
 }
 
 interface ScriptingEngine {

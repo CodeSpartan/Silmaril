@@ -194,7 +194,6 @@ class MudConnection(
 
     // Close the connection
     private fun closeClientJob() {
-        println("close")
         try {
             clientJob?.cancel()
             cleanupOnDisconnect()
