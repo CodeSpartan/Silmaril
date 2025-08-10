@@ -329,8 +329,28 @@ class MudConnection(
                 val socketBuffer = ByteArray(32767)
                 // Reading from a ByteReadChannel is suspending
                 while (isActive) {
-                    val bytesRead = readChannel?.readAvailable(socketBuffer) ?: -1
-                    if (bytesRead == -1) break // Connection closed by peer
+                    var bytesRead: Int?
+                    // adan always sends IAC_GA at the end of text messages, while other muds may not do that
+                    // so in their case, we time out after 50ms of inactivity and flush the buffer if there's anything on it
+                    if (host == "adan.ru") {
+                        bytesRead = readChannel?.readAvailable(socketBuffer) ?: -1
+                        if (bytesRead == -1)  {
+                            logger.info { "Connection closed by peer." }
+                            break
+                        }
+                    } else {
+                        bytesRead = withTimeoutOrNull(50) {
+                            readChannel?.readAvailable(socketBuffer)
+                        }
+                        if (bytesRead == null) {
+                            if (readChannel?.isClosedForRead == true) {
+                                logger.info { "Connection closed by peer." }
+                                break
+                            }
+                            tryFlushMainBuffer()
+                            continue
+                        }
+                    }
 
                     if (bytesRead > 0) {
                         // Create a view of the buffer with only the data we read
@@ -673,6 +693,14 @@ class MudConnection(
             currentColor = AnsiColor.entries.toTypedArray()[col - 30]
         else
             currentColor = AnsiColor.None
+    }
+
+    // a function for non-adan muds that don't send IAC_GA at the end of message, and just idle after sending it (not even postfixed with \n)
+    private suspend fun tryFlushMainBuffer() {
+        if (mainBufferLastValidIndex > 0) {
+            logger.info { "Flushed buffer due to no IAC_GA" }
+            flushMainBuffer()
+        }
     }
 
     private suspend fun flushMainBuffer() {
