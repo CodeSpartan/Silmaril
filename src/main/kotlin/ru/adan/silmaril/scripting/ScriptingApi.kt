@@ -1,8 +1,54 @@
 package ru.adan.silmaril.scripting
 import ru.adan.silmaril.misc.*
 
+
+interface TriggerCondition {
+    /**
+     * Checks if the line of text meets this condition.
+     * @return A `MatchResult` if the condition is met, `null` otherwise.
+     */
+    fun check(line: String): MatchResult?
+}
+
+// a condition of act.Regex()
+class RegexCondition(private val regex: Regex) : TriggerCondition {
+    override fun check(line: String): MatchResult? = regex.find(line)
+}
+
+// a condition of act.Simple()
+class SimpleCondition(private val textToMatch: String) : TriggerCondition {
+    private val regex: Regex = getRegex()
+
+    private fun getRegex() : Regex {
+        // if simple pattern is prefixed by ^, we prefix the regex with ^ and remove it from textToMatch
+        // if simple pattern is postfixed by $, same thing
+        // and then, escape the input to treat it as literal string
+        var escapedText: String = textToMatch
+        var startsWith = false
+        if (escapedText.startsWith('^')) {
+            escapedText = escapedText.removePrefix("^")
+            startsWith = true
+        }
+
+        var endsWith = false
+        if (escapedText.endsWith('$')) {
+            escapedText = escapedText.removeSuffix("$")
+            endsWith = true
+        }
+
+        escapedText = Regex.escape(escapedText)
+
+        val start = if (startsWith) "^" else ""
+        val end = if (endsWith) "$" else ""
+
+        return "$start$escapedText$end".toRegex()
+    }
+
+    override fun check(line: String): MatchResult? = regex.find(line)
+}
+
 data class Trigger(
-    val pattern: Regex,
+    val condition: TriggerCondition,
     val action: ScriptingEngine.(match: MatchResult) -> Unit
 )
 
@@ -10,17 +56,36 @@ data class Trigger(
 // from within the script's context, where the engine is the 'this' receiver.
 
 /**
- * DSL function to define a trigger.
- * @param pattern The regex pattern to match.
- * @param action The block of code to run on a match.
+ * A factory class that provides the `on.Regex(...)` and `on.Simple(...)` syntax.
+ * It holds a reference to the ScriptingEngine to add the triggers it builds.
  */
-fun ScriptingEngine.trigger(
-    pattern: String,
-    action: ScriptingEngine.(match: MatchResult) -> Unit
-) {
-    val trigger = Trigger(pattern.toRegex(), action)
-    this.addTrigger(trigger)
-    logger.trace { "Registered trigger for pattern: $pattern" }
+class TriggerBuilder(private val engine: ScriptingEngine) {
+
+    /**
+     * The new DSL function for creating Regex-based triggers.
+     */
+    fun Regex(
+        patternString: String,
+        action: ScriptingEngine.(match: MatchResult) -> Unit
+    ) {
+        val condition = RegexCondition(patternString.toRegex())
+        val newTrigger = Trigger(condition, action)
+        engine.addTrigger(newTrigger)
+        println("[SYSTEM]: Registered Regex trigger for pattern: $patternString")
+    }
+
+    /**
+     * The new DSL function for creating Simple-match triggers.
+     */
+    fun Simple(
+        textToMatch: String,
+        action: ScriptingEngine.(match: MatchResult) -> Unit
+    ) {
+        val condition = SimpleCondition(textToMatch)
+        val newTrigger = Trigger(condition, action)
+        engine.addTrigger(newTrigger)
+        println("[SYSTEM]: Registered Simple trigger for text: '$textToMatch'")
+    }
 }
 
 ///**

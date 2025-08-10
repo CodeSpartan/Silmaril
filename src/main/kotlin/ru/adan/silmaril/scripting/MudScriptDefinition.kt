@@ -1,5 +1,6 @@
 package ru.adan.silmaril.scripting
 
+import java.io.Serializable
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.jvm.dependenciesFromClassloader
 import kotlin.script.experimental.jvm.jvm
@@ -8,18 +9,14 @@ import kotlin.script.experimental.jvm.util.classpathFromClass
 
 // The @KotlinScript annotation is what the IDE and compiler read.
 @KotlinScript(
-    // This is the file extension for our scripts.
     fileExtension = "mud.kts",
-
-    // This points to our compilation configuration class below.
     compilationConfiguration = MudScriptDefinition::class,
-    //evaluationConfiguration = MudScriptEValuationConfiguration::class
 )
+
 // This abstract class is a convention for script definitions.
 object MudScriptDefinition : ScriptCompilationConfiguration({
-    // This is the single source of truth for the IDE and the runtime compiler.
-    // It unambiguously declares that scripts will have a ScriptingEngine as their `this`.
-    implicitReceivers(ScriptingEngine::class)
+    // It declares that scripts will have a ScriptingEngine as their `this`.
+    baseClass(MudScriptHost::class)
 
     // Imports
     defaultImports(
@@ -36,6 +33,6 @@ object MudScriptDefinition : ScriptCompilationConfiguration({
     ide {
         acceptedLocations(ScriptAcceptedLocation.Everywhere)
     }
-}) { // implementing Serializable
+}), Serializable { // implementing Serializable
     private fun readResolve(): Any = MudScriptDefinition
 }

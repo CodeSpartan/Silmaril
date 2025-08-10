@@ -25,6 +25,7 @@ import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.scripting.ScriptingEngineImpl
 
 class Profile(
     val profileName: String,
@@ -52,8 +53,8 @@ class Profile(
         }
     }
 
-    val scriptingEngine: ScriptingEngine by lazy {
-        get<ScriptingEngine> { parametersOf(profileName, mainViewModel, ::isGroupActive) }
+    val scriptingEngine: ScriptingEngine  by lazy {
+        get<ScriptingEngine > { parametersOf(profileName, mainViewModel, ::isGroupActive) }
     }
 
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)

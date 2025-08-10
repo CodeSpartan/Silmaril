@@ -11,6 +11,7 @@ import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.scripting.ScriptingEngine
+import ru.adan.silmaril.scripting.ScriptingEngineImpl
 import ru.adan.silmaril.viewmodel.MainViewModel
 
 val appModule = module {
@@ -46,8 +47,8 @@ val appModule = module {
         )
     }
 
-    factory { params ->
-        ScriptingEngine(
+    factory<ScriptingEngine> { params ->
+        ScriptingEngineImpl(
             profileName = params.get(),
             mainViewModel = params.get(),
             isGroupActive = params.get(),
