@@ -72,8 +72,10 @@ class MudConnection(
     // when we get out of a custom message, set it back to -1
     private var _customMessageType : Int = -1
 
-    private var mainBufferPointer = 0
+    private var mainBufferLastValidIndex = 0
     private val mainBuffer = ByteArray(32767)
+    private var lastByte: Byte = ControlCharacters.NonControlCharacter
+    private var headerFoundBytes = 0
     private var colorTreatmentPointer = 0
     private val colorTreatmentBuffer = ByteArray(32767)
     private var currentColor : AnsiColor = AnsiColor.None
@@ -84,7 +86,6 @@ class MudConnection(
     private var _compressionEnabled = false
     private var _customProtocolEnabled = false
     private var _compressionInProgress = false
-    //private var _zlibDecompressionStream: InflaterInputStream? = null
     private var inflater: Inflater? = null
 
     private var clientJob: Job? = null
@@ -111,6 +112,7 @@ class MudConnection(
         const val CarriageReturn : Byte = 0x0D.toByte() // \r
         const val LineFeed : Byte = 0x0A.toByte() // \n
         const val Escape : Byte = 0x1B.toByte() // escape
+        const val NonControlCharacter : Byte = 0xB5.toByte() // just a random character that's not part of TelnetConstants or ControlCharacters
     }
 
     init {
@@ -182,8 +184,10 @@ class MudConnection(
             _compressionEnabled = false
             _customProtocolEnabled = false
             _customMessageType = -1
-            mainBufferPointer = 0
+            mainBufferLastValidIndex = 0
             mainBuffer.fill(0)
+            lastByte = ControlCharacters.NonControlCharacter
+            headerFoundBytes = 0
         }
     }
 
@@ -326,9 +330,11 @@ class MudConnection(
 
                         if (_compressionInProgress) {
                             val decompressedData = decompress(dataChunk)
-                            processData(decompressedData, decompressedData.size)
+                            //processData_old(decompressedData, decompressedData.size)
+                            processData(decompressedData)
                         } else {
-                            processData(dataChunk, dataChunk.size)
+                            //processData_old(dataChunk, dataChunk.size)
+                            processData(dataChunk)
                         }
                     }
                 }
@@ -379,7 +385,187 @@ class MudConnection(
 
     /**************** PROCESS ****************/
 
-    private suspend fun processData(data : ByteArray, byteLength: Int)
+    private suspend fun processData(data: ByteArray) {
+        for (offset in 0 until data.size) {
+            val newByte = data[offset]
+
+            when (lastByte) {
+                // IAC means the beginning of a header message
+                TelnetConstants.InterpretAsCommand -> {
+                    when (newByte) {
+                        // (IAC, IAC) means letter 'я', so it's not a header. Put 'я' in main buffer and reset the last byte state.
+                        // reason: the letter 'я' in cp1251 is FF, but in Telnet FF is reserved for IAC, so Mud sends us FFFF for letter 'я'
+                        TelnetConstants.InterpretAsCommand -> {
+                            mainBuffer[mainBufferLastValidIndex] = data[offset]
+                            mainBufferLastValidIndex++
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                        TelnetConstants.Will -> lastByte = TelnetConstants.Will
+                        TelnetConstants.WillNot -> lastByte = TelnetConstants.WillNot
+                        TelnetConstants.SubNegotiationStart -> lastByte = TelnetConstants.SubNegotiationStart
+                        // IAC, SubNegEnd means the end of custom message
+                        TelnetConstants.SubNegotiationEnd -> {
+                            logger.debug { "Detected command: custom message end (IAC, SubNegEnd)" }
+                            flushMainBuffer()
+                            _customMessageType = -1
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                        // (IAC, GA) means flush buffer
+                        TelnetConstants.GoAhead -> {
+                            logger.debug { "Detected command: IAC GA" }
+                            lastByte = ControlCharacters.NonControlCharacter
+                            flushMainBuffer()
+                        }
+                        // if (IAC is followed by any unexpected character) -- this should never happen
+                        else -> {
+                            logger.error { "Unexpected byte followed by IAC: $newByte" }
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                    }
+                }
+                ControlCharacters.CarriageReturn -> {
+                    when (newByte) {
+                        // when (\r\n)
+                        ControlCharacters.LineFeed -> {
+                            lastByte = ControlCharacters.NonControlCharacter
+                            flushMainBuffer()
+                        }
+                        // when (\r, IAC)
+                        TelnetConstants.InterpretAsCommand -> lastByte = TelnetConstants.InterpretAsCommand
+                        // when (\r, Any Byte)
+                        else -> {
+                            mainBuffer[mainBufferLastValidIndex] = ControlCharacters.CarriageReturn
+                            mainBufferLastValidIndex++
+                            mainBuffer[mainBufferLastValidIndex] = data[offset]
+                            mainBufferLastValidIndex++
+
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                    }
+                }
+                TelnetConstants.Will -> {
+                    when (newByte) {
+                        // on (IAC, WILL, COMPRESS) respond with (IAC, DO, COMPRESS)
+                        TelnetConstants.Compress -> {
+                            logger.debug { "Detected command: IAC WILL COMPRESS" }
+                            _compressionEnabled = true
+                            sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                        //when (IAC, WILL, ECHO), it means the next thing we enter will be a password
+                        TelnetConstants.Echo -> {
+                            logger.debug { "Detected command: IAC WILL ECHO" }
+                            _isEchoOn.value = true
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                        // when (IAC, WILL, CUSTOM_PROTOCOL), it means custom protocol will now be turned on
+                        TelnetConstants.CustomProtocol -> {
+                            logger.debug { "Detected command: IAC WILL CUSTOM" }
+                            _customProtocolEnabled = true
+                            sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                        TelnetConstants.SubNegotiationEnd -> {
+                            // Beginning of MCCP Compression negotiation:
+                            // (InterpretAsCommand, SubNegotiationStart, Compress, Will, SubNegotiationEnd)
+                            if (headerFoundBytes == 4) {
+                                logger.debug { "Detected command: IAC SUB_START COMPRESS WILL SUB_STOP" }
+                                startDecompression()
+                            }
+                            // if (IAC, WILL, SE) -- this should never happen
+                            else {
+                                logger.error { "Unexpected byte sequence: (IAC, WILL, SE)" }
+                            }
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                        // when IAC, WILL is followed by something unexpected, this should never happen
+                        else -> {
+                            logger.error { "Unexpected byte sequence: (IAC, WILL, $newByte)" }
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                    }
+                }
+                TelnetConstants.WillNot -> {
+                    when (newByte) {
+                        TelnetConstants.Echo -> {
+                            logger.debug { "Detected command: IAC WONT ECHO" }
+                            _isEchoOn.value = false
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                    }
+                }
+                TelnetConstants.SubNegotiationStart -> {
+                    when (newByte) {
+                        // on IAC, SubNegStart, CustomProtocol, get ready to read the next byte, which will carry the custom message type
+                        TelnetConstants.CustomProtocol -> {
+                            lastByte = TelnetConstants.CustomProtocol
+                        }
+                        // on IAC, SubNegStart, Compress
+                        TelnetConstants.Compress -> {
+                            lastByte = TelnetConstants.Compress
+                        }
+                        // on IAC, SubNegStart, unexpected byte
+                        else -> {
+                            logger.error { "Unexpected byte sequence: (IAC, SubNegStart, $newByte)" }
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                    }
+                }
+                TelnetConstants.Compress -> {
+                    when (newByte) {
+                        // on IAC, SubNegStart, Compress, Will
+                        TelnetConstants.Will -> {
+                            headerFoundBytes = 4
+                            lastByte = TelnetConstants.Will
+                        }
+                        // on IAC, SubNegStart, Compress, unexpected byte
+                        else -> {
+                            logger.error { "Unexpected byte sequence: (IAC, SubNegStart, Compress, $newByte)" }
+                            lastByte = ControlCharacters.NonControlCharacter
+                        }
+                    }
+                }
+                // if IAC, SubNegStart, CustomProtocol, the next byte is the custom message type
+                TelnetConstants.CustomProtocol -> {
+                    _customMessageType = newByte.toInt()
+                    lastByte = ControlCharacters.NonControlCharacter
+                }
+                else -> {
+                    when (newByte) {
+                        // when (Any non-header Byte, IAC)
+                        TelnetConstants.InterpretAsCommand -> lastByte = TelnetConstants.InterpretAsCommand
+                        // when (Any non-header Byte, \n)
+                        ControlCharacters.LineFeed -> {
+                            lastByte = ControlCharacters.NonControlCharacter
+                            // if encountering \n, we should normally flush the buffer (this happens rarely without the preceding \r, but it does)
+                            // however, if this happens during a borked message (e.g. text message placed inside a custom message protocol),
+                            // this would break up the xml line by line and we don't want that
+                            if (_customMessageType == -1) {
+                                flushMainBuffer()
+                            } else {
+                                mainBuffer[mainBufferLastValidIndex] = data[offset]
+                                mainBufferLastValidIndex++
+                            }
+                        }
+                        // when (Any non-header Byte, \r)
+                        ControlCharacters.CarriageReturn -> {
+                            lastByte = ControlCharacters.CarriageReturn
+                        }
+                        // when (Any non-header Byte is followed by Any Byte that's not IAC, \n or \r), we're dealing with just text
+                        else -> {
+                            lastByte = ControlCharacters.NonControlCharacter
+                            mainBuffer[mainBufferLastValidIndex] = data[offset]
+                            mainBufferLastValidIndex++
+                        }
+                    }
+                }
+            }
+            if (lastByte == ControlCharacters.NonControlCharacter)
+                headerFoundBytes = 0
+        }
+    }
+
+    private suspend fun processData_old(data : ByteArray, byteLength: Int)
     {
         var skipCount = 0
         for (offset in 0 until byteLength) {
@@ -416,7 +602,7 @@ class MudConnection(
                 continue
             }
 
-            // Beginning of MCCP Compression negotiation: IAC SB COMPRESS2 WILL SE
+            // Beginning of MCCP Compression negotiation: IAC SS COMPRESS WILL SE
             if (_compressionEnabled && offset + 4 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.SubNegotiationStart
@@ -459,8 +645,8 @@ class MudConnection(
             // A different attempt to detect end of custom protocol, catching what the first one missed
             if (_customProtocolEnabled && _customMessageType != -1) {
                 if (data[offset] == TelnetConstants.SubNegotiationEnd) {
-                    if (mainBufferPointer > 0 && mainBuffer[mainBufferPointer-1] == TelnetConstants.InterpretAsCommand) {
-                        mainBufferPointer--
+                    if (mainBufferLastValidIndex > 0 && mainBuffer[mainBufferLastValidIndex-1] == TelnetConstants.InterpretAsCommand) {
+                        mainBufferLastValidIndex--
                         flushMainBuffer()
                         logger.debug { "Detected command: custom message end (FALLBACK)" }
                         _customMessageType = -1
@@ -505,8 +691,8 @@ class MudConnection(
                 skipCount = 1
                 // Update, no I don't think this solves anything. I'm commenting this out.
                 /**
-                * _customMessageType = -1 // added after a bug, watch that this doesn't break anything
-                * // the reason being, we've had this scenario: custom message 14 arrives, then IAC, and then text, as if IAC ends any custom messages
+                 * _customMessageType = -1 // added after a bug, watch that this doesn't break anything
+                 * // the reason being, we've had this scenario: custom message 14 arrives, then IAC, and then text, as if IAC ends any custom messages
                  */
                 flushMainBuffer()
                 continue
@@ -532,8 +718,8 @@ class MudConnection(
             if (offset + 1 < byteLength
                 && data[offset] == TelnetConstants.InterpretAsCommand
                 && data[offset + 1] == TelnetConstants.InterpretAsCommand) {
-                mainBuffer[mainBufferPointer] = data[offset]
-                mainBufferPointer++
+                mainBuffer[mainBufferLastValidIndex] = data[offset]
+                mainBufferLastValidIndex++
                 skipCount = 1
                 continue
             }
@@ -555,8 +741,8 @@ class MudConnection(
                 continue
             }
 
-            mainBuffer[mainBufferPointer] = data[offset]
-            mainBufferPointer++
+            mainBuffer[mainBufferLastValidIndex] = data[offset]
+            mainBufferLastValidIndex++
         }
     }
 
@@ -672,10 +858,10 @@ class MudConnection(
             //  - "end of custom protocol" bytes
             // Because of this we need to extract any text from the message before letting xml deserializer process it
             if (mainBuffer[0] != 0x3C.toByte()) { // if xml message doesn't start right away (with '<'), find text inside it and process it
-                skipBytes = processBorkedTextMessage(mainBuffer, mainBufferPointer)
+                skipBytes = processBorkedTextMessage(mainBuffer, mainBufferLastValidIndex)
             }
 
-            val byteMsg = mainBuffer.copyOfRange(skipBytes, mainBufferPointer)
+            val byteMsg = mainBuffer.copyOfRange(skipBytes, mainBufferLastValidIndex)
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.value = it }
@@ -684,9 +870,9 @@ class MudConnection(
             logger.debug { msg }
             logger.debug { "- End of custom message" }
         } else {
-            processTextMessage(mainBuffer, mainBufferPointer, true)
+            processTextMessage(mainBuffer, mainBufferLastValidIndex, true)
         }
-        mainBufferPointer = 0
+        mainBufferLastValidIndex = 0
     }
 
     private suspend fun processTextMessage(buffer: ByteArray, bufferEndPointer: Int, emitEmpty: Boolean) {
