@@ -242,9 +242,8 @@ class MudConnection(
     // use it to log user's input
     fun logGameplayTextSynchronously(eventMessage: String) {
         // Use the withMdc helper to wrap the logging call.
-        // The MDC context only exists for the duration of this lambda.
         withMdc("profile" to profileName) {
-            gameEventsLogger.info { eventMessage } // Use lazy evaluation for performance
+            gameEventsLogger.info { eventMessage }
         }
     }
 
@@ -800,5 +799,9 @@ class MudConnection(
 
     private fun whiteTextMessage(text : String) : ColorfulTextMessage {
         return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, true, text)))
+    }
+
+    private fun yellowTextMessage(text : String) : ColorfulTextMessage {
+        return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.None, true, text)))
     }
 }

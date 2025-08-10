@@ -99,6 +99,11 @@ class MainViewModel(
                 }
             }
             client.sendMessage(withVariables)
+            if (!client.isConnected) {
+                _messages.value += ColorfulTextMessage(arrayOf(
+                    TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, "Вы не подключены."),
+                ))
+            }
         }
     }
 
