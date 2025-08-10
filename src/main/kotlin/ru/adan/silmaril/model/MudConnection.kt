@@ -23,6 +23,7 @@ import org.slf4j.MDC
 import com.jcraft.jzlib.Inflater
 import com.jcraft.jzlib.JZlib
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 
 // Useful link: https://www.ascii-code.com/CP1251
 
@@ -122,6 +123,7 @@ class MudConnection(
     fun connect() {
         // Prevent multiple connection attempts
         if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) {
+            logger.info { "connect aborted, the state is wrong" }
             return
         }
 
@@ -175,28 +177,28 @@ class MudConnection(
 
     private fun cleanupOnDisconnect() {
         try {
-            stopDecompression()
             socket?.close()
         } catch (e: Exception) {
             logger.warn(e) { "Error while closing connection" }
         } finally {
+            stopDecompression()
             socket = null
-            _compressionEnabled = false
             _customProtocolEnabled = false
             _customMessageType = -1
             mainBufferLastValidIndex = 0
             mainBuffer.fill(0)
             lastByte = ControlCharacters.NonControlCharacter
             headerFoundBytes = 0
+            _connectionState.value = ConnectionState.DISCONNECTED
         }
     }
 
-    // Close the connection during reconnect
+    // Close the connection
     private fun closeClientJob() {
         println("close")
         try {
-            cleanupOnDisconnect()
             clientJob?.cancel()
+            cleanupOnDisconnect()
         } catch (e: Exception) {
             logger.warn(e) { "Error while closing connection" }
         } finally {
@@ -205,7 +207,16 @@ class MudConnection(
     }
 
     fun forceDisconnect() {
-        closeClientJob()
+        socket?.close()
+    }
+
+    fun forceReconnect() {
+        socket?.close()
+        connectionScope.launch {
+            // wait until the cleanup is done
+            _connectionState.first { it == ConnectionState.DISCONNECTED }
+            reconnect()
+        }
     }
 
     private fun reconnect() {
@@ -342,9 +353,12 @@ class MudConnection(
             catch (e: IOException) {
                 logger.error { "Error while receiving data" }
             } finally {
+                _colorfulTextMessages.emit(whiteTextMessage("Связь потеряна."))
                 _connectionState.value = ConnectionState.DISCONNECTED
                 if (settingsManager.settings.value.autoReconnect) {
                     reconnect()
+                } else {
+                    cleanupOnDisconnect()
                 }
             }
         }
@@ -376,9 +390,9 @@ class MudConnection(
 
     private fun stopDecompression() {
         _compressionInProgress = false
+        _compressionEnabled = false
         inflater?.end()
         inflater = null
-        // logger.info { "Stopped ZLIB decompression." }
     }
 
     /**************** PROCESS ****************/

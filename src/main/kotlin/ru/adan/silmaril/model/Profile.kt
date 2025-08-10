@@ -323,12 +323,12 @@ class Profile(
         if (match != null) {
             val host = match.groupValues[1]
             val port = match.groupValues[2].toIntOrNull() ?: 4000
-            mainViewModel.displaySystemMessage("Connecting to: $host:$port")
+            mainViewModel.displaySystemMessage("Подключаюсь к $host:$port")
             client.host = host
             client.port = port
             client.forceDisconnect()
             if (!settingsManager.settings.value.autoReconnect)
-                client.connect()
+                client.forceReconnect()
         } else {
             mainViewModel.displayErrorMessage("Ошибка #conn - не смог распарсить. Правильный синтаксис: #conn host port.")
         }
