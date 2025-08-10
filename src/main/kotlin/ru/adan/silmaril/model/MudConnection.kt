@@ -148,7 +148,9 @@ class MudConnection(
             logger.info { "Connecting to $host:$port" }
             val selectorManager = SelectorManager(Dispatchers.IO)
             // aSocket().tcp().connect is a suspend function for non-blocking connection
-            socket = aSocket(selectorManager).tcp().connect(host, port)
+            socket = aSocket(selectorManager).tcp().connect(host, port) {
+                noDelay = true // true by default, but set explicitly in case ktor changes it later
+            }
             logger.info { "Connection established to $host:$port" }
 
             // Get the read and write channels from the socket
@@ -208,10 +210,12 @@ class MudConnection(
     }
 
     fun forceReconnect() {
+        val waitForDisconnect = isConnected
         socket?.close()
         connectionScope.launch {
             // wait until the cleanup is done
-            _connectionState.first { it == ConnectionState.DISCONNECTED }
+            if (waitForDisconnect)
+                _connectionState.first { it == ConnectionState.DISCONNECTED }
             reconnect()
         }
     }
