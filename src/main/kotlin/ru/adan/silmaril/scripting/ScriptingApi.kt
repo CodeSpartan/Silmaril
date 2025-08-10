@@ -47,8 +47,8 @@ fun ScriptingEngine.send(command: String) {
 /**
  * DSL function to print text to the client's local console (not sent to the MUD).
  */
-fun ScriptingEngine.echo(message: String) {
-    logger.info { "[ECHO]: $message" }
+fun ScriptingEngine.echo(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
+    echoToMainWindow(message, color, isBright)
 }
 
 /**

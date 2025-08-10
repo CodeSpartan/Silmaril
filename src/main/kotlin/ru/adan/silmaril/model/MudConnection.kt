@@ -681,7 +681,7 @@ class MudConnection(
         return ColorfulTextMessage(chunks = gatheredChunks.toTypedArray())
     }
 
-    // returns a TextMessageChunk without text, but with correctly set color information
+    // updates currentColor
     private fun updateCurrentColor(param1 : String, param2: String)
     {
         var col: Int

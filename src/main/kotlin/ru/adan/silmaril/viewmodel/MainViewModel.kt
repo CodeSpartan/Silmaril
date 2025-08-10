@@ -134,6 +134,11 @@ class MainViewModel(
         return result.map { it.trim() }.filter { it.isNotEmpty() }
     }
 
+    fun displayColoredMessage(message: String, color: AnsiColor, isBright: Boolean) {
+        onMessageReceived(message)
+        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(color, AnsiColor.Black, isBright, message)))
+    }
+
     fun displaySystemMessage(message: String) {
         onMessageReceived(message)
         _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.Black, true, message)))

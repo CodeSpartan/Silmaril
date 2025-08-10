@@ -1,6 +1,7 @@
 package ru.adan.silmaril.scripting
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -51,6 +52,10 @@ class ScriptingEngine(
 
     fun setVarCommand(varName: String, varValue: Any) {
         profileManager.gameWindows.value[profileName]?.setVariable(varName, varValue)
+    }
+
+    fun echoToMainWindow(message: String, color: AnsiColor, isBright: Boolean) {
+        mainViewModel.displayColoredMessage(message, color, isBright)
     }
 
     /**
