@@ -1,5 +1,6 @@
 package ru.adan.silmaril.scripting
 
+import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.model.ProfileManager
@@ -13,13 +14,33 @@ import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 import ru.adan.silmaril.model.SettingsManager
 
 abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engine {
-    val act: TriggerBuilder get() = TriggerBuilder(this)
+    infix fun String.grep(action: ScriptingEngine.(match: MatchResult) -> Unit) {
+        // The receiver `this` is the String pattern. Create a RegexCondition from it.
+        val condition = RegexCondition(this.toRegex())
+
+        // Create the Trigger object with the condition and the action lambda.
+        val newTrigger = Trigger(condition, action)
+
+        // Because this function is defined inside MudScriptHost, it has access to
+        // the outer `this` (the ScriptingEngine instance) to add the trigger.
+        // We qualify `this@MudScriptHost` to be explicit.
+        this@MudScriptHost.addTrigger(newTrigger)
+        logger.debug { "Added regex trigger: $this" }
+    }
+
+    infix fun String.find(action: ScriptingEngine.(match: MatchResult) -> Unit) {
+        val condition = SimpleCondition(this)
+        val newTrigger = Trigger(condition, action)
+        this@MudScriptHost.addTrigger(newTrigger)
+        logger.debug { "Added simple trigger: $this" }
+    }
 }
 
 interface ScriptingEngine {
     // Properties
     val profileName: String
     val mainViewModel: MainViewModel
+    val logger: KLogger
 
     // Methods
     fun addTrigger(trigger: Trigger)
@@ -40,7 +61,7 @@ open class ScriptingEngineImpl(
     private val settingsManager: SettingsManager,
     private val profileManager: ProfileManager
 ) : ScriptingEngine {
-    val logger = KotlinLogging.logger {}
+    override val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
     private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf()

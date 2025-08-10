@@ -55,39 +55,6 @@ data class Trigger(
 // By making these extension functions on ScriptingEngine, they can only be called
 // from within the script's context, where the engine is the 'this' receiver.
 
-/**
- * A factory class that provides the `on.Regex(...)` and `on.Simple(...)` syntax.
- * It holds a reference to the ScriptingEngine to add the triggers it builds.
- */
-class TriggerBuilder(private val engine: ScriptingEngine) {
-
-    /**
-     * The new DSL function for creating Regex-based triggers.
-     */
-    fun Regex(
-        patternString: String,
-        action: ScriptingEngine.(match: MatchResult) -> Unit
-    ) {
-        val condition = RegexCondition(patternString.toRegex())
-        val newTrigger = Trigger(condition, action)
-        engine.addTrigger(newTrigger)
-        println("[SYSTEM]: Registered Regex trigger for pattern: $patternString")
-    }
-
-    /**
-     * The new DSL function for creating Simple-match triggers.
-     */
-    fun Simple(
-        textToMatch: String,
-        action: ScriptingEngine.(match: MatchResult) -> Unit
-    ) {
-        val condition = SimpleCondition(textToMatch)
-        val newTrigger = Trigger(condition, action)
-        engine.addTrigger(newTrigger)
-        println("[SYSTEM]: Registered Simple trigger for text: '$textToMatch'")
-    }
-}
-
 ///**
 // * DSL function to define an alias.
 // * @param pattern The regex pattern to match.
