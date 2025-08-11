@@ -79,3 +79,12 @@ fun getTriggersDirectory(): String {
 fun String.capitalized(): String {
     return this.replaceFirstChar { it.uppercaseChar() }
 }
+
+fun MatchGroupCollection.getOrNull(name: String): MatchGroup? {
+    // This is the key: Wrap the potentially crashing call in a try-catch block.
+    return try {
+        this[name]
+    } catch (e: IllegalArgumentException) {
+        null
+    }
+}

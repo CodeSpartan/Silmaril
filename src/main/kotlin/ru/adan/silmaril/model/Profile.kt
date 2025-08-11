@@ -26,6 +26,7 @@ import java.io.File
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.misc.getOrNull
 
 class Profile(
     val profileName: String,
@@ -304,10 +305,10 @@ class Profile(
         // if medium pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
         // if medium v2 pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {group}
         // if small pattern: \#act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
-        val actRegexBig = """\#act \{(.+?)} \{(.+)} \{(\d+)} \{([\p{L}\p{N}_]+)}$""".toRegex()
-        val actRegexMedium = """\#act \{(.+?)} \{(.+)} \{(\d+)}$""".toRegex()
-        val actRegexMediumV2 = """\#act \{(.+?)} \{(.+)} \{([\p{L}\p{N}_]+)}$""".toRegex()
-        val actRegexSmall = """\#act \{(.+?)} \{(.+)}$""".toRegex()
+        val actRegexBig = """\#act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexMedium = """\#act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val actRegexMediumV2 = """\#act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexSmall = """\#act \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
 
         val match = actRegexBig.find(message)
             ?: actRegexMedium.find(message)
@@ -317,16 +318,14 @@ class Profile(
             mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда} {приоритет} {группа}.")
             return
         }
-        val entireCommand = match.groupValues[0]
-        val condition = match.groupValues[1]
-        val action = match.groupValues[2]
-        val priority = if (match.groupValues.size >=4) match.groupValues[3].toIntOrNull() ?: 5 else 5
-        var groupName = "DEFAULT"
-        if (match.groupValues.size == 5) {
-            groupName = match.groupValues[4]
-        } else if (match.groupValues.size == 4 && match.groupValues[3].toIntOrNull() == null) {
-            groupName = match.groupValues[3]
-        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val condition = groups["condition"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value ?: "DEFAULT"
+
         mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
         logger.info { "Condition: $condition" }
         logger.info { "Action: $action" }
