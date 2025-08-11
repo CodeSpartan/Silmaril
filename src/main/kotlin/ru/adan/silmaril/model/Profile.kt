@@ -324,7 +324,7 @@ class Profile(
         val condition = groups["condition"]!!.value
         val action = groups["action"]!!.value
         val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
-        val groupName = groups.getOrNull("group")?.value ?: "DEFAULT"
+        val groupName = groups.getOrNull("group")?.value ?: "TEMP"
 
         mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
         logger.info { "Condition: $condition" }
@@ -332,6 +332,7 @@ class Profile(
         logger.info { "Priority: $priority" }
         logger.info { "Group: $groupName" }
 
+        // если триггер не имеет указанной группы, то он добавляется только в этот профиль и не сохраняется
     }
 
     fun parseConnectCommand(message: String) {
