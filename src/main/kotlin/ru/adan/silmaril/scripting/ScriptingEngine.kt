@@ -35,11 +35,30 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         logger.debug { "Added simple trigger: $this" }
     }
 
+//    infix fun String.act(textCommand: String) {
+//        val condition = SimpleCondition(this)
+//        val newTrigger = Trigger(condition) { sendCommand(textCommand) }
+//        this@MudScriptHost.addTrigger(newTrigger)
+//        logger.debug { "Added simple trigger: $this" }
+//    }
     infix fun String.act(textCommand: String) {
         val condition = SimpleCondition(this)
-        val newTrigger = Trigger(condition) { sendCommand(textCommand) }
+        val newTrigger = Trigger(condition) { matchResult ->
+            var commandToSend = textCommand
+            // The first group (index 0) is the full match.
+            // Captured groups start at index 1.
+            // We replace %0 with the first captured group, %1 with the second, and so on.
+            if (matchResult.groupValues.size > 1) {
+                for (i in 1 until matchResult.groupValues.size) {
+                    val groupValue = matchResult.groupValues[i]
+                    commandToSend = commandToSend.replace("%${i - 1}", groupValue)
+                }
+            }
+            sendCommand(commandToSend) // This would be your actual game command function
+            //println("Executing command: $commandToSend") // For demonstration
+        }
         this@MudScriptHost.addTrigger(newTrigger)
-        logger.debug { "Added simple trigger: $this" }
+        logger.debug {"Added simple trigger for pattern: $this"}
     }
 }
 

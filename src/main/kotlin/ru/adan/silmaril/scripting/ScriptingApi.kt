@@ -1,5 +1,6 @@
 package ru.adan.silmaril.scripting
 import ru.adan.silmaril.misc.*
+import java.util.regex.Pattern
 
 
 interface TriggerCondition {
@@ -19,29 +20,42 @@ class RegexCondition(private val regex: Regex) : TriggerCondition {
 class SimpleCondition(private val textToMatch: String) : TriggerCondition {
     private val regex: Regex = getRegex()
 
-    private fun getRegex() : Regex {
-        // if simple pattern is prefixed by ^, we prefix the regex with ^ and remove it from textToMatch
-        // if simple pattern is postfixed by $, same thing
-        // and then, escape the input to treat it as literal string
-        var escapedText: String = textToMatch
-        var startsWith = false
-        if (escapedText.startsWith('^')) {
-            escapedText = escapedText.removePrefix("^")
-            startsWith = true
+    private fun getRegex(): Regex {
+        var pattern = textToMatch
+        val startsWith = pattern.startsWith('^')
+        if (startsWith) {
+            pattern = pattern.removePrefix("^")
         }
 
-        var endsWith = false
-        if (escapedText.endsWith('$')) {
-            escapedText = escapedText.removeSuffix("$")
-            endsWith = true
+        val endsWith = pattern.endsWith('$')
+        if (endsWith) {
+            pattern = pattern.removeSuffix("$")
         }
 
-        escapedText = Regex.escape(escapedText)
+        val result = StringBuilder()
+        if (startsWith) {
+            result.append('^')
+        }
 
-        val start = if (startsWith) "^" else ""
-        val end = if (endsWith) "$" else ""
+        // This regex will find all placeholders like %0, %1, etc.
+        val placeholderRegex = Regex("%[0-9]")
+        var lastIndex = 0
 
-        return "$start$escapedText$end".toRegex()
+        placeholderRegex.findAll(pattern).forEach { match ->
+            // Append the escaped text before the placeholder
+            result.append(Pattern.quote(pattern.substring(lastIndex, match.range.first)))
+            // Append the regex for a capturing group
+            result.append("(.*)")
+            lastIndex = match.range.last + 1
+        }
+        // Append the remaining escaped text after the last placeholder
+        result.append(Pattern.quote(pattern.substring(lastIndex)))
+
+        if (endsWith) {
+            result.append('$')
+        }
+
+        return result.toString().toRegex()
     }
 
     override fun check(line: String): MatchResult? = regex.find(line)

@@ -118,6 +118,7 @@ class Profile(
             "#act" -> parseSimpleTrigger(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnect(message)
+            "#echo" -> parseEchoCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -332,6 +333,16 @@ class Profile(
                 client.forceReconnect()
         } else {
             mainViewModel.displayErrorMessage("Ошибка #conn - не смог распарсить. Правильный синтаксис: #conn host port.")
+        }
+    }
+
+    fun parseEchoCommand(message: String) {
+        // matches #group {test} enable
+        val echoRegex = """\#echo (.*)""".toRegex()
+        val match = echoRegex.find(message)
+        if (match != null) {
+            val echoText = match.groupValues[1]
+            mainViewModel.displayColoredMessage(echoText)
         }
     }
 }
