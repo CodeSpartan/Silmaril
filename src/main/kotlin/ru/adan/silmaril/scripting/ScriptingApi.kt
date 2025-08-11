@@ -3,24 +3,28 @@ import ru.adan.silmaril.misc.*
 import java.util.regex.Pattern
 
 
+// interface for RegexCondition and SimpleCondition
 interface TriggerCondition {
-    /**
-     * Checks if the line of text meets this condition.
-     * @return A `MatchResult` if the condition is met, `null` otherwise.
-     */
     fun check(line: String): MatchResult?
 }
 
-// a condition of act.Regex()
+// a condition of "grep" verb in DSL
 class RegexCondition(private val regex: Regex) : TriggerCondition {
     override fun check(line: String): MatchResult? = regex.find(line)
 }
 
-// a condition of act.Simple()
+// a condition of "act" verb in DSL
 class SimpleCondition(private val textToMatch: String) : TriggerCondition {
-    private val regex: Regex = getRegex()
+    val placeholderOrder: List<Int>
+    private val regex: Regex
 
-    private fun getRegex(): Regex {
+    init {
+        val parsingResult = parsePattern()
+        this.regex = parsingResult.first
+        this.placeholderOrder = parsingResult.second
+    }
+
+    private fun parsePattern(): Pair<Regex, List<Int>> {
         var pattern = textToMatch
         val startsWith = pattern.startsWith('^')
         if (startsWith) {
@@ -32,30 +36,36 @@ class SimpleCondition(private val textToMatch: String) : TriggerCondition {
             pattern = pattern.removeSuffix("$")
         }
 
-        val result = StringBuilder()
+        val regexBuilder = StringBuilder()
         if (startsWith) {
-            result.append('^')
+            regexBuilder.append('^')
         }
 
-        // This regex will find all placeholders like %0, %1, etc.
         val placeholderRegex = Regex("%[0-9]")
+        val foundPlaceholders = mutableListOf<Int>()
         var lastIndex = 0
 
         placeholderRegex.findAll(pattern).forEach { match ->
-            // Append the escaped text before the placeholder
-            result.append(Pattern.quote(pattern.substring(lastIndex, match.range.first)))
-            // Append the regex for a capturing group
-            result.append("(.*)")
+            // Append the literal text before the placeholder, correctly escaped
+            regexBuilder.append(Pattern.quote(pattern.substring(lastIndex, match.range.first)))
+            // Append the regex capturing group
+            regexBuilder.append("(.*)")
+
+            // Extract the number from the placeholder (e.g., '1' from "%1") and store it
+            val placeholderNumber = match.value.removePrefix("%").toInt()
+            foundPlaceholders.add(placeholderNumber)
+
             lastIndex = match.range.last + 1
         }
-        // Append the remaining escaped text after the last placeholder
-        result.append(Pattern.quote(pattern.substring(lastIndex)))
+
+        // Append any remaining literal text after the last placeholder
+        regexBuilder.append(Pattern.quote(pattern.substring(lastIndex)))
 
         if (endsWith) {
-            result.append('$')
+            regexBuilder.append('$')
         }
 
-        return result.toString().toRegex()
+        return Pair(regexBuilder.toString().toRegex(), foundPlaceholders)
     }
 
     override fun check(line: String): MatchResult? = regex.find(line)
@@ -65,9 +75,6 @@ data class Trigger(
     val condition: TriggerCondition,
     val action: ScriptingEngine.(match: MatchResult) -> Unit
 )
-
-// By making these extension functions on ScriptingEngine, they can only be called
-// from within the script's context, where the engine is the 'this' receiver.
 
 ///**
 // * DSL function to define an alias.
@@ -94,7 +101,7 @@ fun ScriptingEngine.send(command: String) {
  * DSL function to print text to the client's local console (not sent to the MUD).
  */
 fun ScriptingEngine.echo(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
-    echoToMainWindow(message, color, isBright)
+    echoCommand(message, color, isBright)
 }
 
 /**
@@ -117,4 +124,8 @@ fun ScriptingEngine.getVar(varName: String): Variable? {
 
 fun ScriptingEngine.setVar(varName: String, varValue: Any) {
     this.setVarCommand(varName, varValue)
+}
+
+fun ScriptingEngine.unVar(varName: String) {
+    this.unvarCommand(varName)
 }

@@ -2,6 +2,7 @@ package ru.adan.silmaril.scripting
 
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.update
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.misc.Variable
@@ -28,34 +29,43 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         logger.debug { "Added regex trigger: $this" }
     }
 
-    infix fun String.act(action: ScriptingEngine.(match: MatchResult) -> Unit) {
+    infix fun String.act(action: (Map<Int, String>) -> Unit) {
         val condition = SimpleCondition(this)
-        val newTrigger = Trigger(condition, action)
-        this@MudScriptHost.addTrigger(newTrigger)
-        logger.debug { "Added simple trigger: $this" }
+        val newTrigger = Trigger(condition) { matchResult ->
+            // Get the placeholder numbers and the captured string values
+            val placeholderNumbers = condition.placeholderOrder
+            val capturedValues = matchResult.groupValues.drop(1)
+
+            // Create the map by "zipping" the two lists together.
+            // This elegantly maps each placeholder number to its corresponding captured value.
+            val match = placeholderNumbers.zip(capturedValues).toMap()
+
+            // Execute the user's lambda with the prepared map
+            action(match)
+        }
+        addTrigger(newTrigger)
+        logger.debug {"Added lambda trigger for pattern: $this"}
     }
 
-//    infix fun String.act(textCommand: String) {
-//        val condition = SimpleCondition(this)
-//        val newTrigger = Trigger(condition) { sendCommand(textCommand) }
-//        this@MudScriptHost.addTrigger(newTrigger)
-//        logger.debug { "Added simple trigger: $this" }
-//    }
     infix fun String.act(textCommand: String) {
         val condition = SimpleCondition(this)
         val newTrigger = Trigger(condition) { matchResult ->
             var commandToSend = textCommand
-            // The first group (index 0) is the full match.
-            // Captured groups start at index 1.
-            // We replace %0 with the first captured group, %1 with the second, and so on.
-            if (matchResult.groupValues.size > 1) {
-                for (i in 1 until matchResult.groupValues.size) {
-                    val groupValue = matchResult.groupValues[i]
-                    commandToSend = commandToSend.replace("%${i - 1}", groupValue)
+
+            // Get the list of captured values (group 0 is the full match, so we skip it)
+            val capturedValues = matchResult.groupValues.drop(1)
+
+            // Get the list of placeholder numbers in the order they appeared in the pattern
+            val placeholderNumbers = condition.placeholderOrder
+
+            // For each captured value, find its corresponding placeholder number and replace it
+            placeholderNumbers.forEachIndexed { index, placeholderNum ->
+                if (index < capturedValues.size) {
+                    val value = capturedValues[index]
+                    commandToSend = commandToSend.replace("%$placeholderNum", value)
                 }
             }
-            sendCommand(commandToSend) // This would be your actual game command function
-            //println("Executing command: $commandToSend") // For demonstration
+            sendCommand(commandToSend)
         }
         this@MudScriptHost.addTrigger(newTrigger)
         logger.debug {"Added simple trigger for pattern: $this"}
@@ -75,7 +85,8 @@ interface ScriptingEngine {
     fun sendWindowCommand(window: String, command: String)
     fun getVarCommand(varName: String): Variable?
     fun setVarCommand(varName: String, varValue: Any)
-    fun echoToMainWindow(message: String, color: AnsiColor, isBright: Boolean)
+    fun unvarCommand(varName: String)
+    fun echoCommand(message: String, color: AnsiColor, isBright: Boolean)
     fun processLine(line: String)
     fun loadScript(scriptFile: File) : Int
 }
@@ -121,7 +132,11 @@ open class ScriptingEngineImpl(
         profileManager.gameWindows.value[profileName]?.setVariable(varName, varValue)
     }
 
-    override fun echoToMainWindow(message: String, color: AnsiColor, isBright: Boolean) {
+    override fun unvarCommand(varName: String) {
+        profileManager.gameWindows.value[profileName]?.removeVariable(varName)
+    }
+
+    override fun echoCommand(message: String, color: AnsiColor, isBright: Boolean) {
         mainViewModel.displayColoredMessage(message, color, isBright)
     }
 

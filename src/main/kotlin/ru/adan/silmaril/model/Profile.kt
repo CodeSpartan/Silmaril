@@ -24,8 +24,8 @@ import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import org.koin.core.component.get
+import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
-import ru.adan.silmaril.scripting.ScriptingEngineImpl
 
 class Profile(
     val profileName: String,
@@ -56,6 +56,9 @@ class Profile(
     val scriptingEngine: ScriptingEngine  by lazy {
         get<ScriptingEngine > { parametersOf(profileName, mainViewModel, ::isGroupActive) }
     }
+
+    // lazy injection
+    val profileManager: ProfileManager by inject()
 
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -112,13 +115,15 @@ class Profile(
         when (message.trim().substringBefore(" ")) {
             "#var"-> parseVarCommand(message)
             "#unvar" -> parseUnvarCommand(message)
-            "#vars" -> printAllVars()
+            "#vars" -> printAllVarsCommand()
             "#group" -> parseGroupCommand(message)
-            "#groups" -> printAllGroups()
+            "#groups" -> printAllGroupsCommand()
             "#act" -> parseSimpleTrigger(message)
             "#zap" -> client.forceDisconnect()
-            "#conn" -> parseConnect(message)
+            "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
+            "#sendWindow" -> parseSendWindowCommand(message)
+            "#sendAll" -> parseSendAllCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -165,10 +170,7 @@ class Profile(
         }
         // if updatePattern, update the value
         if (updatePattern) {
-            _profileData.update { currentProfile ->
-                val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
-                currentProfile.copy(variables = newVariablesMap)
-            }
+            setVariable(varName, varValue)
         }
         // now display the variable
         val foundVar = _profileData.value.variables[varName]
@@ -191,10 +193,7 @@ class Profile(
         if (match != null) {
             val varName = match.groupValues[1]
             if (_profileData.value.variables.containsKey(varName)) {
-                _profileData.update { currentProfile ->
-                    val newVariablesMap = currentProfile.variables - varName
-                    currentProfile.copy(variables = newVariablesMap)
-                }
+                removeVariable(varName)
                 mainViewModel.displaySystemMessage("Переменная $varName удалена.")
             } else {
                 mainViewModel.displaySystemMessage("Переменной $varName не было.")
@@ -204,7 +203,7 @@ class Profile(
         }
     }
 
-    fun printAllVars() {
+    fun printAllVarsCommand() {
         profileData.value.variables.forEach { (varName, variable) ->
             val varType: String = when (variable) {
                 is Variable.IntValue -> "целое число"
@@ -234,6 +233,13 @@ class Profile(
     fun setVariable(varName: String, varValue: Any) {
         _profileData.update { currentProfile ->
             val newVariablesMap = currentProfile.variables + (varName to varValue.toVariable())
+            currentProfile.copy(variables = newVariablesMap)
+        }
+    }
+
+    fun removeVariable(varName: String) {
+        _profileData.update { currentProfile ->
+            val newVariablesMap = currentProfile.variables - varName
             currentProfile.copy(variables = newVariablesMap)
         }
     }
@@ -269,13 +275,13 @@ class Profile(
                 val groupName = match2.groupValues[1].uppercase()
                 mainViewModel.displaySystemMessage("Группа $groupName ${if (profileData.value.enabledTriggerGroups.contains(groupName)) "включена" else "выключена"}.")
             } else {
-                mainViewModel.displayErrorMessage("Ошибка #group - не смог распарсить. Правильный синтаксис: #group {имя} enable или disable.")
+                mainViewModel.displayErrorMessage("Ошибка #group - не смог распарсить. Правильный синтаксис: #group enable или disable {имя группы}.")
             }
         }
     }
 
     // a command that displays all groups
-    fun printAllGroups() {
+    fun printAllGroupsCommand() {
         profileData.value.enabledTriggerGroups.forEach { groupName ->
             mainViewModel.displaySystemMessage("Группа $groupName включена.")
         }
@@ -294,14 +300,19 @@ class Profile(
         // some '{' symbols had to be additionally escaped due to kotlin syntax
 
         // match against 3 patterns
-        // full pattern first: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}$ - this will match #act {cond} {trig} {5} {group}
-        // if not, smaller pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
-        // if not, even smaller pattern: \#act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
+        // full pattern: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}$ - this will match #act {cond} {trig} {5} {group}
+        // if medium pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
+        // if medium v2 pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {group}
+        // if small pattern: \#act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
         val actRegexBig = """\#act \{(.+?)} \{(.+)} \{(\d+)} \{([\p{L}\p{N}_]+)}$""".toRegex()
         val actRegexMedium = """\#act \{(.+?)} \{(.+)} \{(\d+)}$""".toRegex()
+        val actRegexMediumV2 = """\#act \{(.+?)} \{(.+)} \{([\p{L}\p{N}_]+)}$""".toRegex()
         val actRegexSmall = """\#act \{(.+?)} \{(.+)}$""".toRegex()
 
-        val match = actRegexBig.find(message) ?: actRegexMedium.find(message) ?: actRegexSmall.find(message)
+        val match = actRegexBig.find(message)
+            ?: actRegexMedium.find(message)
+            ?: actRegexMediumV2.find(message)
+            ?: actRegexSmall.find(message)
         if (match == null) {
             mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда} {приоритет} {группа}.")
             return
@@ -309,8 +320,13 @@ class Profile(
         val entireCommand = match.groupValues[0]
         val condition = match.groupValues[1]
         val action = match.groupValues[2]
-        val priority = if (match.groupValues.size >= 4) match.groupValues[3].toIntOrNull() ?: 5 else 5
-        val groupName = if (match.groupValues.size >= 5) match.groupValues[4] else "DEFAULT"
+        val priority = if (match.groupValues.size >=4) match.groupValues[3].toIntOrNull() ?: 5 else 5
+        var groupName = "DEFAULT"
+        if (match.groupValues.size == 5) {
+            groupName = match.groupValues[4]
+        } else if (match.groupValues.size == 4 && match.groupValues[3].toIntOrNull() == null) {
+            groupName = match.groupValues[3]
+        }
         mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
         logger.info { "Condition: $condition" }
         logger.info { "Action: $action" }
@@ -319,7 +335,7 @@ class Profile(
 
     }
 
-    fun parseConnect(message: String) {
+    fun parseConnectCommand(message: String) {
         val actRegex = """\#conn (.+?) (\d+)$""".toRegex()
         val match = actRegex.find(message)
         if (match != null) {
@@ -337,12 +353,39 @@ class Profile(
     }
 
     fun parseEchoCommand(message: String) {
-        // matches #group {test} enable
-        val echoRegex = """\#echo (.*)""".toRegex()
+        // matches #echo text
+        val echoRegex = """\#echo (.+)""".toRegex()
         val match = echoRegex.find(message)
-        if (match != null) {
-            val echoText = match.groupValues[1]
-            mainViewModel.displayColoredMessage(echoText)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #echo - не смог распарсить. Правильный синтаксис: #echo текст")
+            return
         }
+        val echoText = match.groupValues[1]
+        mainViewModel.displayColoredMessage(echoText)
+    }
+
+    fun parseSendWindowCommand(message: String) {
+        // matches #sendWindow {name} {command}
+        val sendWindowRegex = """\#sendWindow \{(.+?)} \{(.+)}$""".toRegex()
+        val match = sendWindowRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #sendWindow - не смог распарсить. Правильный синтаксис: #sendWindow {окно} {команда}.")
+            return
+        }
+        val windowName = match.groupValues[1]
+        val command = match.groupValues[2]
+        scriptingEngine.sendWindowCommand(windowName, command)
+    }
+
+    fun parseSendAllCommand(message: String) {
+        // matches #sendAll text
+        val sendAllRegex = """\#sendAll (.+)""".toRegex()
+        val match = sendAllRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #sendAll - не смог распарсить. Правильный синтаксис: #sendAll текст")
+            return
+        }
+        val command = match.groupValues[1]
+        scriptingEngine.sendAllCommand(command)
     }
 }
