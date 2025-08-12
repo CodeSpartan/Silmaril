@@ -2,17 +2,16 @@ package ru.adan.silmaril.scripting
 
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.update
 import ru.adan.silmaril.misc.AnsiColor
-import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.misc.Variable
+import ru.adan.silmaril.model.ProfileManager
+import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
-import ru.adan.silmaril.model.SettingsManager
 
 interface ScriptingEngine {
     // Properties
