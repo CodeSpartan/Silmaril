@@ -1,11 +1,60 @@
 package ru.adan.silmaril.scripting
 
 import java.util.regex.Pattern
+import kotlin.text.toRegex
 
-data class Trigger(
+class Trigger(
     val condition: TriggerCondition,
     val action: ScriptingEngine.(match: MatchResult) -> Unit
-)
+) {
+
+    companion object {
+        public fun create(textCondition: String, textCommand: String) : Trigger {
+            val condition = SimpleCondition(textCondition)
+            val newTrigger = Trigger(condition) { matchResult ->
+                var commandToSend = textCommand
+
+                // Get the list of captured values (group 0 is the full match, so we skip it)
+                val capturedValues = matchResult.groupValues.drop(1)
+
+                // Get the list of placeholder numbers in the order they appeared in the pattern
+                val placeholderNumbers = condition.placeholderOrder
+
+                // For each captured value, find its corresponding placeholder number and replace it
+                placeholderNumbers.forEachIndexed { index, placeholderNum ->
+                    if (index < capturedValues.size) {
+                        val value = capturedValues[index]
+                        commandToSend = commandToSend.replace("%$placeholderNum", value)
+                    }
+                }
+                sendCommand(commandToSend)
+            }
+            return newTrigger
+        }
+
+        public fun create(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
+            val condition = SimpleCondition(textCondition)
+            val newTrigger = Trigger(condition) { matchResult ->
+                // Get the placeholder numbers and the captured string values
+                val placeholderNumbers = condition.placeholderOrder
+                val capturedValues = matchResult.groupValues.drop(1)
+
+                // Create the map by "zipping" the two lists together.
+                // This elegantly maps each placeholder number to its corresponding captured value.
+                val match = placeholderNumbers.zip(capturedValues).toMap()
+
+                // Execute the user's lambda with the prepared map
+                action(match)
+            }
+            return newTrigger
+        }
+
+        public fun create(textCondition: String, action: ScriptingEngine.(match: MatchResult) -> Unit) : Trigger  {
+            val condition = RegexCondition(textCondition.toRegex())
+            return Trigger(condition, action)
+        }
+    }
+}
 
 // interface for RegexCondition and SimpleCondition
 interface TriggerCondition {

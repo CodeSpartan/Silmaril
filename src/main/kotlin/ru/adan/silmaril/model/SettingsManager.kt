@@ -77,7 +77,7 @@ class SettingsManager {
 
     // Groups aren't a real entity. The variable is populated from all triggers/aliases/etc that belong to groups.
     // If a new trigger/alias is created, we simply update the list
-    private val _groups = MutableStateFlow(mutableSetOf<String>())
+    private val _groups = MutableStateFlow(mutableSetOf("SESSION"))
     val groups: StateFlow<MutableSet<String>> get() = _groups
 
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -226,9 +226,12 @@ class SettingsManager {
         {
             val json = profileFile.readText()
             val profileData : ProfileData = Json.decodeFromString(json)
-            return profileData
+            (profileData.enabledTriggerGroups + "SESSION").forEach { groupName -> addGroup(groupName) }
+            return profileData.copy(enabledTriggerGroups = profileData.enabledTriggerGroups + "SESSION")
         } else {
-            return createProfile(profileName)
+            val profileData = createProfile(profileName)
+            addGroup("SESSION")
+            return profileData.copy(enabledTriggerGroups = profileData.enabledTriggerGroups + "SESSION")
         }
     }
 
@@ -264,15 +267,21 @@ class SettingsManager {
     }
 
     fun addGroup(newGroupName: String) {
-        if (!_groups.value.contains(newGroupName)) {
+        val groupInCaps = newGroupName.uppercase()
+        if (!_groups.value.contains(groupInCaps)) {
             _groups.update { currentList ->
                 // Create a new mutable list based on the old one, add the new item, and return it.
                 // This new list becomes the new value of the StateFlow.
                 currentList.toMutableSet().apply {
-                    add(newGroupName)
+                    add(groupInCaps)
                 }
             }
         }
+    }
+
+    fun doesGroupExist(groupName: String): Boolean {
+        val groupInCaps = groupName.uppercase()
+        return _groups.value.contains(groupInCaps)
     }
 
     fun toggleAutoReconnect(newValue: Boolean) {

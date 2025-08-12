@@ -20,6 +20,7 @@ interface ScriptingEngine {
     val logger: KLogger
 
     // Methods
+    fun addTriggerToGroup(group: String, trigger: Trigger)
     fun addTrigger(trigger: Trigger)
     fun sendCommand(command: String)
     fun sendAllCommand(command: String)
@@ -44,6 +45,13 @@ open class ScriptingEngineImpl(
     // CopyOnWrite is a thread-safe list
     private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf()
     private var currentlyLoadingScript = ""
+
+    override fun addTriggerToGroup(group: String, trigger: Trigger) {
+        if (!triggers.containsKey(group)) {
+            triggers[group] = CopyOnWriteArrayList<Trigger>()
+        }
+        triggers[group]!!.add(trigger)
+    }
 
     override fun addTrigger(trigger: Trigger) {
         val group = currentlyLoadingScript

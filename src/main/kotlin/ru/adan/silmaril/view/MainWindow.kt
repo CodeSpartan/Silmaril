@@ -142,7 +142,7 @@ fun MainWindow(
                                             withStyle(
                                                 style = SpanStyle(
                                                     color = currentColorStyle.getAnsiColor(
-                                                        chunk.foregroundColor,
+                                                        chunk.fgColor,
                                                         chunk.isBright
                                                     ),
                                                     // You can add other styles like fontWeight here if needed

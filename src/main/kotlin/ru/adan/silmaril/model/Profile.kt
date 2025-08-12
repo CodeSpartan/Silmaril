@@ -26,7 +26,11 @@ import java.io.File
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.getOrNull
+import ru.adan.silmaril.mud_messages.TextMessageChunk
+import ru.adan.silmaril.scripting.MudScriptHost
+import ru.adan.silmaril.scripting.Trigger
 
 class Profile(
     val profileName: String,
@@ -246,11 +250,11 @@ class Profile(
     }
 
     fun isGroupActive(groupName: String): Boolean {
-        return profileData.value.enabledTriggerGroups.contains(groupName)
+        return profileData.value.enabledTriggerGroups.contains(groupName.uppercase())
     }
 
     fun parseGroupCommand(message: String) {
-        // matches #group {test} enable
+        // matches #group enable {test}
         val groupRegex = """\#group (enable|disable) [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
         val match = groupRegex.find(message)
         if (match != null) {
@@ -261,7 +265,7 @@ class Profile(
                     val newGroups = currentProfile.enabledTriggerGroups + groupName
                     currentProfile.copy(enabledTriggerGroups = newGroups)
                 }
-                mainViewModel.displaySystemMessage("Группа $groupName включена.${if (!settingsManager.groups.value.contains(groupName)) " Предупреждение: такой группы нет." else ""}")
+                mainViewModel.displaySystemMessage("Группа $groupName включена.${if (!settingsManager.doesGroupExist(groupName)) " Предупреждение: такой группы нет." else ""}")
             } else if (enable == "disable") {
                 _profileData.update { currentProfile ->
                     val newGroups = currentProfile.enabledTriggerGroups - groupName
@@ -274,7 +278,7 @@ class Profile(
             val match2 = groupRegex2.find(message)
             if (match2 != null) {
                 val groupName = match2.groupValues[1].uppercase()
-                mainViewModel.displaySystemMessage("Группа $groupName ${if (profileData.value.enabledTriggerGroups.contains(groupName)) "включена" else "выключена"}.")
+                mainViewModel.displaySystemMessage("Группа $groupName ${if (isGroupActive(groupName)) "включена" else "выключена"}.")
             } else {
                 mainViewModel.displayErrorMessage("Ошибка #group - не смог распарсить. Правильный синтаксис: #group enable или disable {имя группы}.")
             }
@@ -284,14 +288,28 @@ class Profile(
     // a command that displays all groups
     fun printAllGroupsCommand() {
         profileData.value.enabledTriggerGroups.forEach { groupName ->
-            mainViewModel.displaySystemMessage("Группа $groupName включена.")
+            mainViewModel.displayChunks(
+                "Группа $groupName включена.",
+                arrayOf(
+                    TextMessageChunk("Группа $groupName ", AnsiColor.White, AnsiColor.None, true),
+                    TextMessageChunk("включена", AnsiColor.Green, AnsiColor.None, true),
+                    TextMessageChunk(".", AnsiColor.White, AnsiColor.None, true),
+                )
+            )
         }
         val disabledGroups = settingsManager.groups.value.subtract(profileData.value.enabledTriggerGroups)
         if (disabledGroups.isNotEmpty()) {
             mainViewModel.displaySystemMessage("-----------")
         }
         disabledGroups.forEach { groupName ->
-            mainViewModel.displaySystemMessage("Группа $groupName выключена.")
+            mainViewModel.displayChunks(
+                "Группа $groupName выключена.",
+                arrayOf(
+                    TextMessageChunk("Группа $groupName ", AnsiColor.White, AnsiColor.None, true),
+                    TextMessageChunk("выключена", AnsiColor.Yellow, AnsiColor.None, true),
+                    TextMessageChunk(".", AnsiColor.White, AnsiColor.None, true),
+                )
+            )
         }
     }
 
@@ -324,15 +342,30 @@ class Profile(
         val condition = groups["condition"]!!.value
         val action = groups["action"]!!.value
         val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
-        val groupName = groups.getOrNull("group")?.value ?: "TEMP"
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
 
-        mainViewModel.displaySystemMessage("Trigger detected: $entireCommand")
-        logger.info { "Condition: $condition" }
-        logger.info { "Action: $action" }
-        logger.info { "Priority: $priority" }
-        logger.info { "Group: $groupName" }
+        logger.debug { "Parsed trigger: $entireCommand" }
+        logger.debug { "Condition: $condition" }
+        logger.debug { "Action: $action" }
+        logger.debug { "Priority: $priority" }
+        logger.debug { "Group: $groupName" }
 
-        // если триггер не имеет указанной группы, то он добавляется только в этот профиль и не сохраняется
+        val newTrigger = Trigger.create(condition, action)
+        scriptingEngine.addTriggerToGroup(groupName, newTrigger)
+
+        settingsManager.addGroup(groupName)
+
+        mainViewModel.displaySystemMessage("Триггер добавлен в группу {$groupName}.")
+
+        if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
+            val displayMsg = "Группа {$groupName} выключена. Чтобы включить, наберите #group enable {$groupName}"
+            val chunks = arrayOf(
+                TextMessageChunk("Группа {$groupName} ", AnsiColor.White, AnsiColor.None, true),
+                TextMessageChunk("выключена", AnsiColor.Yellow, AnsiColor.None, true),
+                TextMessageChunk(". Чтобы включить, наберите #group enable {$groupName}", AnsiColor.White, AnsiColor.None, true)
+            )
+            mainViewModel.displayChunks(displayMsg, chunks)
+        }
     }
 
     fun parseConnectCommand(message: String) {

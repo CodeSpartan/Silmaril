@@ -49,7 +49,7 @@ class MainViewModel(
 
         if (playerCommands.size > 1) {
             if (!splitCommands) {
-                _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $message")))
+                _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk("> $message", AnsiColor.Yellow)))
                 client.logGameplayTextSynchronously("> $message")
             }
             for (command in playerCommands) {
@@ -63,13 +63,13 @@ class MainViewModel(
             if (displayAsUserInput) {
                 if (withVariables != message) {
                     _messages.value += ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(AnsiColor.Black, AnsiColor.Black, true, ">> $message "),
-                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, "> $withVariables"),
+                        TextMessageChunk(">> $message ",AnsiColor.Black, AnsiColor.Black, true),
+                        TextMessageChunk("> $withVariables", AnsiColor.Yellow, AnsiColor.Black, true),
                     ))
                     client.logGameplayTextSynchronously(">> $message > $withVariables")
                 } else {
                     _messages.value += ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, ">> $withVariables"),
+                        TextMessageChunk(">> $withVariables", AnsiColor.Yellow, AnsiColor.Black, true),
                     ))
                     client.logGameplayTextSynchronously(">> $withVariables")
                 }
@@ -81,19 +81,19 @@ class MainViewModel(
             if (displayAsUserInput) {
                 if (isEnteringPassword.value) {
                     _messages.value += ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> ********")
+                        TextMessageChunk("> ********", AnsiColor.Yellow)
                     ))
                     client.logGameplayTextSynchronously("> ********")
                 }
                 else if (withVariables != message) {
                     _messages.value += ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(AnsiColor.Black, AnsiColor.Black, true, "> $message "),
-                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $withVariables"),
+                        TextMessageChunk("> $message ", AnsiColor.Black, AnsiColor.Black, true),
+                        TextMessageChunk("> $withVariables", AnsiColor.Yellow),
                     ))
                     client.logGameplayTextSynchronously("> $message > $withVariables")
                 } else {
                     _messages.value += ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, false, "> $withVariables"),
+                        TextMessageChunk("> $withVariables", AnsiColor.Yellow),
                     ))
                     client.logGameplayTextSynchronously("> $withVariables")
                 }
@@ -101,7 +101,7 @@ class MainViewModel(
             client.sendMessage(withVariables)
             if (!client.isConnected) {
                 _messages.value += ColorfulTextMessage(arrayOf(
-                    TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, "Вы не подключены."),
+                    TextMessageChunk("Вы не подключены.", AnsiColor.Yellow, AnsiColor.Black, true),
                 ))
             }
         }
@@ -136,17 +136,22 @@ class MainViewModel(
 
     fun displayColoredMessage(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(color, AnsiColor.Black, isBright, message)))
+        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(message, color, AnsiColor.Black, isBright)))
     }
 
     fun displaySystemMessage(message: String) {
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.Black, true, message)))
+        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.White, AnsiColor.Black, true)))
     }
 
     fun displayErrorMessage(message: String) {
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.Black, true, message)))
+        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.Yellow, AnsiColor.Black, true)))
+    }
+
+    fun displayChunks(message: String, chunks: Array<TextMessageChunk>) {
+        onMessageReceived(message)
+        _messages.value += ColorfulTextMessage(chunks)
     }
 
     // Clean up when needed

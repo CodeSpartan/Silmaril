@@ -20,8 +20,8 @@ data class ColorfulTextMessage(
 }
 
 data class TextMessageChunk (
-    var foregroundColor : AnsiColor,
-    var backgroundColor : AnsiColor = AnsiColor.Black,
-    var isBright : Boolean = false,
-    var text : String
+    var text : String,
+    var fgColor : AnsiColor,
+    var bgColor : AnsiColor = AnsiColor.Black,
+    var isBright : Boolean = false
 )

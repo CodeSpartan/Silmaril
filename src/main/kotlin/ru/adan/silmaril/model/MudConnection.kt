@@ -630,7 +630,7 @@ class MudConnection(
                 if (colorTreatmentPointer > 0) {
                     val byteMsg = colorTreatmentBuffer.copyOfRange(0, colorTreatmentPointer)
                     val text = String(byteMsg, charset)
-                    gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, text))
+                    gatheredChunks.add(TextMessageChunk(text, currentColor, AnsiColor.Black, isColorBright))
                     colorTreatmentPointer = 0
                 }
                 parsingFirstParam = true
@@ -673,7 +673,7 @@ class MudConnection(
             //@TODO: move it to a substitute system
             if (text.startsWith('\u0007'))
                 text = text.replace("\u0007", "⚠")
-            gatheredChunks.add(TextMessageChunk(currentColor, AnsiColor.Black, isColorBright, text))
+            gatheredChunks.add(TextMessageChunk(text, currentColor, AnsiColor.Black, isColorBright))
             colorTreatmentPointer = 0
         }
 
@@ -797,14 +797,14 @@ class MudConnection(
     }
 
     private fun emptyTextMessage() : ColorfulTextMessage {
-        return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.None, AnsiColor.None, false, "")))
+        return ColorfulTextMessage(arrayOf(TextMessageChunk("", AnsiColor.None)))
     }
 
     private fun whiteTextMessage(text : String) : ColorfulTextMessage {
-        return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.White, AnsiColor.None, true, text)))
+        return ColorfulTextMessage(arrayOf(TextMessageChunk(text, AnsiColor.White, AnsiColor.None, true)))
     }
 
     private fun yellowTextMessage(text : String) : ColorfulTextMessage {
-        return ColorfulTextMessage(arrayOf(TextMessageChunk(AnsiColor.Yellow, AnsiColor.None, true, text)))
+        return ColorfulTextMessage(arrayOf(TextMessageChunk(text, AnsiColor.Yellow, AnsiColor.None, true)))
     }
 }
