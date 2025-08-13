@@ -34,6 +34,7 @@ data class SimpleTriggerData(
     val condition: String,
     val action: String,
     val priority: Int,
+    val isRegex: Boolean
 )
 
 @OptIn(FlowPreview::class)
@@ -56,7 +57,7 @@ class TextTriggerManager() : KoinComponent {
         if (hasInitialized.load()) {
             textTriggersByGroup.value.forEach { (groupName, triggers) ->
                 triggers.forEach { trig ->
-                    callerProfile.addSingleTriggerToWindow(trig.condition, trig.action, groupName, trig.priority)
+                    callerProfile.addSingleTriggerToWindow(trig.condition, trig.action, groupName, trig.priority, trig.isRegex)
                 }
             }
             val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
@@ -76,9 +77,11 @@ class TextTriggerManager() : KoinComponent {
 
             initialData.forEach { (groupName, triggers) ->
                 triggers.forEach { trig ->
-                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleTriggerToAll(trig.condition, trig.action, groupName, trig.priority)
+                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleTriggerToAll(trig.condition, trig.action, groupName, trig.priority, trig.isRegex)
                 }
             }
+
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortTriggersByPriority() }
 
             _textTriggersByGroup.value = initialData
 
@@ -132,9 +135,9 @@ class TextTriggerManager() : KoinComponent {
         }
     }
 
-    fun saveTextTrigger(condition: String, action: String, groupName: String, priority: Int) {
+    fun saveTextTrigger(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
         logger.info {"save text trigger called"}
-        val newTriggerData = SimpleTriggerData(condition, action, priority)
+        val newTriggerData = SimpleTriggerData(condition, action, priority, isRegex)
         _textTriggersByGroup.update { currentMap ->
             val mutableMap = currentMap.toMutableMap()
             val groupTriggers = mutableMap.getOrPut(groupName) { emptyList() }.toMutableList()

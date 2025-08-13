@@ -81,8 +81,9 @@ class Profile(
 
         scopeDefault.launch {
             compileTriggers()
+            // only one profile will initialize triggerManager, others will not be able to
+            // @TODO: move this to ProfileManager or somewhere that it can't be cancelled
             textTriggerManager.initExplicit(this@Profile)
-            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortTriggersByPriority() }
             mapModel.areMapsReady.first { it }
             // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
@@ -124,8 +125,8 @@ class Profile(
             "#vars" -> printAllVarsCommand()
             "#group" -> parseGroupCommand(message)
             "#groups" -> printAllGroupsCommand()
-            "#act" -> parseSimpleTrigger(message)
-            //"#react" -> parseRegexTrigger(message)
+            "#act" -> parseTextTrigger(message)
+            "#react" -> parseTextTrigger(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -302,30 +303,34 @@ class Profile(
         }
     }
 
-    fun addSingleTriggerToAll(condition: String, action: String, groupName: String, priority: Int) {
-        val newTrigger = Trigger.create(condition, action, priority)
+    fun addSingleTriggerToAll(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
+        val newTrigger =
+            if (isRegex) Trigger.regCreate(condition, action, priority)
+            else Trigger.create(condition, action, priority)
         profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
     }
 
-    fun addSingleTriggerToWindow(condition: String, action: String, groupName: String, priority: Int) {
-        val newTrigger = Trigger.create(condition, action, priority)
+    fun addSingleTriggerToWindow(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
+        val newTrigger =
+            if (isRegex) Trigger.regCreate(condition, action, priority)
+            else Trigger.create(condition, action, priority)
         scriptingEngine.addTriggerToGroup(groupName, newTrigger)
     }
 
-    fun parseSimpleTrigger(message: String) {
+    fun parseTextTrigger(message: String) {
         // matches #act {cond} {trigger} {priority} {group}, where condition isn't greedy, but trigger is greedy.
         // this allows the trigger to be multi-layered, e.g. an #act command inside the trigger
         // some '{' symbols had to be additionally escaped due to kotlin syntax
 
         // match against 4 patterns
-        // full pattern: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}$ - this will match #act {cond} {trig} {5} {group}
-        // if medium pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
-        // if medium v2 pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {group}
-        // if small pattern: \#act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
-        val actRegexBig = """\#act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
-        val actRegexMedium = """\#act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
-        val actRegexMediumV2 = """\#act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
-        val actRegexSmall = """\#act \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
+        // full pattern: \#(re)?act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}$ - this will match #act {cond} {trig} {5} {group}
+        // if medium pattern: \#(re)?act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
+        // if medium v2 pattern: \#(re)?act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {group}
+        // if small pattern: \#(re)?act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
+        val actRegexBig = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexMedium = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val actRegexMediumV2 = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexSmall = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
 
         val match = actRegexBig.find(message)
             ?: actRegexMedium.find(message)
@@ -342,8 +347,10 @@ class Profile(
         val action = groups["action"]!!.value
         val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
         val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+        val isRegex = groups.getOrNull("isRegex") != null
 
         logger.debug { "Parsed trigger: $entireCommand" }
+        logger.debug { "Is regex: $isRegex" }
         logger.debug { "Condition: $condition" }
         logger.debug { "Action: $action" }
         logger.debug { "Priority: $priority" }
@@ -351,7 +358,9 @@ class Profile(
 
         settingsManager.addGroup(groupName)
 
-        val newTrigger = Trigger.create(condition, action, priority)
+        val newTrigger =
+            if (isRegex) Trigger.regCreate(condition, action, priority)
+            else Trigger.create(condition, action, priority)
 
         // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
         // They're not saved to any file, so they're transient.
@@ -370,7 +379,7 @@ class Profile(
         }
 
         if (groupName != "SESSION")
-            textTriggerManager.saveTextTrigger(condition, action, groupName, priority)
+            textTriggerManager.saveTextTrigger(condition, action, groupName, priority, isRegex)
 
         mainViewModel.displaySystemMessage("Триггер добавлен в группу {$groupName}.")
 
