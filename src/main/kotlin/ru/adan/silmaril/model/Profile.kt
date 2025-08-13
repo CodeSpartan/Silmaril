@@ -92,7 +92,7 @@ class Profile(
 
     suspend fun compileTriggers() {
         // load triggers
-        mainViewModel.displaySystemMessage("Компилирую триггеры...")
+        mainViewModel.displaySystemMessage("Компилирую скрипты...")
         val triggersDir = File(getTriggersDirectory())
         var triggersLoaded = 0
         if (triggersDir.exists() && triggersDir.isDirectory) {
@@ -102,7 +102,7 @@ class Profile(
                 }
             }
         }
-        mainViewModel.displaySystemMessage("Триггеров скомпилировано: $triggersLoaded")
+        mainViewModel.displaySystemMessage("Триггеров в скриптах скомпилировано: $triggersLoaded")
     }
 
     fun onCloseWindow() {
@@ -350,7 +350,7 @@ class Profile(
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
 
-        val newTrigger = Trigger.create(condition, action)
+        val newTrigger = Trigger.create(condition, action, priority)
         scriptingEngine.addTriggerToGroup(groupName, newTrigger)
 
         settingsManager.addGroup(groupName)

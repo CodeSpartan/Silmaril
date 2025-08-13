@@ -1,6 +1,44 @@
 package ru.adan.silmaril.scripting
 import ru.adan.silmaril.misc.*
 
+/**
+ * All functions in this file are API that can be called from DSL scripts
+ */
+
+// Because act and grep are defined inside MudScriptHost, they have access to
+// the outer `this` (the ScriptingEngine instance) to add the trigger.
+// We qualify `this@MudScriptHost` to be explicit.
+abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engine {
+
+    // The function that allows writing in DSL: "condition" grep { match -> send("action") }
+    infix fun String.grep(action: (Map<Int, String>) -> Unit) {
+        val newTrigger = Trigger.regCreate(this, action)
+        this@MudScriptHost.addTrigger(newTrigger)
+        println("Added regex lambda trigger for pattern: $this")
+    }
+
+    // The function that allows writing in DSL: "condition" grep "action"
+    infix fun String.grep(textAction: String) {
+        val newTrigger = Trigger.regCreate(this, textAction, 5)
+        this@MudScriptHost.addTrigger(newTrigger)
+        println("Added regex command trigger for pattern: $this")
+    }
+
+    // The function that allows writing in DSL: "condition" act { match -> send("action") }
+    infix fun String.act(action: (Map<Int, String>) -> Unit) {
+        val newTrigger = Trigger.create(this, action)
+        this@MudScriptHost.addTrigger(newTrigger)
+        logger.debug {"Added lambda trigger for pattern: $this"}
+    }
+
+    // The function that allows writing in DSL: "condition" act "action"
+    infix fun String.act(textAction: String) {
+        val newTrigger = Trigger.create(this, textAction, 5)
+        this@MudScriptHost.addTrigger(newTrigger)
+        logger.debug {"Added simple trigger for pattern: $this"}
+    }
+}
+
 ///**
 // * DSL function to define an alias.
 // * @param pattern The regex pattern to match.
@@ -15,42 +53,30 @@ import ru.adan.silmaril.misc.*
 //    println("[SYSTEM]: Registered alias for pattern: $pattern")
 //}
 
-/**
- * DSL function to send a command to the MUD.
- */
 fun ScriptingEngine.send(command: String) {
-    this.sendCommand(command)
+    sendCommand(command)
 }
 
-/**
- * DSL function to print text to the client's local console (not sent to the MUD).
- */
 fun ScriptingEngine.echo(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
     echoCommand(message, color, isBright)
 }
 
-/**
- * DSL function to send a command to all windows.
- */
 fun ScriptingEngine.sendAll(command: String) {
-    this.sendAllCommand(command)
+    sendAllCommand(command)
 }
 
-/**
- * DSL function to send a command to a specific window.
- */
 fun ScriptingEngine.sendWindow(window: String, command: String) {
-    this.sendWindowCommand(window, command)
+    sendWindowCommand(window, command)
 }
 
 fun ScriptingEngine.getVar(varName: String): Variable? {
-    return this.getVarCommand(varName)
+    return getVarCommand(varName)
 }
 
 fun ScriptingEngine.setVar(varName: String, varValue: Any) {
-    this.setVarCommand(varName, varValue)
+    setVarCommand(varName, varValue)
 }
 
 fun ScriptingEngine.unVar(varName: String) {
-    this.unvarCommand(varName)
+    unvarCommand(varName)
 }

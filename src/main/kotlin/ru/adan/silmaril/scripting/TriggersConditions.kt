@@ -1,18 +1,20 @@
 package ru.adan.silmaril.scripting
 
 import java.util.regex.Pattern
+import java.util.regex.PatternSyntaxException
 import kotlin.text.toRegex
 
 class Trigger(
     val condition: TriggerCondition,
-    val action: ScriptingEngine.(match: MatchResult) -> Unit
+    val action: ScriptingEngine.(match: MatchResult) -> Unit,
+    val priority: Int
 ) {
 
     companion object {
-        public fun create(textCondition: String, textCommand: String) : Trigger {
+        public fun create(textCondition: String, textAction: String, priority: Int) : Trigger {
             val condition = SimpleCondition(textCondition)
-            val newTrigger = Trigger(condition) { matchResult ->
-                var commandToSend = textCommand
+            val newTrigger = Trigger(condition, { matchResult ->
+                var commandToSend = textAction
 
                 // Get the list of captured values (group 0 is the full match, so we skip it)
                 val capturedValues = matchResult.groupValues.drop(1)
@@ -28,13 +30,13 @@ class Trigger(
                     }
                 }
                 sendCommand(commandToSend)
-            }
+            }, priority)
             return newTrigger
         }
 
         public fun create(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
             val condition = SimpleCondition(textCondition)
-            val newTrigger = Trigger(condition) { matchResult ->
+            val newTrigger = Trigger(condition, { matchResult ->
                 // Get the placeholder numbers and the captured string values
                 val placeholderNumbers = condition.placeholderOrder
                 val capturedValues = matchResult.groupValues.drop(1)
@@ -45,13 +47,47 @@ class Trigger(
 
                 // Execute the user's lambda with the prepared map
                 action(match)
-            }
+            }, 5)
             return newTrigger
         }
 
-        public fun create(textCondition: String, action: ScriptingEngine.(match: MatchResult) -> Unit) : Trigger  {
-            val condition = RegexCondition(textCondition.toRegex())
-            return Trigger(condition, action)
+        /**
+         * Creates a trigger from a regular expression that executes a lambda.
+         * The lambda receives a map where the key is the 1-based group index and the value is the captured string.
+         */
+        public fun regCreate(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger  {
+            val condition = RegexCondition(textCondition)
+            return Trigger(condition, { matchResult ->
+                // Create the map for the user.
+                // Key is the 1-based group index (1, 2, 3...).
+                // Value is the captured string.
+                val matchMap = matchResult.groupValues
+                    .drop(1) // Drop the full match at index 0
+                    .mapIndexed { index, value -> (index + 1) to value }
+                    .toMap()
+
+                action(matchMap)
+            }, 5)
+        }
+
+        /**
+         * Creates a trigger from a regular expression that executes a simple text command.
+         * Placeholders %0, %1, %2, etc. in the `textAction` string will be replaced by the corresponding captured group.
+         * %0 = first group, %1 = second group, and so on.
+         */
+        public fun regCreate(textCondition: String, textAction: String, priority: Int) : Trigger {
+            val condition = RegexCondition(textCondition)
+            return Trigger(condition, { matchResult ->
+                var commandToSend = textAction
+                val capturedGroups = matchResult.groupValues.drop(1) // Drop full match
+
+                // Replace %0, %1, etc., with the captured group values
+                capturedGroups.forEachIndexed { index, value ->
+                    commandToSend = commandToSend.replace("%$index", value)
+                }
+
+                sendCommand(commandToSend)
+            }, priority)
         }
     }
 }
@@ -62,7 +98,13 @@ interface TriggerCondition {
 }
 
 // a condition of the "grep" verb in DSL
-class RegexCondition(private val regex: Regex) : TriggerCondition {
+class RegexCondition(pattern: String) : TriggerCondition {
+    private val regex: Regex = try {
+        pattern.toRegex()
+    } catch (e: PatternSyntaxException) {
+        println("ERROR: Invalid regex pattern provided to 'grep': '$pattern'. ${e.message}")
+        "a^".toRegex() // Return a regex that will never match anything.
+    }
     override fun check(line: String): MatchResult? = regex.find(line)
 }
 
