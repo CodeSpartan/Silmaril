@@ -30,6 +30,7 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
+import ru.adan.silmaril.model.TextTriggerManager
 
 fun main() {
     startKoin {
@@ -45,6 +46,7 @@ fun main() {
             val settingsManager: SettingsManager = koinInject()
             val settings by settingsManager.settings.collectAsState()
             val profileManager: ProfileManager = koinInject()
+            val textTriggerManager: TextTriggerManager = koinInject()
             val mapModel: MapModel = koinInject()
 
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
@@ -62,7 +64,7 @@ fun main() {
             // Main Window
             Window(
                 onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager)
+                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager)
                     exitApplication()
                 },
                 state = mainWindowState,
@@ -74,7 +76,7 @@ fun main() {
                     showAdditionalOutputWindow = showAdditionalOutputWindow,
                     showProfileDialog = showProfileDialog,
                     onExit = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager)
                         exitApplication()
                     }
                 )
@@ -130,7 +132,8 @@ fun main() {
     }
 }
 
-fun cleanupOnExit(mapModel: MapModel, profileManager: ProfileManager, settingsManager: SettingsManager) {
+fun cleanupOnExit(mapModel: MapModel, profileManager: ProfileManager, settingsManager: SettingsManager, textTriggerManager: TextTriggerManager) {
+    textTriggerManager.cleanup()
     mapModel.cleanup()
     profileManager.cleanup()
     settingsManager.cleanup()

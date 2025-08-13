@@ -67,6 +67,8 @@ dependencies {
     implementation("io.ktor:ktor-network:3.2.3")
     // zlib
     implementation("com.jcraft:jzlib:1.1.3")
+    // Kaml (kotlin yaml)
+    implementation("com.charleskorn.kaml:kaml:0.85.0")
 }
 
 compose.desktop {

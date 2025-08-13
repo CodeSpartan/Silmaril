@@ -140,7 +140,7 @@ class MapModel(private val settingsManager: SettingsManager) {
         val xmlMapper = XmlMapper()
 
         // Get the list of all .xml files in the source directory
-        val xmlFiles = File(sourceDirPath).listFiles { _, name ->
+        val xmlFiles = File(sourceDirPath).listFiles { file, name ->
             name.endsWith(".xml", ignoreCase = true)
         } ?: emptyArray()
 
@@ -176,7 +176,7 @@ class MapModel(private val settingsManager: SettingsManager) {
         File(targetDirPath).mkdirs()
 
         // Get the list of all .xml files in the source directory
-        val xmlFiles = File(sourceDirPath).listFiles { _, name ->
+        val xmlFiles = File(sourceDirPath).listFiles { file, name ->
             name.endsWith(".xml", ignoreCase = true)
         } ?: emptyArray()
 

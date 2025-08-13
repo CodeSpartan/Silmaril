@@ -26,10 +26,7 @@ import java.io.File
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
-import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.getOrNull
-import ru.adan.silmaril.mud_messages.TextMessageChunk
-import ru.adan.silmaril.scripting.MudScriptHost
 import ru.adan.silmaril.scripting.Trigger
 
 class Profile(
@@ -65,6 +62,8 @@ class Profile(
     // lazy injection
     val profileManager: ProfileManager by inject()
 
+    val textTriggerManager: TextTriggerManager by inject()
+
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var _profileData = MutableStateFlow(settingsManager.loadProfile(profileName))
@@ -82,6 +81,7 @@ class Profile(
 
         scopeDefault.launch {
             compileTriggers()
+            textTriggerManager.initExplicit(this@Profile)
             mapModel.areMapsReady.first { it }
             // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
@@ -289,15 +289,25 @@ class Profile(
     // a command that displays all groups
     fun printAllGroupsCommand() {
         profileData.value.enabledTriggerGroups.forEach { groupName ->
-            mainViewModel.displayTaggedText("Группа $groupName <color=bright-green>включена</color>.")
+            mainViewModel.displayTaggedText("Группа $groupName <color=green>включена</color>.")
         }
         val disabledGroups = settingsManager.groups.value.subtract(profileData.value.enabledTriggerGroups)
         if (disabledGroups.isNotEmpty()) {
             mainViewModel.displaySystemMessage("-----------")
         }
         disabledGroups.forEach { groupName ->
-            mainViewModel.displayTaggedText("Группа $groupName <color=bright-yellow>выключена</color>.")
+            mainViewModel.displayTaggedText("Группа $groupName <color=yellow>выключена</color>.")
         }
+    }
+
+    fun addSingleTriggerToAll(condition: String, action: String, groupName: String, priority: Int) {
+        val newTrigger = Trigger.create(condition, action, priority)
+        profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
+    }
+
+    fun addSingleTriggerToWindow(condition: String, action: String, groupName: String, priority: Int) {
+        val newTrigger = Trigger.create(condition, action, priority)
+        scriptingEngine.addTriggerToGroup(groupName, newTrigger)
     }
 
     fun parseSimpleTrigger(message: String) {
@@ -340,15 +350,22 @@ class Profile(
         settingsManager.addGroup(groupName)
 
         val newTrigger = Trigger.create(condition, action, priority)
+
+        // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
+        // They're not saved to any file, so they're transient.
+        // The "SESSION" group always exists and is enabled at every launch of the program, even if it had been manually disabled before.
         if (groupName == "SESSION")
             scriptingEngine.addTriggerToGroup(groupName, newTrigger)
         else
             profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
 
+        if (groupName != "SESSION")
+            textTriggerManager.saveTextTrigger(condition, action, groupName, priority)
+
         mainViewModel.displaySystemMessage("Триггер добавлен в группу {$groupName}.")
 
         if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
-            mainViewModel.displayTaggedText("Группа {$groupName} <color=bright-yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
+            mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
         }
     }
 

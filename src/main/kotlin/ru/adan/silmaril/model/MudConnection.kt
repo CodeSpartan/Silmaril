@@ -122,7 +122,7 @@ class MudConnection(
     fun connect() {
         // Prevent multiple connection attempts
         if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) {
-            logger.info { "connect aborted, the state is wrong" }
+            logger.info { "connection aborted, the state is wrong" }
             return
         }
 
@@ -141,17 +141,20 @@ class MudConnection(
         }
     }
 
-
     // Attempt to establish the connection
     suspend fun performConnect(): Boolean {
         return try {
-            logger.info { "Connecting to $host:$port" }
+            withMdc("profile" to profileName) {
+                logger.info { "Connecting to $host:$port" }
+            }
             val selectorManager = SelectorManager(Dispatchers.IO)
             // aSocket().tcp().connect is a suspend function for non-blocking connection
             socket = aSocket(selectorManager).tcp().connect(host, port) {
                 noDelay = true // true by default, but set explicitly in case ktor changes it later
             }
-            logger.info { "Connection established to $host:$port" }
+            withMdc("profile" to profileName) {
+                logger.info { "Connection established to $host:$port" }
+            }
 
             // Get the read and write channels from the socket
             readChannel = socket?.openReadChannel()
@@ -161,7 +164,9 @@ class MudConnection(
         }
         catch (e: Exception) {
             // Log the specific exception for better debugging
-            logger.warn(e) { "Connection failed to $host:$port" }
+            withMdc("profile" to profileName) {
+                logger.warn(e) { "Connection failed to $host:$port" }
+            }
             cleanupOnDisconnect()
             false
         }

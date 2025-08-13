@@ -9,7 +9,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.capitalized
-import ru.adan.silmaril.view.Tab
 import ru.adan.silmaril.viewmodel.MainViewModel
 
 class ProfileManager(private val settingsManager: SettingsManager) : KoinComponent {
