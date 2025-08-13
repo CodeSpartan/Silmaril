@@ -124,6 +124,7 @@ class Profile(
             "#group" -> parseGroupCommand(message)
             "#groups" -> printAllGroupsCommand()
             "#act" -> parseSimpleTrigger(message)
+            //"#react" -> parseRegexTrigger(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -288,37 +289,23 @@ class Profile(
     // a command that displays all groups
     fun printAllGroupsCommand() {
         profileData.value.enabledTriggerGroups.forEach { groupName ->
-            mainViewModel.displayChunks(
-                "Группа $groupName включена.",
-                arrayOf(
-                    TextMessageChunk("Группа $groupName ", AnsiColor.White, AnsiColor.None, true),
-                    TextMessageChunk("включена", AnsiColor.Green, AnsiColor.None, true),
-                    TextMessageChunk(".", AnsiColor.White, AnsiColor.None, true),
-                )
-            )
+            mainViewModel.displayTaggedText("Группа $groupName <color=bright-green>включена</color>.")
         }
         val disabledGroups = settingsManager.groups.value.subtract(profileData.value.enabledTriggerGroups)
         if (disabledGroups.isNotEmpty()) {
             mainViewModel.displaySystemMessage("-----------")
         }
         disabledGroups.forEach { groupName ->
-            mainViewModel.displayChunks(
-                "Группа $groupName выключена.",
-                arrayOf(
-                    TextMessageChunk("Группа $groupName ", AnsiColor.White, AnsiColor.None, true),
-                    TextMessageChunk("выключена", AnsiColor.Yellow, AnsiColor.None, true),
-                    TextMessageChunk(".", AnsiColor.White, AnsiColor.None, true),
-                )
-            )
+            mainViewModel.displayTaggedText("Группа $groupName <color=bright-yellow>выключена</color>.")
         }
     }
 
     fun parseSimpleTrigger(message: String) {
-        // matches #act {cond} {trigger} @ {group}, where condition isn't greedy, but trigger is greedy.
+        // matches #act {cond} {trigger} {priority} {group}, where condition isn't greedy, but trigger is greedy.
         // this allows the trigger to be multi-layered, e.g. an #act command inside the trigger
         // some '{' symbols had to be additionally escaped due to kotlin syntax
 
-        // match against 3 patterns
+        // match against 4 patterns
         // full pattern: \#act {(.+?)} {(.+)} {(\d+)} {([\p{L}\p{N}_]+)}$ - this will match #act {cond} {trig} {5} {group}
         // if medium pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
         // if medium v2 pattern: \#act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {group}
@@ -350,21 +337,18 @@ class Profile(
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
 
-        val newTrigger = Trigger.create(condition, action, priority)
-        scriptingEngine.addTriggerToGroup(groupName, newTrigger)
-
         settingsManager.addGroup(groupName)
+
+        val newTrigger = Trigger.create(condition, action, priority)
+        if (groupName == "SESSION")
+            scriptingEngine.addTriggerToGroup(groupName, newTrigger)
+        else
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
 
         mainViewModel.displaySystemMessage("Триггер добавлен в группу {$groupName}.")
 
         if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
-            val displayMsg = "Группа {$groupName} выключена. Чтобы включить, наберите #group enable {$groupName}"
-            val chunks = arrayOf(
-                TextMessageChunk("Группа {$groupName} ", AnsiColor.White, AnsiColor.None, true),
-                TextMessageChunk("выключена", AnsiColor.Yellow, AnsiColor.None, true),
-                TextMessageChunk(". Чтобы включить, наберите #group enable {$groupName}", AnsiColor.White, AnsiColor.None, true)
-            )
-            mainViewModel.displayChunks(displayMsg, chunks)
+            mainViewModel.displayTaggedText("Группа {$groupName} <color=bright-yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
         }
     }
 

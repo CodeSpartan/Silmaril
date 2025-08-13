@@ -88,3 +88,11 @@ fun MatchGroupCollection.getOrNull(name: String): MatchGroup? {
         null
     }
 }
+
+/**
+ * A helper function to find an enum value by name, ignoring case.
+ * Returns a default value if no match is found.
+ */
+inline fun <reified T : Enum<T>> enumValueOfIgnoreCase(name: String?, default: T): T {
+    return enumValues<T>().find { it.name.equals(name, ignoreCase = true) } ?: default
+}
