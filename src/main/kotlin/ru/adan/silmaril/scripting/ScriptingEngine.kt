@@ -32,6 +32,7 @@ interface ScriptingEngine {
     fun sortTriggersByPriority()
     fun processLine(line: String)
     fun loadScript(scriptFile: File) : Int
+    fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
 }
 
 open class ScriptingEngineImpl(
@@ -103,7 +104,7 @@ open class ScriptingEngineImpl(
             val match = trigger.condition.check(line)
             if (match != null) {
                 // Execute the trigger's action if it matches
-                trigger.action.invoke(this, match)
+                trigger.action.lambda.invoke(this, match)
             }
         }
     }
@@ -145,6 +146,10 @@ open class ScriptingEngineImpl(
             logger.error(e) { "An exception occurred while setting up the script engine." }
             return 0
         }
+    }
+
+    override fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>> {
+        return triggers
     }
 
     /** Private methods **/

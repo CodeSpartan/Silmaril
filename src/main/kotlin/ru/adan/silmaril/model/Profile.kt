@@ -127,6 +127,7 @@ class Profile(
             "#groups" -> printAllGroupsCommand()
             "#act" -> parseTextTrigger(message)
             "#grep" -> parseTextTrigger(message)
+            "#unact" -> parseRemoveTrigger(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -388,6 +389,13 @@ class Profile(
 
         if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
             mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
+        }
+    }
+
+    fun parseRemoveTrigger(message: String) {
+        for (trig in scriptingEngine.getTriggers().values.flatten()) {
+            if (trig.action.textCommand != null)
+                mainViewModel.displayTaggedText("Trigger: {${trig.condition.originalPattern}} {${trig.action.textCommand}}")
         }
     }
 

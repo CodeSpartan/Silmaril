@@ -6,14 +6,14 @@ import kotlin.text.toRegex
 
 class Trigger(
     val condition: TriggerCondition,
-    val action: ScriptingEngine.(match: MatchResult) -> Unit,
+    val action: TriggerAction,
     val priority: Int
 ) {
 
     companion object {
         public fun create(textCondition: String, textAction: String, priority: Int) : Trigger {
             val condition = SimpleCondition(textCondition)
-            val newTrigger = Trigger(condition, { matchResult ->
+            val newTrigger = Trigger(condition, TriggerAction(textCommand = textAction, lambda = { matchResult ->
                 var commandToSend = textAction
 
                 // Get the list of captured values (group 0 is the full match, so we skip it)
@@ -30,13 +30,13 @@ class Trigger(
                     }
                 }
                 sendCommand(commandToSend)
-            }, priority)
+            }), priority)
             return newTrigger
         }
 
         public fun create(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
             val condition = SimpleCondition(textCondition)
-            val newTrigger = Trigger(condition, { matchResult ->
+            val newTrigger = Trigger(condition, TriggerAction (lambda = { matchResult ->
                 // Get the placeholder numbers and the captured string values
                 val placeholderNumbers = condition.placeholderOrder
                 val capturedValues = matchResult.groupValues.drop(1)
@@ -47,7 +47,7 @@ class Trigger(
 
                 // Execute the user's lambda with the prepared map
                 action(match)
-            }, 5)
+            }), 5)
             return newTrigger
         }
 
@@ -57,7 +57,7 @@ class Trigger(
          */
         public fun regCreate(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger  {
             val condition = RegexCondition(textCondition)
-            return Trigger(condition, { matchResult ->
+            return Trigger(condition, TriggerAction(lambda = { matchResult ->
                 // Create the map for the user.
                 // Key is the 1-based group index (1, 2, 3...).
                 // Value is the captured string.
@@ -67,7 +67,7 @@ class Trigger(
                     .toMap()
 
                 action(matchMap)
-            }, 5)
+            }), 5)
         }
 
         /**
@@ -77,7 +77,7 @@ class Trigger(
          */
         public fun regCreate(textCondition: String, textAction: String, priority: Int) : Trigger {
             val condition = RegexCondition(textCondition)
-            return Trigger(condition, { matchResult ->
+            return Trigger(condition, TriggerAction(textCommand = textAction, lambda ={ matchResult ->
                 var commandToSend = textAction
                 val capturedGroups = matchResult.groupValues.drop(1) // Drop full match
 
@@ -87,18 +87,25 @@ class Trigger(
                 }
 
                 sendCommand(commandToSend)
-            }, priority)
+            }), priority)
         }
     }
 }
 
+class TriggerAction(
+    val lambda: ScriptingEngine.(match: MatchResult) -> Unit,
+    val textCommand: String? = null, // optional
+)
+
 // interface for RegexCondition and SimpleCondition
 interface TriggerCondition {
+    val originalPattern: String
     fun check(line: String): MatchResult?
 }
 
 // a condition of the "grep" verb in DSL
 class RegexCondition(pattern: String) : TriggerCondition {
+    override val originalPattern = pattern
     private val regex: Regex = try {
         pattern.toRegex()
     } catch (e: PatternSyntaxException) {
@@ -118,6 +125,7 @@ class RegexCondition(pattern: String) : TriggerCondition {
  * The code that matches %0 in action to %0 in condition is found in MudScriptHost::String.act
 */
 class SimpleCondition(private val textToMatch: String) : TriggerCondition {
+    override val originalPattern = textToMatch
     val placeholderOrder: List<Int>
     private val regex: Regex
 
