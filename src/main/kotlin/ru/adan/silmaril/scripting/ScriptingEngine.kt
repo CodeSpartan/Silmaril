@@ -29,6 +29,7 @@ interface ScriptingEngine {
     fun setVarCommand(varName: String, varValue: Any)
     fun unvarCommand(varName: String)
     fun echoCommand(message: String, color: AnsiColor, isBright: Boolean)
+    fun sortTriggersByPriority()
     fun processLine(line: String)
     fun loadScript(scriptFile: File) : Int
 }
@@ -44,6 +45,7 @@ open class ScriptingEngineImpl(
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
     private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf()
+    private var triggersByPriority = listOf<Trigger>()
     private var currentlyLoadingScript = ""
 
     override fun addTriggerToGroup(group: String, trigger: Trigger) {
@@ -89,19 +91,19 @@ open class ScriptingEngineImpl(
         mainViewModel.displayColoredMessage(message, color, isBright)
     }
 
+    override fun sortTriggersByPriority() {
+        triggersByPriority = triggers.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
+    }
+
     /**
      * Checks a line of text from the MUD against all active triggers.
      */
     override fun processLine(line: String)  {
-        for ((groupName, triggerList) in triggers) {
-            if (isGroupActive(groupName)) {
-                for (trigger in triggerList) {
-                    val match = trigger.condition.check(line)
-                    if (match != null) {
-                        // Execute the trigger's action if it matches
-                        trigger.action.invoke(this, match)
-                    }
-                }
+        for (trigger in triggersByPriority) {
+            val match = trigger.condition.check(line)
+            if (match != null) {
+                // Execute the trigger's action if it matches
+                trigger.action.invoke(this, match)
             }
         }
     }

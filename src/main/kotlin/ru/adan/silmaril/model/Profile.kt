@@ -82,6 +82,7 @@ class Profile(
         scopeDefault.launch {
             compileTriggers()
             textTriggerManager.initExplicit(this@Profile)
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortTriggersByPriority() }
             mapModel.areMapsReady.first { it }
             // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
@@ -274,6 +275,7 @@ class Profile(
                 }
                 mainViewModel.displaySystemMessage("Группа $groupName выключена.")
             }
+            scriptingEngine.sortTriggersByPriority()
         } else {
             val groupRegex2 = """\#group [{]?([\p{L}\p{N}_]+)[}]?$""".toRegex()
             val match2 = groupRegex2.find(message)
@@ -354,10 +356,18 @@ class Profile(
         // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
         // They're not saved to any file, so they're transient.
         // The "SESSION" group always exists and is enabled at every launch of the program, even if it had been manually disabled before.
-        if (groupName == "SESSION")
+        if (groupName == "SESSION") {
             scriptingEngine.addTriggerToGroup(groupName, newTrigger)
-        else
-            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
+            if (isGroupActive(groupName))
+                scriptingEngine.sortTriggersByPriority()
+        }
+        else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortTriggersByPriority()
+            }
+        }
 
         if (groupName != "SESSION")
             textTriggerManager.saveTextTrigger(condition, action, groupName, priority)
