@@ -136,7 +136,6 @@ class TextTriggerManager() : KoinComponent {
     }
 
     fun saveTextTrigger(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
-        logger.info {"save text trigger called"}
         val newTriggerData = SimpleTriggerData(condition, action, priority, isRegex)
         _textTriggersByGroup.update { currentMap ->
             val mutableMap = currentMap.toMutableMap()

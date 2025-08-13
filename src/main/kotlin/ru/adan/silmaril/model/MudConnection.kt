@@ -273,7 +273,7 @@ class MudConnection(
         try {
             writeChannel?.writeByteArray(processedMessage)
         } catch (e: Exception) {
-            logger.warn { "Error sending string message: ${e.message}" }
+            logger.warn(e) { "Error sending string message: ${e.message}" }
         }
     }
 
@@ -283,7 +283,7 @@ class MudConnection(
         try {
             writeChannel?.writeByteArray(messageBytes)
         } catch (e: Exception) {
-            logger.warn { "Error sending raw message: ${e.message}" }
+            logger.warn(e) { "Error sending raw message: ${e.message}" }
         }
     }
 

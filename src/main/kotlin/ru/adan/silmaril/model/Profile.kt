@@ -126,7 +126,7 @@ class Profile(
             "#group" -> parseGroupCommand(message)
             "#groups" -> printAllGroupsCommand()
             "#act" -> parseTextTrigger(message)
-            "#react" -> parseTextTrigger(message)
+            "#grep" -> parseTextTrigger(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -327,27 +327,30 @@ class Profile(
         // if medium pattern: \#(re)?act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {5}
         // if medium v2 pattern: \#(re)?act {(.+?)} {(.+)} {(\d+)}$ - this will match #act {cond} {trig} {group}
         // if small pattern: \#(re)?act {(.+?)} {(.+)}$ - this will match #act {cond} {trig}
-        val actRegexBig = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
-        val actRegexMedium = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
-        val actRegexMediumV2 = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
-        val actRegexSmall = """\#(?<isRegex>re)?act \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
+        val actRegexBig = """\#(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexMedium = """\#(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val actRegexMediumV2 = """\#(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexSmall = """\#(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
 
         val match = actRegexBig.find(message)
             ?: actRegexMedium.find(message)
             ?: actRegexMediumV2.find(message)
             ?: actRegexSmall.find(message)
         if (match == null) {
-            mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда} {приоритет} {группа}.")
+            if (message.startsWith("#act"))
+                mainViewModel.displayErrorMessage("Ошибка #act - не смог распарсить. Правильный синтаксис: #act {условие} {команда} {приоритет} {группа}.")
+            else
+                mainViewModel.displayErrorMessage("Ошибка #grep - не смог распарсить. Правильный синтаксис: #grep {регекс} {команда} {приоритет} {группа}.")
             return
         }
         val groups = match.groups
 
         val entireCommand = match.value
+        val isRegex = groups["isRegex"]!!.value == "grep"
         val condition = groups["condition"]!!.value
         val action = groups["action"]!!.value
         val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
         val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
-        val isRegex = groups.getOrNull("isRegex") != null
 
         logger.debug { "Parsed trigger: $entireCommand" }
         logger.debug { "Is regex: $isRegex" }
