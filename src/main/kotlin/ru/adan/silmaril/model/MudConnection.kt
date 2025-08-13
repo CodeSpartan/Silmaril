@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicLong
 import org.slf4j.MDC
 import com.jcraft.jzlib.Inflater
 import com.jcraft.jzlib.JZlib
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 
@@ -46,6 +48,7 @@ class MudConnection(
     private var socket: Socket? = null
     private var readChannel: ByteReadChannel? = null
     private var writeChannel: ByteWriteChannel? = null
+    private val sendChannel = Channel<ByteArray>(Channel.UNLIMITED)
     val isConnected: Boolean
         get() { // The connection is alive if both channels are non-null and not closed.
             return readChannel?.isClosedForRead == false &&
@@ -126,6 +129,8 @@ class MudConnection(
             return
         }
 
+
+
         _connectionState.value = ConnectionState.CONNECTING
         connectionScope.launch {
             var success = false
@@ -133,7 +138,12 @@ class MudConnection(
                 success = performConnect() // Call the internal suspend function
                 if (success) {
                     _connectionState.value = ConnectionState.CONNECTED
-                    startReadingData() // Start the read loop only after a successful connection
+                    launch {
+                        readDataLoop()
+                    }
+                    launch {
+                        sendDataLoop()
+                    }
                 } else {
                     _connectionState.value = ConnectionState.FAILED
                 }
@@ -176,6 +186,7 @@ class MudConnection(
     fun closeDefinitive() {
         keepAliveScope.cancel()
         connectionScope.cancel()
+        sendChannel.close()
         closeClientJob()
     }
 
@@ -237,6 +248,12 @@ class MudConnection(
 
     /************** SEND *************/
 
+    private suspend fun sendDataLoop() {
+        for (messageBytes in sendChannel) {
+            sendRaw(messageBytes)
+        }
+    }
+
     inline fun <T> withMdc(vararg pairs: Pair<String, String>, block: () -> T): T {
         val keys = pairs.map { it.first }
         try {
@@ -258,26 +275,28 @@ class MudConnection(
     fun sendMessage(message: String) {
         // Don't try to send if not connected
         if (_connectionState.value != ConnectionState.CONNECTED) return
-        connectionScope.launch {
-            performSend(message)
-        }
-    }
-
-    private suspend fun performSend(message: String) {
-        lastSendTimestamp.set(System.currentTimeMillis())
 
         // Convert the message to bytes using the correct charset (Windows-1251)
         val messageBytes = message.toByteArray(charset) + ControlCharacters.LineFeed
         val processedMessage = duplicateIACBytes(messageBytes)
 
         try {
-            writeChannel?.writeByteArray(processedMessage)
+            sendChannel.trySendBlocking(processedMessage)
         } catch (e: Exception) {
             logger.warn(e) { "Error sending string message: ${e.message}" }
         }
     }
 
-    // send raw bytes, don't duplicate IAC bytes
+    private fun sendBytes(messageBytes : ByteArray) {
+        try {
+            sendChannel.trySendBlocking(messageBytes)
+        } catch (e: Exception) {
+            logger.warn(e) { "Error sending string message: ${e.message}" }
+        }
+    }
+
+    // send raw bytes, don't duplicate IAC bytes - don't call directly, because writeChannel isn't thread-safe
+    // call sendBytes or sendMessage from the main thread instead
     private suspend fun sendRaw(messageBytes : ByteArray) {
         lastSendTimestamp.set(System.currentTimeMillis())
         try {
@@ -318,7 +337,9 @@ class MudConnection(
                 delay(TimeUnit.MINUTES.toMillis(1L)) // try every minute
                 val timeSinceLastSend = System.currentTimeMillis() - lastSendTimestamp.get()
                 if (timeSinceLastSend >= keepAliveIntervalMilliseconds && isConnected) {
-                    sendRaw(byteArrayOf(ControlCharacters.LineFeed))
+                    withContext(Dispatchers.Main) {
+                        sendBytes(byteArrayOf(ControlCharacters.LineFeed))
+                    }
                 }
             }
         }
@@ -327,7 +348,7 @@ class MudConnection(
     /**************** RECEIVE ****************/
 
     // Start receiving messages asynchronously using a coroutine
-    private fun startReadingData() {
+    private fun readDataLoop() {
         clientJob = connectionScope.launch (
             // this provides the "profile" to the SLF4J logger
             MDCContext(mapOf("profile" to profileName))
@@ -485,7 +506,9 @@ class MudConnection(
                         TelnetConstants.Compress -> {
                             logger.debug { "Detected command: IAC WILL COMPRESS" }
                             _compressionEnabled = true
-                            sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
+                            withContext(Dispatchers.Main) {
+                                sendBytes(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
+                            }
                             lastByte = ControlCharacters.NonControlCharacter
                         }
                         //when (IAC, WILL, ECHO), it means the next thing we enter will be a password
@@ -498,7 +521,9 @@ class MudConnection(
                         TelnetConstants.CustomProtocol -> {
                             logger.debug { "Detected command: IAC WILL CUSTOM" }
                             _customProtocolEnabled = true
-                            sendRaw(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
+                            withContext(Dispatchers.Main) {
+                                sendBytes(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
+                            }
                             lastByte = ControlCharacters.NonControlCharacter
                         }
                         TelnetConstants.SubNegotiationEnd -> {
