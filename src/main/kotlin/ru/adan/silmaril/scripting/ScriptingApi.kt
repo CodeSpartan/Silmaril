@@ -19,7 +19,7 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
 
     // The function that allows writing in DSL: "condition" grep "action"
     infix fun String.grep(textAction: String) {
-        val newTrigger = Trigger.regCreate(this, textAction, 5)
+        val newTrigger = Trigger.regCreate(this, textAction, 5, true)
         this@MudScriptHost.addTrigger(newTrigger)
         println("Added regex command trigger for pattern: $this")
     }
@@ -33,7 +33,7 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
 
     // The function that allows writing in DSL: "condition" act "action"
     infix fun String.act(textAction: String) {
-        val newTrigger = Trigger.create(this, textAction, 5)
+        val newTrigger = Trigger.create(this, textAction, 5, true)
         this@MudScriptHost.addTrigger(newTrigger)
         logger.debug {"Added simple trigger for pattern: $this"}
     }

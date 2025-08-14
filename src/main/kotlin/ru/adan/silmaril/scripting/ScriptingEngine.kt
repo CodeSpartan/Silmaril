@@ -9,6 +9,7 @@ import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.collections.set
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
@@ -22,6 +23,7 @@ interface ScriptingEngine {
     // Methods
     fun addTriggerToGroup(group: String, trigger: Trigger)
     fun addTrigger(trigger: Trigger)
+    fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
     fun sendCommand(command: String)
     fun sendAllCommand(command: String)
     fun sendWindowCommand(window: String, command: String)
@@ -62,6 +64,16 @@ open class ScriptingEngineImpl(
             triggers[group] = CopyOnWriteArrayList<Trigger>()
         }
         triggers[group]!!.add(trigger)
+    }
+
+    override fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean {
+        return triggers[group]?.removeIf {
+            !it.withDsl
+            && (it.condition is RegexCondition) == isRegex
+            && it.priority == priority
+            && it.action.textCommand == action
+            && it.condition.originalPattern == condition
+        } == true
     }
 
     override fun sendCommand(command: String) {

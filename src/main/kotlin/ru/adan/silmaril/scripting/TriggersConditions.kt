@@ -7,11 +7,12 @@ import kotlin.text.toRegex
 class Trigger(
     val condition: TriggerCondition,
     val action: TriggerAction,
-    val priority: Int
+    val priority: Int,
+    val withDsl: Boolean // true when created in DSL
 ) {
 
     companion object {
-        public fun create(textCondition: String, textAction: String, priority: Int) : Trigger {
+        public fun create(textCondition: String, textAction: String, priority: Int, withDsl: Boolean) : Trigger {
             val condition = SimpleCondition(textCondition)
             val newTrigger = Trigger(condition, TriggerAction(textCommand = textAction, lambda = { matchResult ->
                 var commandToSend = textAction
@@ -30,7 +31,7 @@ class Trigger(
                     }
                 }
                 sendCommand(commandToSend)
-            }), priority)
+            }), priority, withDsl)
             return newTrigger
         }
 
@@ -47,7 +48,7 @@ class Trigger(
 
                 // Execute the user's lambda with the prepared map
                 action(match)
-            }), 5)
+            }), 5, true)
             return newTrigger
         }
 
@@ -67,7 +68,7 @@ class Trigger(
                     .toMap()
 
                 action(matchMap)
-            }), 5)
+            }), 5, true)
         }
 
         /**
@@ -75,7 +76,7 @@ class Trigger(
          * Placeholders %0, %1, %2, etc. in the `textAction` string will be replaced by the corresponding captured group.
          * %0 = first group, %1 = second group, and so on.
          */
-        public fun regCreate(textCondition: String, textAction: String, priority: Int) : Trigger {
+        public fun regCreate(textCondition: String, textAction: String, priority: Int, withDsl: Boolean) : Trigger {
             val condition = RegexCondition(textCondition)
             return Trigger(condition, TriggerAction(textCommand = textAction, lambda ={ matchResult ->
                 var commandToSend = textAction
@@ -87,7 +88,7 @@ class Trigger(
                 }
 
                 sendCommand(commandToSend)
-            }), priority)
+            }), priority, withDsl)
         }
     }
 }

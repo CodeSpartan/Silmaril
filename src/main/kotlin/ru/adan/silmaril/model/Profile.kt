@@ -27,6 +27,7 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.getOrNull
+import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
 
 class Profile(
@@ -128,6 +129,8 @@ class Profile(
             "#act" -> parseTextTrigger(message)
             "#grep" -> parseTextTrigger(message)
             "#unact" -> parseRemoveTrigger(message)
+            "#ungrep" -> parseRemoveTrigger(message)
+            "#triggers" -> printAllTriggers()
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -306,15 +309,15 @@ class Profile(
 
     fun addSingleTriggerToAll(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
         val newTrigger =
-            if (isRegex) Trigger.regCreate(condition, action, priority)
-            else Trigger.create(condition, action, priority)
+            if (isRegex) Trigger.regCreate(condition, action, priority, false)
+            else Trigger.create(condition, action, priority, false)
         profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
     }
 
     fun addSingleTriggerToWindow(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
         val newTrigger =
-            if (isRegex) Trigger.regCreate(condition, action, priority)
-            else Trigger.create(condition, action, priority)
+            if (isRegex) Trigger.regCreate(condition, action, priority, false)
+            else Trigger.create(condition, action, priority, false)
         scriptingEngine.addTriggerToGroup(groupName, newTrigger)
     }
 
@@ -363,8 +366,8 @@ class Profile(
         settingsManager.addGroup(groupName)
 
         val newTrigger =
-            if (isRegex) Trigger.regCreate(condition, action, priority)
-            else Trigger.create(condition, action, priority)
+            if (isRegex) Trigger.regCreate(condition, action, priority, false)
+            else Trigger.create(condition, action, priority, false)
 
         // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
         // They're not saved to any file, so they're transient.
@@ -393,10 +396,75 @@ class Profile(
     }
 
     fun parseRemoveTrigger(message: String) {
-        for (trig in scriptingEngine.getTriggers().values.flatten()) {
-            if (trig.action.textCommand != null)
-                mainViewModel.displayTaggedText("Trigger: {${trig.condition.originalPattern}} {${trig.action.textCommand}}")
+        val actRegexBig = """\#un(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexMedium = """\#un(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val actRegexMediumV2 = """\#un(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val actRegexSmall = """\#un(?<isRegex>grep|act) \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = actRegexBig.find(message)
+            ?: actRegexMedium.find(message)
+            ?: actRegexMediumV2.find(message)
+            ?: actRegexSmall.find(message)
+        if (match == null) {
+            if (message.startsWith("#aunct"))
+                mainViewModel.displayErrorMessage("Ошибка #unact - не смог распарсить. Правильный синтаксис: #unact {условие} {команда} {приоритет} {группа}.")
+            else
+                mainViewModel.displayErrorMessage("Ошибка #grep - не смог распарсить. Правильный синтаксис: #ungrep {регекс} {команда} {приоритет} {группа}.")
+            return
         }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val isRegex = groups["isRegex"]!!.value == "grep"
+        val condition = groups["condition"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        var removedTrigger = false
+        if (groupName == "SESSION") {
+            removedTrigger = scriptingEngine.removeTriggerFromGroup(condition, action, priority, groupName, isRegex)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortTriggersByPriority()
+        } else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                removedTrigger = profile.scriptingEngine.removeTriggerFromGroup(condition, action, priority, groupName, isRegex)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortTriggersByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textTriggerManager.deleteTextTrigger(condition, action, groupName, priority, isRegex)
+
+        if (removedTrigger)
+            mainViewModel.displaySystemMessage("Триггер успешно удален.")
+        else
+            mainViewModel.displaySystemMessage("Триггер не найден.")
+    }
+
+    fun printAllTriggers() {
+        for ((groupName, trigList) in scriptingEngine.getTriggers()) {
+            if (trigList.isEmpty()) continue
+            if (isGroupActive(groupName))
+                mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
+            else
+                mainViewModel.displayTaggedText("Группа: <color=yellow>$groupName</color>")
+
+            for (trig in trigList.filter { it.withDsl }.sortedBy { it.priority }) {
+                val isRegex = trig.condition is RegexCondition
+                mainViewModel.displayTaggedText("<color=magenta>DSL</color> ${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.textCommand ?: "-> lambda"}} {${trig.priority}} {$groupName}")
+            }
+
+            for (trig in trigList.filter { !it.withDsl }.sortedBy { it.priority }) {
+                val isRegex = trig.condition is RegexCondition
+                mainViewModel.displayTaggedText("${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.textCommand}} {${trig.priority}} {$groupName}")
+            }
+
+        }
+//        for (trig in scriptingEngine.getTriggers().values.flatten().filter { !it.withDsl && it.action.textCommand != null }) {
+//            mainViewModel.displayTaggedText("Trigger: {${trig.condition.originalPattern}} {${trig.action.textCommand}}")
+//        }
     }
 
     fun parseConnectCommand(message: String) {

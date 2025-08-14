@@ -24,6 +24,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.adan.silmaril.misc.getTriggersDirectory
 import java.io.File
+import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -124,11 +125,16 @@ class TextTriggerManager() : KoinComponent {
     }
 
     fun saveTextTriggers() {
+        logger.debug { "Saving text triggers to disk..." }
         try {
             for ((groupName, triggerData) in textTriggersByGroup.value) {
-                val file = Paths.get(getTriggersDirectory(), "$groupName.yaml").toFile()
-                val yaml = Yaml.default.encodeToString<List<SimpleTriggerData>>(value = triggerData)
-                file.writeText(yaml)
+                val file = Paths.get(getTriggersDirectory(), "$groupName.yaml")
+                if (triggerData.isEmpty()) {
+                    Files.deleteIfExists(file)
+                } else {
+                    val yaml = Yaml.default.encodeToString<List<SimpleTriggerData>>(value = triggerData)
+                    file.toFile().writeText(yaml)
+                }
             }
         } catch (e: Exception) {
             logger.error(e) { "Failed to save text triggers" }
@@ -146,14 +152,15 @@ class TextTriggerManager() : KoinComponent {
         }
     }
 
-    fun deleteTextTrigger(condition: String, action: String, groupName: String) {
+    fun deleteTextTrigger(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
         _textTriggersByGroup.update { currentMap ->
             val mutableMap = currentMap.toMutableMap()
             // Find the list of triggers for the given group. If it doesn't exist, do nothing.
             val currentTriggers = mutableMap[groupName] ?: return@update currentMap
-            val updatedTriggers = currentTriggers.filterNot { it.condition == condition && it.action == action }
+            val updatedTriggers = currentTriggers.filterNot {
+                it.condition == condition && it.action == action && it.priority == priority && it.isRegex == isRegex }
             if (updatedTriggers.isEmpty()) {
-                mutableMap.remove(groupName)
+                mutableMap[groupName] = emptyList()
             } else {
                 mutableMap[groupName] = updatedTriggers
             }
