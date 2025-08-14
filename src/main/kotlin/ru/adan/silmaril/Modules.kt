@@ -44,7 +44,8 @@ val appModule = module {
             client = params[0],
             onSystemMessage = params[1],
             onInsertVariables = params[2],
-            onMessageReceived = params[3],
+            onProcessAliases = params[3],
+            onMessageReceived = params[4],
             settingsManager = get()
         )
     }

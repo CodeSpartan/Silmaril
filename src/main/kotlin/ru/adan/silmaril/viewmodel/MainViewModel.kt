@@ -15,6 +15,7 @@ class MainViewModel(
     private val client: MudConnection,
     val onSystemMessage: (String) -> Unit,
     val onInsertVariables: (String) -> String,
+    val onProcessAliases: (String) -> Pair<Boolean, String?>,
     private val onMessageReceived: (String) -> Unit,
     private val settingsManager: SettingsManager
 ) {
@@ -78,7 +79,20 @@ class MainViewModel(
             onSystemMessage(withVariables)
         }
         else {
-            val withVariables = onInsertVariables(message)
+            // Apply Aliases and Variable substitutions
+            val (wasThereAnAlias, msgAfterAliasProcess) = onProcessAliases(message)
+            var withVariables : String
+            if (wasThereAnAlias) {
+                withVariables = if (msgAfterAliasProcess != null)
+                    onInsertVariables(msgAfterAliasProcess)
+                else
+                    "lambda"
+            } else {
+                withVariables = onInsertVariables(message)
+            }
+
+            val wasMessageChanged = withVariables != message
+
             if (displayAsUserInput) {
                 if (isEnteringPassword.value) {
                     _messages.value += ColorfulTextMessage(arrayOf(
@@ -86,7 +100,7 @@ class MainViewModel(
                     ))
                     client.logGameplayTextSynchronously("> ********")
                 }
-                else if (withVariables != message) {
+                else if (wasMessageChanged) {
                     _messages.value += ColorfulTextMessage(arrayOf(
                         TextMessageChunk("> $message ", AnsiColor.Black, AnsiColor.Black, true),
                         TextMessageChunk("> $withVariables", AnsiColor.Yellow),
@@ -99,7 +113,11 @@ class MainViewModel(
                     client.logGameplayTextSynchronously("> $withVariables")
                 }
             }
-            client.sendMessage(withVariables)
+            if (wasThereAnAlias && msgAfterAliasProcess != null) {
+                treatUserInput(withVariables, false)
+            } else {
+                client.sendMessage(withVariables)
+            }
             if (!client.isConnected) {
                 _messages.value += ColorfulTextMessage(arrayOf(
                     TextMessageChunk("Вы не подключены.", AnsiColor.Yellow, AnsiColor.Black, true),

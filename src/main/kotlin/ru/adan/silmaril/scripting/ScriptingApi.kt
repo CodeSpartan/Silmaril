@@ -37,6 +37,20 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         this@MudScriptHost.addTrigger(newTrigger)
         logger.debug {"Added simple trigger for pattern: $this"}
     }
+
+    // DSL: "shorthand" alias { match -> send("full command")}
+    infix fun String.alias(action: (Map<Int, String>) -> Unit) {
+        val newAlias = Trigger.createAlias(this, action)
+        this@MudScriptHost.addAlias(newAlias)
+        logger.debug {"Added lambda alias for pattern: $this"}
+    }
+
+    // DSL: "shorthand" alias "full command"
+    infix fun String.alias(textAction: String) {
+        val newAlias = Trigger.createAlias(this, textAction, 5, true)
+        this@MudScriptHost.addAlias(newAlias)
+        logger.debug {"Added simple alias for pattern: $this"}
+    }
 }
 
 ///**

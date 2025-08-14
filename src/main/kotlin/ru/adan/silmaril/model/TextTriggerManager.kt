@@ -22,6 +22,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.adan.silmaril.misc.getAliasesDirectory
 import ru.adan.silmaril.misc.getTriggersDirectory
 import java.io.File
 import java.nio.file.Files
@@ -36,6 +37,13 @@ data class SimpleTriggerData(
     val action: String,
     val priority: Int,
     val isRegex: Boolean
+)
+
+@Serializable
+data class SimpleAliasData(
+    val shorthand: String,
+    val action: String,
+    val priority: Int,
 )
 
 @OptIn(FlowPreview::class)
@@ -53,6 +61,9 @@ class TextTriggerManager() : KoinComponent {
     private val _textTriggersByGroup = MutableStateFlow<Map<String, List<SimpleTriggerData>>>(emptyMap())
     val textTriggersByGroup: StateFlow<Map<String, List<SimpleTriggerData>>> = _textTriggersByGroup.asStateFlow()
 
+    private val _textAliasesByGroup = MutableStateFlow<Map<String, List<SimpleAliasData>>>(emptyMap())
+    val textAliasesByGroup: StateFlow<Map<String, List<SimpleAliasData>>> = _textAliasesByGroup.asStateFlow()
+
     @OptIn(ExperimentalAtomicApi::class)
     public suspend fun initExplicit(callerProfile: Profile) {
         if (hasInitialized.load()) {
@@ -64,6 +75,15 @@ class TextTriggerManager() : KoinComponent {
             val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
             callerProfile.scriptingEngine.sortTriggersByPriority()
             callerProfile.mainViewModel.displaySystemMessage("Простых триггеров загружено: $totalNumberOfTriggers")
+
+            textAliasesByGroup.value.forEach { (groupName, aliases) ->
+                aliases.forEach { alias ->
+                    callerProfile.addSingleAliasToWindow(alias.shorthand, alias.action, groupName, alias.priority)
+                }
+            }
+            val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
+            callerProfile.scriptingEngine.sortAliasesByPriority()
+            callerProfile.mainViewModel.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
             return
         }
 
@@ -75,31 +95,55 @@ class TextTriggerManager() : KoinComponent {
         }
 
         coroutineScope.launch {
-            val initialData = loadTextTriggers()
+            val initialTriggerData = loadTextTriggers()
+            val initialAliasData = loadTextAliases()
 
-            initialData.forEach { (groupName, triggers) ->
+            // triggers
+            initialTriggerData.forEach { (groupName, triggers) ->
                 triggers.forEach { trig ->
                     profileManager.gameWindows.value.values.firstOrNull()?.addSingleTriggerToAll(trig.condition, trig.action, groupName, trig.priority, trig.isRegex)
                 }
             }
-
             profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortTriggersByPriority() }
-
-            _textTriggersByGroup.value = initialData
-
+            _textTriggersByGroup.value = initialTriggerData
             val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
             profileManager.currentMainViewModel.value.displaySystemMessage("Простых триггеров загружено: $totalNumberOfTriggers")
 
+            // aliases
+            initialAliasData.forEach { (groupName, aliases) ->
+                aliases.forEach { alias ->
+                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleAliasToAll(alias.shorthand, alias.action, groupName, alias.priority)
+                }
+            }
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortAliasesByPriority() }
+            _textAliasesByGroup.value = initialAliasData
+            val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
+            profileManager.currentMainViewModel.value.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
+
+
             hasInitialized.store(true)
 
-            _textTriggersByGroup
-                .drop(1)
-                .debounce(500L) // Still debounce to batch rapid changes.
-                .onEach {
-                    logger.info { "TextTriggerManager: change detected, saving text triggers..." }
-                    saveTextTriggers()
-                }
-                .collect()
+            launch {
+                _textTriggersByGroup
+                    .drop(1)
+                    .debounce(500L) // Still debounce to batch rapid changes.
+                    .onEach {
+                        logger.info { "TextTriggerManager: change detected, saving text triggers..." }
+                        saveTextTriggers()
+                    }
+                    .collect()
+            }
+
+            launch {
+                _textAliasesByGroup
+                    .drop(1)
+                    .debounce(500L) // Still debounce to batch rapid changes.
+                    .onEach {
+                        logger.info { "TextAliasManager: change detected, saving text aliases..." }
+                        saveTextAliases()
+                    }
+                    .collect()
+            }
         }
     }
 
@@ -169,5 +213,69 @@ class TextTriggerManager() : KoinComponent {
 
     fun cleanup() {
         coroutineScope.cancel()
+    }
+
+    private suspend fun loadTextAliases() : Map<String, List<SimpleAliasData>> {
+        return withContext(Dispatchers.IO) {
+            logger.info { "Loading text aliases from disk..." }
+            val aliasesDir = File(getAliasesDirectory())
+
+            val aliasFiles =
+                aliasesDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) }
+                    ?: emptyArray()
+
+            if (aliasFiles.isEmpty()) return@withContext emptyMap()
+
+            aliasFiles.associate { aliasFile ->
+                val groupName = aliasFile.nameWithoutExtension
+                val yaml = aliasFile.readText()
+                val aliases = Yaml.default.decodeFromString<List<SimpleAliasData>>(string = yaml)
+                groupName to aliases
+            }
+        }
+    }
+
+    fun saveTextAliases() {
+        logger.debug { "Saving text aliases to disk..." }
+        try {
+            for ((groupName, aliasDataList) in textAliasesByGroup.value) {
+                val file = Paths.get(getAliasesDirectory(), "$groupName.yaml")
+                if (aliasDataList.isEmpty()) {
+                    Files.deleteIfExists(file)
+                } else {
+                    val yaml = Yaml.default.encodeToString<List<SimpleAliasData>>(value = aliasDataList)
+                    file.toFile().writeText(yaml)
+                }
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to save text triggers" }
+        }
+    }
+
+    fun saveTextAlias(shorthand: String, action: String, groupName: String, priority: Int) {
+        val newAliasData = SimpleAliasData(shorthand, action, priority)
+        _textAliasesByGroup.update { currentMap ->
+            val mutableMap = currentMap.toMutableMap()
+            val groupAliases = mutableMap.getOrPut(groupName) { emptyList() }.toMutableList()
+            groupAliases.add(newAliasData)
+            mutableMap[groupName] = groupAliases
+            mutableMap
+        }
+    }
+
+    fun deleteTextAlias(shorthand: String, action: String, groupName: String, priority: Int) {
+        _textAliasesByGroup.update { currentMap ->
+            val mutableMap = currentMap.toMutableMap()
+            // Find the list of triggers for the given group. If it doesn't exist, do nothing.
+            val currentAliases = mutableMap[groupName] ?: return@update currentMap
+            val updatedAliases = currentAliases.filterNot {
+                it.shorthand == shorthand && it.action == action && it.priority == priority }
+            if (updatedAliases.isEmpty()) {
+                mutableMap[groupName] = emptyList()
+            } else {
+                mutableMap[groupName] = updatedAliases
+            }
+            mutableMap
+        }
     }
 }

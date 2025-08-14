@@ -24,6 +24,9 @@ interface ScriptingEngine {
     fun addTriggerToGroup(group: String, trigger: Trigger)
     fun addTrigger(trigger: Trigger)
     fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
+    fun addAliasToGroup(group: String, alias: Trigger)
+    fun addAlias(alias: Trigger)
+    fun removeAliasFromGroup(condition: String, action: String, priority: Int, group: String) : Boolean
     fun sendCommand(command: String)
     fun sendAllCommand(command: String)
     fun sendWindowCommand(window: String, command: String)
@@ -32,7 +35,9 @@ interface ScriptingEngine {
     fun unvarCommand(varName: String)
     fun echoCommand(message: String, color: AnsiColor, isBright: Boolean)
     fun sortTriggersByPriority()
+    fun sortAliasesByPriority()
     fun processLine(line: String)
+    fun processAlias(line: String) : Pair<Boolean, String?>
     fun loadScript(scriptFile: File) : Int
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun switchWindowCommand(window: String) : Boolean
@@ -48,8 +53,12 @@ open class ScriptingEngineImpl(
     override val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
-    private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf()
+    private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
     private var triggersByPriority = listOf<Trigger>()
+
+    private val aliases : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
+    private var aliasesByPriority = listOf<Trigger>()
+
     private var currentlyLoadingScript = ""
 
     override fun addTriggerToGroup(group: String, trigger: Trigger) {
@@ -72,7 +81,31 @@ open class ScriptingEngineImpl(
             !it.withDsl
             && (it.condition is RegexCondition) == isRegex
             && it.priority == priority
-            && it.action.textCommand == action
+            && it.action.originalCommand == action
+            && it.condition.originalPattern == condition
+        } == true
+    }
+
+    override fun addAlias(alias: Trigger) {
+        val group = currentlyLoadingScript
+        if (!aliases.containsKey(group)) {
+            aliases[group] = CopyOnWriteArrayList<Trigger>()
+        }
+        aliases[group]!!.add(alias)
+    }
+
+    override fun addAliasToGroup(group: String, alias: Trigger) {
+        if (!aliases.containsKey(group)) {
+            aliases[group] = CopyOnWriteArrayList<Trigger>()
+        }
+        aliases[group]!!.add(alias)
+    }
+
+    override fun removeAliasFromGroup(condition: String, action: String, priority: Int, group: String): Boolean {
+        return aliases[group]?.removeIf {
+            !it.withDsl
+            && it.priority == priority
+            && it.action.originalCommand == action
             && it.condition.originalPattern == condition
         } == true
     }
@@ -113,6 +146,10 @@ open class ScriptingEngineImpl(
         triggersByPriority = triggers.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
     }
 
+    override fun sortAliasesByPriority() {
+        aliasesByPriority = aliases.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
+    }
+
     /**
      * Checks a line of text from the MUD against all active triggers.
      */
@@ -124,6 +161,22 @@ open class ScriptingEngineImpl(
                 trigger.action.lambda.invoke(this, match)
             }
         }
+    }
+
+    override fun processAlias(line: String): Pair<Boolean, String?> {
+        for (alias in aliasesByPriority) {
+            val match = alias.condition.check(line)
+            if (match != null) {
+                if (alias.action.commandToSend != null) {
+                    val returnStr = alias.action.commandToSend.invoke(this, match)
+                    return true to returnStr
+                } else {
+                    alias.action.lambda.invoke(this, match)
+                    return true to null
+                }
+            }
+        }
+        return false to null
     }
 
     /**

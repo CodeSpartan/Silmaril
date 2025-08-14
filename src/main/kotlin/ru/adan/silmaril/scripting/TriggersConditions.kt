@@ -14,7 +14,7 @@ class Trigger(
     companion object {
         public fun create(textCondition: String, textAction: String, priority: Int, withDsl: Boolean) : Trigger {
             val condition = SimpleCondition(textCondition)
-            val newTrigger = Trigger(condition, TriggerAction(textCommand = textAction, lambda = { matchResult ->
+            val newTrigger = Trigger(condition, TriggerAction(originalCommand = textAction, lambda = { matchResult ->
                 var commandToSend = textAction
 
                 // Get the list of captured values (group 0 is the full match, so we skip it)
@@ -78,7 +78,7 @@ class Trigger(
          */
         public fun regCreate(textCondition: String, textAction: String, priority: Int, withDsl: Boolean) : Trigger {
             val condition = RegexCondition(textCondition)
-            return Trigger(condition, TriggerAction(textCommand = textAction, lambda ={ matchResult ->
+            return Trigger(condition, TriggerAction(originalCommand = textAction, lambda ={ matchResult ->
                 var commandToSend = textAction
                 val capturedGroups = matchResult.groupValues.drop(1) // Drop full match
 
@@ -90,12 +90,56 @@ class Trigger(
                 sendCommand(commandToSend)
             }), priority, withDsl)
         }
+
+        public fun createAlias(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
+            val condition = AliasCondition(textCondition)
+            val newTrigger = Trigger(condition, TriggerAction (lambda = { matchResult ->
+                // Get the placeholder numbers and the captured string values
+                val placeholderNumbers = condition.placeholderOrder
+                val capturedValues = matchResult.groupValues.drop(1)
+
+                // Create the map by "zipping" the two lists together.
+                // This elegantly maps each placeholder number to its corresponding captured value.
+                val match = placeholderNumbers.zip(capturedValues).toMap()
+
+                // Execute the user's lambda with the prepared map
+                action(match)
+            }), 5, true)
+            return newTrigger
+        }
+
+        public fun createAlias(textCondition: String, textAction: String, priority: Int, withDsl: Boolean) : Trigger {
+            val condition = AliasCondition(textCondition)
+            val newTrigger = Trigger(condition, TriggerAction(originalCommand = textAction, commandToSend = { matchResult ->
+                var commandToSend = textAction
+
+                // Get the list of captured values (group 0 is the full match, so we skip it)
+                val capturedValues = matchResult.groupValues.drop(1)
+
+                // Get the list of placeholder numbers in the order they appeared in the pattern
+                val placeholderNumbers = condition.placeholderOrder
+
+                // For each captured value, find its corresponding placeholder number and replace it
+                placeholderNumbers.forEachIndexed { index, placeholderNum ->
+                    if (index < capturedValues.size) {
+                        val value = capturedValues[index]
+                        commandToSend = commandToSend.replace("%$placeholderNum", value)
+                    }
+                }
+
+                commandToSend
+            }, lambda = {}), priority, withDsl)
+            return newTrigger
+        }
     }
 }
 
 class TriggerAction(
     val lambda: ScriptingEngine.(match: MatchResult) -> Unit,
-    val textCommand: String? = null, // optional
+    val originalCommand: String? = null, // optional
+    //@TODO: make an interface GenericAction and two classes TriggerAction and AliasAction, since they're quite different
+    // for aliases only:
+    val commandToSend: (ScriptingEngine.(match: MatchResult) -> String)? = null,
 )
 
 // interface for RegexCondition and SimpleCondition
@@ -176,6 +220,57 @@ class SimpleCondition(private val textToMatch: String) : TriggerCondition {
         if (endsWith) {
             regexBuilder.append('$')
         }
+
+        return Pair(regexBuilder.toString().toRegex(), foundPlaceholders)
+    }
+
+    override fun check(line: String): MatchResult? = regex.find(line)
+}
+
+class AliasCondition(private val textToMatch: String) : TriggerCondition {
+    override val originalPattern = textToMatch
+    val placeholderOrder: List<Int>
+    private val regex: Regex
+
+    init {
+        val parsingResult = parsePattern()
+        this.regex = parsingResult.first
+        this.placeholderOrder = parsingResult.second
+    }
+
+    private fun parsePattern(): Pair<Regex, List<Int>> {
+        var pattern = textToMatch
+
+        val regexBuilder = StringBuilder()
+        regexBuilder.append('^')
+
+        val placeholderRegex = Regex("%[0-9]")
+        val foundPlaceholders = mutableListOf<Int>()
+        var lastIndex = 0
+
+        placeholderRegex.findAll(pattern).forEach { match ->
+            // Append the literal text before the placeholder, correctly escaped
+            regexBuilder.append(Pattern.quote(pattern.substring(lastIndex, match.range.first)))
+            // Append the regex capturing group
+            regexBuilder.append("(.*)")
+
+            // Extract the number from the placeholder (e.g., '1' from "%1") and store it
+            val placeholderNumber = match.value.removePrefix("%").toInt()
+            foundPlaceholders.add(placeholderNumber)
+
+            lastIndex = match.range.last + 1
+        }
+
+        // Append any remaining literal text after the last placeholder
+        regexBuilder.append(Pattern.quote(pattern.substring(lastIndex)))
+
+        // if there were no %0, %1, etc, then append one, so that a simple alias always ends with a %0
+        if (lastIndex == 0) {
+            regexBuilder.append("""(?:\s+(.+))?""")
+            foundPlaceholders.add(0)
+        }
+
+        regexBuilder.append("$")
 
         return Pair(regexBuilder.toString().toRegex(), foundPlaceholders)
     }

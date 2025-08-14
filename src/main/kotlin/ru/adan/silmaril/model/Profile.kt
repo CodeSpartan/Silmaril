@@ -51,6 +51,7 @@ class Profile(
                 client,
                 ::onSystemMessage,
                 ::onInsertVariables,
+                { msg: String -> scriptingEngine.processAlias(msg) },
                 { msg: String -> scriptingEngine.processLine(msg) }
             )
         }
@@ -131,6 +132,8 @@ class Profile(
             "#unact" -> parseRemoveTrigger(message)
             "#ungrep" -> parseRemoveTrigger(message)
             "#triggers" -> printAllTriggers()
+            "#al" -> parseTextAlias(message)
+            "#alias" -> parseTextAlias(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -315,11 +318,21 @@ class Profile(
         profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addTriggerToGroup(groupName, newTrigger) }
     }
 
+    fun addSingleAliasToAll(shorthand: String, action: String, groupName: String, priority: Int) {
+        val newAlias = Trigger.createAlias(shorthand, action, priority, false)
+        profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addAliasToGroup(groupName, newAlias) }
+    }
+
     fun addSingleTriggerToWindow(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
         val newTrigger =
             if (isRegex) Trigger.regCreate(condition, action, priority, false)
             else Trigger.create(condition, action, priority, false)
         scriptingEngine.addTriggerToGroup(groupName, newTrigger)
+    }
+
+    fun addSingleAliasToWindow(shorthand: String, action: String, groupName: String, priority: Int) {
+        val newAlias = Trigger.createAlias(shorthand, action, priority, false)
+        scriptingEngine.addTriggerToGroup(groupName, newAlias)
     }
 
     fun parseTextTrigger(message: String) {
@@ -454,13 +467,71 @@ class Profile(
 
             for (trig in trigList.filter { it.withDsl }.sortedBy { it.priority }) {
                 val isRegex = trig.condition is RegexCondition
-                mainViewModel.displayTaggedText("<color=magenta>DSL</color> ${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.textCommand ?: "-> lambda"}} {${trig.priority}} {$groupName}")
+                mainViewModel.displayTaggedText("<color=magenta>DSL</color> ${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.originalCommand ?: "-> lambda"}} {${trig.priority}} {$groupName}")
             }
 
             for (trig in trigList.filter { !it.withDsl }.sortedBy { it.priority }) {
                 val isRegex = trig.condition is RegexCondition
-                mainViewModel.displayTaggedText("${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.textCommand}} {${trig.priority}} {$groupName}")
+                mainViewModel.displayTaggedText("${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.originalCommand}} {${trig.priority}} {$groupName}")
             }
+        }
+    }
+
+    fun parseTextAlias(message: String) {
+        val aliasRegexBig = """\#al(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val aliasRegexMedium = """\#al(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val aliasRegexMediumV2 = """\#al(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val aliasRegexSmall = """\#al(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = aliasRegexBig.find(message)
+            ?: aliasRegexMedium.find(message)
+            ?: aliasRegexMediumV2.find(message)
+            ?: aliasRegexSmall.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #alias - не смог распарсить. Правильный синтаксис: #alias {скоропись} {полная команда} {приоритет} {группа}.")
+            return
+        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val shorthand = groups["shorthand"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        logger.debug { "Parsed trigger: $entireCommand" }
+        logger.debug { "Shorthand: $shorthand" }
+        logger.debug { "Action: $action" }
+        logger.debug { "Priority: $priority" }
+        logger.debug { "Group: $groupName" }
+
+        settingsManager.addGroup(groupName)
+
+        val newAlias = Trigger.createAlias(shorthand, action, priority, false)
+
+        // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
+        // They're not saved to any file, so they're transient.
+        // The "SESSION" group always exists and is enabled at every launch of the program, even if it had been manually disabled before.
+        if (groupName == "SESSION") {
+            scriptingEngine.addAliasToGroup(groupName, newAlias)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortAliasesByPriority()
+        }
+        else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                profile.scriptingEngine.addAliasToGroup(groupName, newAlias)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortAliasesByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textTriggerManager.saveTextAlias(shorthand, action, groupName, priority)
+
+        mainViewModel.displaySystemMessage("Алиас добавлен в группу {$groupName}.")
+
+        if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
+            mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
         }
     }
 
