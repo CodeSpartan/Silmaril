@@ -62,6 +62,7 @@ class TextTriggerManager() : KoinComponent {
                 }
             }
             val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
+            callerProfile.scriptingEngine.sortTriggersByPriority()
             callerProfile.mainViewModel.displaySystemMessage("Простых триггеров загружено: $totalNumberOfTriggers")
             return
         }
