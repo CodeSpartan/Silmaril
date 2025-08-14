@@ -23,7 +23,7 @@ data class Tab(
 fun TabbedView(
     tabs: List<Tab>,
     selectedTabIndex: Int,
-    onTabSelected: (Int) -> Unit,
+    onTabSelected: (String) -> Unit,
     onTabClose: (Int) -> Unit
 ) {
     val profileManager: ProfileManager = koinInject()
@@ -34,13 +34,7 @@ fun TabbedView(
             tabs.forEachIndexed { index, tab ->
                 Tab(
                     selected = safeSelectedTabIndex == index,
-                    onClick = {
-                        profileManager.currentClient.value = profileManager.gameWindows.value[tab.title]!!.client
-                        profileManager.currentMainViewModel.value =
-                            profileManager.gameWindows.value[tab.title]!!.mainViewModel
-                        profileManager.currentProfileName.value = tab.title.capitalized()
-                        onTabSelected(index)
-                    },
+                    onClick = { onTabSelected(tab.title) },
                     text = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

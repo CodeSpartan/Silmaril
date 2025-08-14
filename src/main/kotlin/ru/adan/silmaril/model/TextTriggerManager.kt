@@ -106,14 +106,12 @@ class TextTriggerManager() : KoinComponent {
         return withContext(Dispatchers.IO) {
             logger.info { "Loading text triggers from disk..." }
             val triggersDir = File(getTriggersDirectory())
-            if (!triggersDir.exists()) {
-                logger.info { "Triggers directory does not exist, starting with empty set." }
-                return@withContext emptyMap()
-            }
 
             val triggerFiles =
                 triggersDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) }
                     ?: emptyArray()
+
+            if (triggerFiles.isEmpty()) return@withContext emptyMap()
 
             triggerFiles.associate { triggerFile ->
                 val groupName = triggerFile.nameWithoutExtension

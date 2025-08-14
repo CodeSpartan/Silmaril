@@ -1,7 +1,10 @@
 package ru.adan.silmaril.model
 
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.compose.koinInject
@@ -15,6 +18,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
     var currentClient: MutableState<MudConnection>
     var currentMainViewModel: MutableState<MainViewModel>
     var currentProfileName: MutableState<String>
+    var selectedTabIndex = mutableStateOf(0)
 
     private val _gameWindows = MutableStateFlow<Map<String, Profile>>(emptyMap())
     val gameWindows: StateFlow<Map<String, Profile>> = _gameWindows
@@ -45,5 +49,15 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
 
     fun displaySystemMessage(msg: String) {
         currentMainViewModel.value.displaySystemMessage(msg)
+    }
+
+    fun switchWindow(windowName: String) : Boolean {
+        val newIndex = gameWindows.value.values.indexOfFirst { it.profileName == windowName }
+        if (newIndex == -1) return false
+        selectedTabIndex.value = newIndex
+        currentClient.value = gameWindows.value[windowName]!!.client
+        currentMainViewModel.value = gameWindows.value[windowName]!!.mainViewModel
+        currentProfileName.value = windowName.capitalized()
+        return true
     }
 }

@@ -35,6 +35,7 @@ interface ScriptingEngine {
     fun processLine(line: String)
     fun loadScript(scriptFile: File) : Int
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
+    fun switchWindowCommand(window: String) : Boolean
 }
 
 open class ScriptingEngineImpl(
@@ -86,6 +87,10 @@ open class ScriptingEngineImpl(
 
     override fun sendWindowCommand(window: String, command: String) {
         profileManager.gameWindows.value[window]?.mainViewModel?.treatUserInput(command)
+    }
+
+    override fun switchWindowCommand(window: String) : Boolean {
+        return profileManager.switchWindow(window)
     }
 
     override fun getVarCommand(varName: String): Variable? {

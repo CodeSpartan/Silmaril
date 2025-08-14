@@ -136,6 +136,7 @@ class Profile(
             "#echo" -> parseEchoCommand(message)
             "#sendWindow" -> parseSendWindowCommand(message)
             "#sendAll" -> parseSendAllCommand(message)
+            "#window" -> parseWindowCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -460,11 +461,7 @@ class Profile(
                 val isRegex = trig.condition is RegexCondition
                 mainViewModel.displayTaggedText("${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.textCommand}} {${trig.priority}} {$groupName}")
             }
-
         }
-//        for (trig in scriptingEngine.getTriggers().values.flatten().filter { !it.withDsl && it.action.textCommand != null }) {
-//            mainViewModel.displayTaggedText("Trigger: {${trig.condition.originalPattern}} {${trig.action.textCommand}}")
-//        }
     }
 
     fun parseConnectCommand(message: String) {
@@ -519,5 +516,19 @@ class Profile(
         }
         val command = match.groupValues[1]
         scriptingEngine.sendAllCommand(command)
+    }
+
+    fun parseWindowCommand(message: String) {
+        // matches #window {name}
+        val switchWindowRegex = """\#window [{]?([\p{L}\p{N}_]+)[}]?$""".toRegex()
+        val match = switchWindowRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #window - не смог распарсить. Правильный синтаксис: #window {окно}.")
+            return
+        }
+        val windowName = match.groupValues[1]
+        if (!scriptingEngine.switchWindowCommand(windowName)) {
+            mainViewModel.displayErrorMessage("Ошибка #window - окно не найдено.")
+        }
     }
 }

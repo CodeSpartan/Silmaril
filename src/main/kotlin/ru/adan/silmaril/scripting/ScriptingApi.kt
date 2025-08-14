@@ -80,3 +80,7 @@ fun ScriptingEngine.setVar(varName: String, varValue: Any) {
 fun ScriptingEngine.unVar(varName: String) {
     unvarCommand(varName)
 }
+
+fun ScriptingEngine.window(windowName: String) {
+    switchWindowCommand(windowName)
+}

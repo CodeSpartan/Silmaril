@@ -58,7 +58,7 @@ fun main() {
                 size = settings.windowSettings.windowSize
             )
 
-            var selectedTabIndex by remember { mutableStateOf(0) }
+            //var selectedTabIndex by remember { mutableStateOf(0) }
             val showProfileDialog = remember { mutableStateOf(false) }
 
             // Main Window
@@ -99,9 +99,9 @@ fun main() {
                 }
                 TabbedView(
                     tabs = tabs,
-                    selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { selectedTabIndex = it },
-                    onTabClose = { selectedTabIndex = it }
+                    selectedTabIndex = profileManager.selectedTabIndex.value,
+                    onTabSelected = { profileManager.switchWindow(it) },
+                    onTabClose = { profileManager.selectedTabIndex.value = it }
                 )
 
                 // Map widget
