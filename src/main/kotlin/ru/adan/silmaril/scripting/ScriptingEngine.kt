@@ -40,6 +40,7 @@ interface ScriptingEngine {
     fun processAlias(line: String) : Pair<Boolean, String?>
     fun loadScript(scriptFile: File) : Int
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
+    fun getAliases(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun switchWindowCommand(window: String) : Boolean
 }
 
@@ -220,6 +221,10 @@ open class ScriptingEngineImpl(
 
     override fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>> {
         return triggers
+    }
+
+    override fun getAliases(): MutableMap<String, CopyOnWriteArrayList<Trigger>> {
+        return aliases
     }
 
     /** Private methods **/

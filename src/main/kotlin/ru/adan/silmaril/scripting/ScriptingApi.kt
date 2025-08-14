@@ -53,20 +53,6 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
     }
 }
 
-///**
-// * DSL function to define an alias.
-// * @param pattern The regex pattern to match.
-// * @param action The block of code to run on a match.
-// */
-//fun ScriptingEngine.alias(
-//    pattern: String,
-//    action: ScriptingEngine.(match: MatchResult) -> Unit
-//) {
-//    val alias = Alias(pattern.toRegex(), action)
-//    this.addAlias(alias)
-//    println("[SYSTEM]: Registered alias for pattern: $pattern")
-//}
-
 fun ScriptingEngine.send(command: String) {
     sendCommand(command)
 }

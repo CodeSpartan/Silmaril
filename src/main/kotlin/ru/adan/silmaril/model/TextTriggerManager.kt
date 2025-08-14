@@ -90,7 +90,7 @@ class TextTriggerManager() : KoinComponent {
         // It tries to change 'false' to 'true'.
         // If it fails (because it was already 'true'), it returns false, and we exit.
         if (!startedToInitialize.compareAndSet(expectedValue = false, newValue = true)) {
-            logger.info { "TextTriggerManager: Initialization already completed or in progress." }
+            logger.debug { "TextTriggerManager: Initialization already completed or in progress." }
             return
         }
 
@@ -128,7 +128,7 @@ class TextTriggerManager() : KoinComponent {
                     .drop(1)
                     .debounce(500L) // Still debounce to batch rapid changes.
                     .onEach {
-                        logger.info { "TextTriggerManager: change detected, saving text triggers..." }
+                        logger.debug { "TextTriggerManager: change detected, saving text triggers..." }
                         saveTextTriggers()
                     }
                     .collect()
@@ -139,7 +139,7 @@ class TextTriggerManager() : KoinComponent {
                     .drop(1)
                     .debounce(500L) // Still debounce to batch rapid changes.
                     .onEach {
-                        logger.info { "TextAliasManager: change detected, saving text aliases..." }
+                        logger.debug { "TextAliasManager: change detected, saving text aliases..." }
                         saveTextAliases()
                     }
                     .collect()
@@ -149,7 +149,7 @@ class TextTriggerManager() : KoinComponent {
 
     private suspend fun loadTextTriggers() : Map<String, List<SimpleTriggerData>> {
         return withContext(Dispatchers.IO) {
-            logger.info { "Loading text triggers from disk..." }
+            logger.debug { "Loading text triggers from disk..." }
             val triggersDir = File(getTriggersDirectory())
 
             val triggerFiles =
@@ -217,7 +217,7 @@ class TextTriggerManager() : KoinComponent {
 
     private suspend fun loadTextAliases() : Map<String, List<SimpleAliasData>> {
         return withContext(Dispatchers.IO) {
-            logger.info { "Loading text aliases from disk..." }
+            logger.debug { "Loading text aliases from disk..." }
             val aliasesDir = File(getAliasesDirectory())
 
             val aliasFiles =

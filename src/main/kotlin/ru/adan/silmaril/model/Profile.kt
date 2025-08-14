@@ -27,6 +27,7 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.getOrNull
+import ru.adan.silmaril.scripting.AliasCondition
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
 
@@ -134,6 +135,9 @@ class Profile(
             "#triggers" -> printAllTriggers()
             "#al" -> parseTextAlias(message)
             "#alias" -> parseTextAlias(message)
+            "#unal" -> parseRemoveAlias(message)
+            "#unalias" -> parseRemoveAlias(message)
+            "#aliases" -> printAllAliases()
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -457,6 +461,56 @@ class Profile(
             mainViewModel.displaySystemMessage("Триггер не найден.")
     }
 
+    fun parseRemoveAlias(message: String) {
+        val aliasRegexBig = """\#unal(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val aliasRegexMedium = """\#unal(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val aliasRegexMediumV2 = """\#unal(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val aliasRegexSmall = """\#unal(?:ias)? \{(?<shorthand>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = aliasRegexBig.find(message)
+            ?: aliasRegexMedium.find(message)
+            ?: aliasRegexMediumV2.find(message)
+            ?: aliasRegexSmall.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #unalias - не смог распарсить. Правильный синтаксис: #unalias {скоропись} {полная команда} {приоритет} {группа}.")
+            return
+        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val shorthand = groups["shorthand"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        logger.debug { "Parsed trigger: $entireCommand" }
+        logger.debug { "Shorthand: $shorthand" }
+        logger.debug { "Action: $action" }
+        logger.debug { "Priority: $priority" }
+        logger.debug { "Group: $groupName" }
+
+        var removedAlias = false
+        if (groupName == "SESSION") {
+            removedAlias = scriptingEngine.removeAliasFromGroup(shorthand, action, priority, groupName)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortAliasesByPriority()
+        } else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                removedAlias = profile.scriptingEngine.removeAliasFromGroup(shorthand, action, priority, groupName)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortAliasesByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textTriggerManager.deleteTextAlias(shorthand, action, groupName, priority)
+
+        if (removedAlias)
+            mainViewModel.displaySystemMessage("Алиас успешно удален.")
+        else
+            mainViewModel.displaySystemMessage("Алиас не найден.")
+    }
+
     fun printAllTriggers() {
         for ((groupName, trigList) in scriptingEngine.getTriggers()) {
             if (trigList.isEmpty()) continue
@@ -473,6 +527,24 @@ class Profile(
             for (trig in trigList.filter { !it.withDsl }.sortedBy { it.priority }) {
                 val isRegex = trig.condition is RegexCondition
                 mainViewModel.displayTaggedText("${if (isRegex) "Regex" else "Trigger"}: {${trig.condition.originalPattern}} {${trig.action.originalCommand}} {${trig.priority}} {$groupName}")
+            }
+        }
+    }
+
+    fun printAllAliases() {
+        for ((groupName, aliasList) in scriptingEngine.getAliases()) {
+            if (aliasList.isEmpty()) continue
+            if (isGroupActive(groupName))
+                mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
+            else
+                mainViewModel.displayTaggedText("Группа: <color=yellow>$groupName</color>")
+
+            for (alias in aliasList.filter { it.withDsl }.sortedBy { it.priority }) {
+                mainViewModel.displayTaggedText("<color=magenta>DSL</color> Alias: {${alias.condition.originalPattern}} {${alias.action.originalCommand ?: "-> lambda"}} {${alias.priority}} {$groupName}")
+            }
+
+            for (trig in aliasList.filter { !it.withDsl }.sortedBy { it.priority }) {
+                mainViewModel.displayTaggedText("Alias: {${trig.condition.originalPattern}} {${trig.action.originalCommand}} {${trig.priority}} {$groupName}")
             }
         }
     }

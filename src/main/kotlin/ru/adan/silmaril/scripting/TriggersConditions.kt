@@ -93,7 +93,7 @@ class Trigger(
 
         public fun createAlias(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
             val condition = AliasCondition(textCondition)
-            val newTrigger = Trigger(condition, TriggerAction (lambda = { matchResult ->
+            val newTrigger = Trigger(condition, TriggerAction (originalCommand = null, lambda = { matchResult ->
                 // Get the placeholder numbers and the captured string values
                 val placeholderNumbers = condition.placeholderOrder
                 val capturedValues = matchResult.groupValues.drop(1)
@@ -265,6 +265,7 @@ class AliasCondition(private val textToMatch: String) : TriggerCondition {
         regexBuilder.append(Pattern.quote(pattern.substring(lastIndex)))
 
         // if there were no %0, %1, etc, then append one, so that a simple alias always ends with a %0
+        // the pattern used here allows optional matching of any sequence, without matching the first space
         if (lastIndex == 0) {
             regexBuilder.append("""(?:\s+(.+))?""")
             foundPlaceholders.add(0)
