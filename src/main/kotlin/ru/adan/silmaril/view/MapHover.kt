@@ -55,6 +55,8 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
                 Text("ID комнаты: ", color = Color.White, fontFamily = robotoFont)
                 Text("${room.id}", color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light)
             }
+//            Text("Координаты: ${room.x}:${room.y}:${room.z}", color = Color.White, fontFamily = robotoFont)
+//            Text("Оригинальные координаты: ${room.originalX}:${room.originalY}:${room.originalZ}", color = Color.White, fontFamily = robotoFont)
             Text("Выходы", color = Color.White, fontFamily = robotoFont)
 
             room.exitsList.forEach { exit ->

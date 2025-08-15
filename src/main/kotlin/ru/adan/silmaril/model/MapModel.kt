@@ -198,6 +198,19 @@ class MapModel(private val settingsManager: SettingsManager) {
         if (squashedZones.contains(zoneId))
             return
 
+        // special dispensation: delete connections from these junk rooms in Osgiliath
+        // @TODO: make a file for this, this shouldn't be done in the code
+        if (zoneId == 109) {
+            val junkRooms = listOf(10963, 10964, 10965, 10966, 10968, 10969, 10974, 10976)
+            for (junkRoom in junkRooms) rooms[junkRoom]?.exitsList = emptyList()
+        }
+
+        for ((_, room) in rooms) {
+            room.originalX = room.x
+            room.originalY = room.y
+            room.originalZ = room.z
+        }
+
         // 1. find which level has the most rooms, so we'll start working with that level by default
         val roomsPerLevel : MutableMap<Int, Int> = mutableMapOf()
         for (room in rooms) {
@@ -298,6 +311,20 @@ class MapModel(private val settingsManager: SettingsManager) {
         if (roomsToMove.isEmpty()) return
         val thisLevel = roomsToMove.entries.firstOrNull()!!.value.z
         val goDown = thisLevel < mainLevel
+
+        // special dispensation for a chunk of rooms on the road
+        // @TODO: make a file with manual corrections
+        if (roomsToMove.containsKey(15463)) {
+            val ranges = listOf(15463..15476, 15478..15482)
+            for (range in ranges) {
+                for (i in range) {
+                    if (roomsToMove.containsKey(i)) {
+                        roomsToMove[i]!!.x = roomsToMove[i]!!.x + 52
+                        roomsToMove[i]!!.y = roomsToMove[i]!!.y - 12
+                    }
+                }
+            }
+        }
 
         val centerOfGravity = Point(
             roomsToMove.values.sumOf { it.x } / roomsToMove.count(),

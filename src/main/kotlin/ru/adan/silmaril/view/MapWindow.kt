@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
+import io.github.oshai.kotlinlogging.KLogger
+import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MudConnection
@@ -44,8 +46,7 @@ import org.koin.dsl.koinApplication
 
 
 @Composable
-fun MapWindow(client: MudConnection) {
-
+fun MapWindow(client: MudConnection, logger: KLogger) {
     val mapModel: MapModel = koinInject()
     val settingsManager: SettingsManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
@@ -74,6 +75,7 @@ fun MapWindow(client: MudConnection) {
         client.currentRoomMessages.collect { roomMessage ->
             // Update the state with the new message to trigger recomposition
             if (roomMessage.zoneId != lastZone) {
+                logger.debug { "Entered zone: ${roomMessage.zoneId}" }
                 curZoneState.value = mapModel.getZone(roomMessage.zoneId)
                 curZoneRooms = mapModel.getRooms(roomMessage.zoneId)
                 mapModel.squashRooms(curZoneRooms, roomMessage.zoneId)
@@ -81,6 +83,7 @@ fun MapWindow(client: MudConnection) {
             }
             // If the room has changed, update the state and trigger the centering
             if (roomMessage.roomId != lastRoom) {
+                logger.debug { "Entered room: ${roomMessage.roomId}" }
                 curRoomState.value = curZoneRooms[roomMessage.roomId]
                 centerOnRoomId = roomMessage.roomId
                 lastRoom = roomMessage.roomId

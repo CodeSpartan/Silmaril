@@ -46,7 +46,11 @@ data class Room(
 
     @field:JacksonXmlElementWrapper(useWrapping = true, localName = "Exits")
     @field:JacksonXmlProperty(localName = "RoomExit")
-    val exitsList: List<RoomExit> = listOf()
+    var exitsList: List<RoomExit> = listOf(),
+
+    var originalX : Int = x,
+    var originalY : Int = y,
+    var originalZ : Int = z,
 )
 
 data class RoomExit(
