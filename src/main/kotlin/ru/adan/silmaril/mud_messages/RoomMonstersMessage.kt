@@ -13,6 +13,10 @@ data class RoomMonstersMessage(
     @field:JacksonXmlProperty(localName = "Monster")
     val monsters: List<Monster> = emptyList()
 ) {
+
+    val allCreatures: List<Creature>
+        get() = monsters.map { it.toCreature() }
+
     companion object {
         private val logger = KotlinLogging.logger {}
 

@@ -48,6 +48,11 @@ data class GroupStatusMessage(
     @field:JacksonXmlProperty(localName = "GroupMates")
     val groupMates: GroupMates = GroupMates()
 ) {
+
+    val allCreatures: List<Creature>
+        get() = groupMates.groupMates.map { it.toCreature() } +
+                groupMates.pets.map { it.toCreature() }
+
     companion object {
         private val logger = KotlinLogging.logger {}
 

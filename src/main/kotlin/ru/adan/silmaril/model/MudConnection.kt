@@ -25,6 +25,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import ru.adan.silmaril.mud_messages.Creature
 import ru.adan.silmaril.mud_messages.GroupStatusMessage
 import ru.adan.silmaril.mud_messages.RoomMonstersMessage
 
@@ -70,11 +71,11 @@ class MudConnection(
     private val _currentRoomMessages = MutableStateFlow(CurrentRoomMessage.EMPTY)
     val currentRoomMessages: StateFlow<CurrentRoomMessage> get() = _currentRoomMessages
 
-    private val _lastGroupMessage = MutableStateFlow(GroupStatusMessage.EMPTY)
-    val lastGroupMessage: StateFlow<GroupStatusMessage> get() = _lastGroupMessage
+    private val _lastGroupMessage = MutableStateFlow(listOf<Creature>())
+    val lastGroupMessage: StateFlow<List<Creature>> get() = _lastGroupMessage
 
-    private val _lastMonstersMessage = MutableStateFlow(RoomMonstersMessage.EMPTY)
-    val lastMonstersMessage: StateFlow<RoomMonstersMessage> get() = _lastMonstersMessage
+    private val _lastMonstersMessage = MutableStateFlow(listOf<Creature>())
+    val lastMonstersMessage: StateFlow<List<Creature>> get() = _lastMonstersMessage
 
     private val _isEchoOn = MutableStateFlow(false)
     val isEchoOn: StateFlow<Boolean> get() = _isEchoOn
@@ -406,7 +407,7 @@ class MudConnection(
             catch (e: IOException) {
                 logger.error { "Error while receiving data" }
             } finally {
-                _colorfulTextMessages.emit(whiteTextMessage("Связь потеряна."))
+                _colorfulTextMessages.emit(yellowTextMessage("Связь потеряна."))
                 _connectionState.value = ConnectionState.DISCONNECTED
                 if (settingsManager.settings.value.autoReconnect) {
                     reconnect()
@@ -762,8 +763,8 @@ class MudConnection(
             when (_customMessageType) {
                 // 10 is LoreMessage
                 // 11 is ProtocolVersion, it's always 1, we don't care
-                12 -> GroupStatusMessage.fromXml(msg)?.let { _lastGroupMessage.value = it }
-                13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it }
+                12 -> GroupStatusMessage.fromXml(msg)?.let { _lastGroupMessage.value = it.allCreatures }
+                13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it.allCreatures }
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.value = it }
             }
             logger.debug { "- Custom message: $_customMessageType" }
