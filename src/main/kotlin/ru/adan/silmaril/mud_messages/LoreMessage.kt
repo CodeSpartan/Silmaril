@@ -94,8 +94,8 @@ data class LoreMessage(
     val recipe: Recipe? = null,
 
     // The polymorphic list
-    @field:JacksonXmlElementWrapper(localName = "AppliedAffects")
-    val appliedAffects: List<AppliedAffect> = emptyList(),
+    @field:JacksonXmlProperty(localName = "AppliedAffects")
+    val appliedAffects: AppliedAffects? = null,
 ) {
 
     companion object {
@@ -117,14 +117,15 @@ data class LoreMessage(
 
     fun getLoreAsTaggedTexts(): List<String> {
         if (!isFull) {
-            return mutableListOf(
+            return listOfNotNull(
                 "Вы узнали некоторую информацию:",
                 "Объект '<color=cyan>$name</color>', тип: $type",
-                "Вес: $weight, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer?:0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
+                if ((minLevel ?: 0) > 1) "Требуемый уровень : <color=dark-cyan>${minLevel}</color>" else null,
+                "Вес: ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer?:0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
                 *getWearSlots(),
+                getWearingAffect(),
+                getScrollOrPotionSpells(),
                 *getWandOrStaffSpell(),
-                // заклинание
-                // заряд
             )
         } else {
             return listOfNotNull(
@@ -136,7 +137,9 @@ data class LoreMessage(
                 "Флаги неудобств       : <color=dark-cyan>${noFlags.joinOrNone()}</color>",
                 if ((minLevel ?: 0) > 1) "Требуемый уровень : <color=dark-cyan>${minLevel}</color>" else null,
                 "Аффекты               : <color=dark-cyan>${affects.joinOrNone()}</color>",
-                "Вес:  ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer ?: 0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
+                "Вес: ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer ?: 0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
+                getWearingAffect(),
+                getScrollOrPotionSpells(),
                 *getWandOrStaffSpell(),
             )
         }
@@ -153,13 +156,28 @@ data class LoreMessage(
         }
     }
 
+    fun getScrollOrPotionSpells(): String? {
+        return if (scrollOrPotionSpells.isNotEmpty()) {
+            "Заклинания: ${scrollOrPotionSpells.joinToString { "<color=dark-green>"+it.name+"</color>" }}"
+        } else {
+            null
+        }
+    }
+
+    fun getWearingAffect(): String? {
+        // @TODO: this string hasn't been checked
+        return if (wearingAffect != null) {
+            "Эффект при надевании или вооружении: ${wearingAffect.affectName}, Уровень: ${wearingAffect.level}, Время ${wearingAffect.resetTimeout}"
+        } else null
+    }
+
     fun getWearSlots(): Array<String> {
         return if (wearSlots.isEmpty()) {
             emptyArray()
         } else {
             val stringBuilderList = mutableListOf<String>()
             for (wearSlot in wearSlots) {
-                when (wearSlot) {
+                val wearLine = when (wearSlot) {
                     "ABOUT" -> "Наверное, вы сможете надеть это на плечи. ?"
                     "ARMS" -> "Наверное, вы сможете надеть это на руки. ?"
                     "BODY" -> "Наверное, вы сможете надеть это на тело. ?"
@@ -173,7 +191,7 @@ data class LoreMessage(
                     "FINGER" -> "Наверное, вы сможете надеть это на палец. ?"
                     "HANDS" -> "Наверное, вы сможете надеть это на кисти рук. ?"
                     "HEAD" -> "Наверное, вы сможете надеть это на голову."
-                    "HOLD" -> "Наверное, вы сможете держать это в левой руке. ?"
+                    "HOLD" -> "Наверное, вы сможете держать это в левой руке."
                     "LEGS" -> "Наверное, вы сможете надеть это на ноги. ?"
                     "NECK" -> "Наверное, вы сможете надеть это на шею."
                     "WAIST" -> "Наверное, вы сможете надеть это на талию. ?" // вокруг талии?
@@ -181,7 +199,7 @@ data class LoreMessage(
                     "WRIST" -> "Наверное, вы сможете надеть это на запястья. ?"
                     else -> "Наверное, вы сможете надеть это в $wearSlot."
                 }
-                stringBuilderList.add("Можно одеть на: <color=green>${wearSlot}</color>")
+                stringBuilderList.add(wearLine)
             }
             stringBuilderList.toTypedArray()
         }
