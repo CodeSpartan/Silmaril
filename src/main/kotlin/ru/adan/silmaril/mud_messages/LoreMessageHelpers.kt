@@ -93,6 +93,31 @@ data class AppliedAffects(
     val envenoms: List<Envenom> = emptyList()
 )
 
+data class ItemSetAffects(
+    @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
+    val name: String = "",
+
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "Enhance")
+    val enhances: List<Enhance> = emptyList(),
+
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "SkillResist")
+    val skillResists: List<SkillResist> = emptyList(),
+
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "SkillEnhance")
+    val skillEnhances: List<SkillEnhance> = emptyList(),
+
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "MagicArrows")
+    val magicArrows: List<MagicArrows> = emptyList(),
+
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "Envenom")
+    val envenoms: List<Envenom> = emptyList()
+)
+
 data class WandOrStaffSpell(
     @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
     val name: String = "",

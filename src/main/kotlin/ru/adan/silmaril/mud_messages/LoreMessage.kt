@@ -4,6 +4,7 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import io.github.oshai.kotlinlogging.KotlinLogging
+import ru.adan.silmaril.misc.formatDuration
 import ru.adan.silmaril.misc.joinOrNone
 import ru.adan.silmaril.misc.minutesToDaysFormatted
 import ru.adan.silmaril.misc.toSmartString
@@ -95,7 +96,10 @@ data class LoreMessage(
 
     // The polymorphic list
     @field:JacksonXmlProperty(localName = "AppliedAffects")
-    val appliedAffects: AppliedAffects? = null,
+    val appliedEffects: AppliedAffects? = null,
+
+    @field:JacksonXmlProperty(localName = "ItemSetAffects")
+    val itemSetAffects: ItemSetAffects? = null,
 ) {
 
     companion object {
@@ -126,6 +130,14 @@ data class LoreMessage(
                 getWearingAffect(),
                 getScrollOrPotionSpells(),
                 *getWandOrStaffSpell(),
+                *getWeaponStats(),
+                *getArmorStats(),
+                *getSpellBook(),
+                *getIngredient(),
+                *getRecipe(),
+                *getAppliedEffects(),
+                *getItemSetEffects(),
+                // comments
             )
         } else {
             return listOfNotNull(
@@ -141,6 +153,14 @@ data class LoreMessage(
                 getWearingAffect(),
                 getScrollOrPotionSpells(),
                 *getWandOrStaffSpell(),
+                *getWeaponStats(),
+                *getArmorStats(),
+                *getSpellBook(),
+                *getIngredient(),
+                *getRecipe(),
+                *getAppliedEffects(),
+                *getItemSetEffects(),
+                // comments
             )
         }
     }
@@ -171,6 +191,212 @@ data class LoreMessage(
         } else null
     }
 
+    fun getWeaponStats(): Array<String> {
+        return if (weaponStats != null) {
+            arrayOf(
+                "Сила удара '${weaponStats.diceCount}D${weaponStats.diceSides}', средняя сила удара в раунд ${weaponStats.averageDamage}.",
+                "Требует знаний в области '${weaponStats.requiredSkill}'"
+            )
+        } else emptyArray()
+    }
+
+    fun getArmorStats(): Array<String> {
+        return if (armorStats != null) {
+            arrayOf(
+                "Класс защиты(AC): ${armorStats.armorClass}",
+                "Класс брони: ${armorStats.armor}"
+            )
+        } else emptyArray()
+    }
+
+    fun getSpellBook(): Array<String> {
+        return if (spellBook != null) {
+            arrayOf(
+                "Кто может прочитать: ${spellBook.profession}",
+                "Наименьший уровень: ${spellBook.learnLevel}",
+                "Заклинание: ${spellBook.spellName}",
+                "Сколько раз можно произнести: ${if (spellBook.castCount == 0) "бесконечно" else "${spellBook.castCount}"}",
+            )
+        } else emptyArray()
+    }
+
+    fun getIngredient(): Array<String> {
+        return if (ingredient != null) {
+            arrayOf(
+                "Цвет: ${ingredient.color}",
+                "Сила: ${ingredient.power}",
+            )
+        } else emptyArray()
+    }
+
+    fun getRecipe(): Array<String> {
+        return if (recipe != null) {
+            arrayOf(
+                "Что: ${recipe.name}",
+                "Описание: ${recipe.description}",
+                "Уровень использования: ${recipe.minLevel}",
+                "Минимальное умение для изучения: ${recipe.minSkillLevel}%",
+            )
+        } else emptyArray()
+    }
+
+    fun getAppliedEffects(): Array<String> {
+        // appliedEffects is a polymorphic list of multiple types of effects
+        return if (appliedEffects == null ||
+            (appliedEffects.enhances.isEmpty() && appliedEffects.skillEnhances.isEmpty()
+                && appliedEffects.skillResists.isEmpty() && appliedEffects.envenoms.isEmpty() && appliedEffects.magicArrows.isEmpty()
+            )
+        ) {
+            emptyArray()
+        } else {
+            val stringBuilderList = mutableListOf<String>()
+
+            stringBuilderList.add("Эффекты на вас :")
+
+            // Enhance
+            appliedEffects.enhances.forEach {
+                val effectStringBuilder = StringBuilder()
+                effectStringBuilder.append(" <color=black>${it.modifiedParameter}</color>: ")
+                effectStringBuilder.append(if (it.value > 0) "<color=green>+" else "<color=red>-")
+                effectStringBuilder.append("${it.value}")
+                effectStringBuilder.append("</color>")
+                if (it.sourceSkill != "")
+                    effectStringBuilder.append(" (${it.sourceSkill})")
+                if (it.duration > 0)
+                    effectStringBuilder.append(" [${formatDuration(it.duration)}]")
+                if (it.necessarySetItemsCount > 0)
+                    effectStringBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(effectStringBuilder.toString())
+            }
+
+            appliedEffects.skillEnhances.forEach {
+                val skillEnhanceBuilder = StringBuilder()
+                val plusOrMinus = if (it.enhanceValue > 0) "+" else "-"
+                skillEnhanceBuilder.append("$plusOrMinus${it.enhanceValue} к заклинанию/умению '${it.skillName}'")
+                if (it.necessarySetItemsCount > 0)
+                    skillEnhanceBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(skillEnhanceBuilder.toString())
+            }
+
+            appliedEffects.skillResists.forEach {
+                val skillResistBuilder = StringBuilder()
+                val plusOrMinus = if (it.resistValue > 0) "+" else "-"
+                skillResistBuilder.append(" Сопротивление заклинанию/умению '${it.skillName}' $plusOrMinus${it.resistValue}%")
+                if (it.necessarySetItemsCount > 0)
+                    skillResistBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(skillResistBuilder.toString())
+            }
+
+            appliedEffects.envenoms.forEach {
+                val envenomBuilder = StringBuilder()
+                envenomBuilder.append(" Отравить: [${formatDuration(it.duration)}]")
+                if (it.necessarySetItemsCount > 0)
+                    envenomBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(envenomBuilder.toString())
+            }
+
+            appliedEffects.magicArrows.forEach {
+                val magicArrowsBuilder = StringBuilder()
+                val magicType = when(it.magicType) {
+                    "FIRE" -> "огня"
+                    "WATER" -> "воды"
+                    "AIR" -> "воздуха"
+                    "EARTH" -> "земли"
+                    else -> "неизвестного типа"
+                }
+                if (it.duration > 0)
+                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides} [${formatDuration(it.duration)}]")
+                else
+                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides}")
+
+                if (it.necessarySetItemsCount > 0)
+                    magicArrowsBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(magicArrowsBuilder.toString())
+            }
+
+            stringBuilderList.toTypedArray()
+        }
+    }
+
+    fun getItemSetEffects(): Array<String> {
+        // appliedEffects is a polymorphic list of multiple types of effects
+        return if (itemSetAffects == null ||
+            (itemSetAffects.enhances.isEmpty() && itemSetAffects.skillEnhances.isEmpty()
+                    && itemSetAffects.skillResists.isEmpty() && itemSetAffects.envenoms.isEmpty() && itemSetAffects.magicArrows.isEmpty()
+                    )
+        ) {
+            emptyArray()
+        } else {
+            val stringBuilderList = mutableListOf<String>()
+
+            stringBuilderList.add("Аффекты набора ${itemSetAffects.name}:")
+
+            // тут нужно отсортировать их по кол-ву necessarySetItemsCount
+            // Enhance
+            itemSetAffects.enhances.forEach {
+                val effectStringBuilder = StringBuilder()
+                effectStringBuilder.append(" <color=black>${it.modifiedParameter}</color>: ")
+                effectStringBuilder.append(if (it.value > 0) "<color=green>+" else "<color=red>-")
+                effectStringBuilder.append("${it.value}")
+                effectStringBuilder.append("</color>")
+                if (it.sourceSkill != "")
+                    effectStringBuilder.append(" (${it.sourceSkill})")
+                if (it.duration > 0)
+                    effectStringBuilder.append(" [${formatDuration(it.duration)}]")
+                if (it.necessarySetItemsCount > 0)
+                    effectStringBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(effectStringBuilder.toString())
+            }
+
+            itemSetAffects.skillEnhances.forEach {
+                val skillEnhanceBuilder = StringBuilder()
+                val plusOrMinus = if (it.enhanceValue > 0) "+" else "-"
+                skillEnhanceBuilder.append("$plusOrMinus${it.enhanceValue} к заклинанию/умению '${it.skillName}'")
+                if (it.necessarySetItemsCount > 0)
+                    skillEnhanceBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(skillEnhanceBuilder.toString())
+            }
+
+            itemSetAffects.skillResists.forEach {
+                val skillResistBuilder = StringBuilder()
+                val plusOrMinus = if (it.resistValue > 0) "+" else "-"
+                skillResistBuilder.append(" Сопротивление заклинанию/умению '${it.skillName}' $plusOrMinus${it.resistValue}%")
+                if (it.necessarySetItemsCount > 0)
+                    skillResistBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(skillResistBuilder.toString())
+            }
+
+            itemSetAffects.envenoms.forEach {
+                val envenomBuilder = StringBuilder()
+                envenomBuilder.append(" Отравить: [${formatDuration(it.duration)}]")
+                if (it.necessarySetItemsCount > 0)
+                    envenomBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(envenomBuilder.toString())
+            }
+
+            itemSetAffects.magicArrows.forEach {
+                val magicArrowsBuilder = StringBuilder()
+                val magicType = when(it.magicType) {
+                    "FIRE" -> "огня"
+                    "WATER" -> "воды"
+                    "AIR" -> "воздуха"
+                    "EARTH" -> "земли"
+                    else -> "неизвестного типа"
+                }
+                if (it.duration > 0)
+                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides} [${formatDuration(it.duration)}]")
+                else
+                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides}")
+
+                if (it.necessarySetItemsCount > 0)
+                    magicArrowsBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                stringBuilderList.add(magicArrowsBuilder.toString())
+            }
+
+            stringBuilderList.toTypedArray()
+        }
+    }
+
     fun getWearSlots(): Array<String> {
         return if (wearSlots.isEmpty()) {
             emptyArray()
@@ -180,7 +406,7 @@ data class LoreMessage(
                 val wearLine = when (wearSlot) {
                     "ABOUT" -> "Наверное, вы сможете надеть это на плечи. ?"
                     "ARMS" -> "Наверное, вы сможете надеть это на руки. ?"
-                    "BODY" -> "Наверное, вы сможете надеть это на тело. ?"
+                    "BODY" -> "Наверное, вы сможете надеть это на тело."
                     "DEF1" -> "доп слот 1?"
                     "DEF2" -> "доп слот 2?"
                     "DEF3" -> "доп слот 3?"

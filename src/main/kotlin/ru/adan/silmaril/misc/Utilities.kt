@@ -140,3 +140,18 @@ fun Double.toSmartString(): String {
         this.toString()
     }
 }
+
+// returns duration in hours if less than a day, or days and hours otherwise
+fun formatDuration(totalHours: Int): String {
+    if (totalHours <= 0) {
+        return "0 час."
+    }
+
+    return if (totalHours < 24) {
+        "$totalHours час."
+    } else {
+        val days = totalHours / 24
+        val hours = totalHours % 24
+        "$days дн. $hours час."
+    }
+}
