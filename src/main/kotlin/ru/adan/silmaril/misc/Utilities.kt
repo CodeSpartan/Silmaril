@@ -104,3 +104,27 @@ fun MatchGroupCollection.getOrNull(name: String): MatchGroup? {
 inline fun <reified T : Enum<T>> enumValueOfIgnoreCase(name: String?, default: T): T {
     return enumValues<T>().find { it.name.equals(name, ignoreCase = true) } ?: default
 }
+
+fun List<String>.joinOrNone(): String {
+    return if (this.isEmpty()) {
+        "NOBITS"
+    } else {
+        this.joinToString(" ")
+    }
+}
+
+fun minutesToDaysFormatted(minutes: Int): String {
+    val days = minutes / 1440
+    val lastDigit = days % 10
+    val lastTwoDigits = days % 100
+
+    if (lastTwoDigits in 11..14) {
+        return "$days дней"
+    }
+
+    return when (lastDigit) {
+        1 -> "$days день"
+        2, 3, 4 -> "$days дня"
+        else -> "$days дней"
+    }
+}

@@ -25,8 +25,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import ru.adan.silmaril.misc.enumValueOfIgnoreCase
 import ru.adan.silmaril.mud_messages.Creature
 import ru.adan.silmaril.mud_messages.GroupStatusMessage
+import ru.adan.silmaril.mud_messages.LoreMessage
 import ru.adan.silmaril.mud_messages.RoomMonstersMessage
 
 // Useful link: https://www.ascii-code.com/CP1251
@@ -762,6 +764,7 @@ class MudConnection(
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
                 // 10 is LoreMessage
+                10 -> LoreMessage.fromXml(msg)?.let { processLoreLines(it.getLoreAsTaggedTexts()) }
                 // 11 is ProtocolVersion, it's always 1, we don't care
                 12 -> GroupStatusMessage.fromXml(msg)?.let { _lastGroupMessage.value = it.allCreatures }
                 13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it.allCreatures }
@@ -839,6 +842,16 @@ class MudConnection(
         return 0
     }
 
+    private suspend fun processLoreLines(taggedLoreLines: List<String>) {
+        for (loreLine in taggedLoreLines) {
+            val gluedLine = makeColoredChunksFromTaggedText(loreLine, false)
+            val gluedString = gluedLine.joinToString(separator = "", transform = { chunk -> chunk.text})
+            gameEventsLogger.info { gluedString }
+            onMessageReceived(gluedString)
+            _colorfulTextMessages.emit(ColorfulTextMessage(gluedLine))
+        }
+    }
+
     private fun emptyTextMessage() : ColorfulTextMessage {
         return ColorfulTextMessage(arrayOf(TextMessageChunk("", AnsiColor.None)))
     }
@@ -849,5 +862,58 @@ class MudConnection(
 
     private fun yellowTextMessage(text : String) : ColorfulTextMessage {
         return ColorfulTextMessage(arrayOf(TextMessageChunk(text, AnsiColor.Yellow, AnsiColor.None, true)))
+    }
+
+    /**
+     * Parses a string with color tags and passes the resulting chunks to displayChunks.
+     * Example: "This is <color=bright-yellow>important</color>!"
+     */
+    fun makeColoredChunksFromTaggedText(taggedText: String, brightWhiteAsDefault: Boolean) : Array<TextMessageChunk> {
+        val chunks = mutableListOf<TextMessageChunk>()
+        // Regex to find color tags and capture brightness, color, and text
+        val regex = """<color=(?:(bright|dark)-)?(\w+)>(.+?)<\/color>""".toRegex()
+        var lastIndex = 0
+
+        regex.findAll(taggedText).forEach { matchResult ->
+            // 1. Add the plain text before the current tag
+            val beforeText = taggedText.substring(lastIndex, matchResult.range.first)
+            if (beforeText.isNotEmpty()) {
+                // Using default values
+                chunks.add(TextMessageChunk(
+                    beforeText,
+                    if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None,
+                    AnsiColor.None,
+                    brightWhiteAsDefault))
+            }
+
+            // 2. Extract captured groups from the matched tag
+            val brightnessSpecifier = matchResult.groups[1]?.value
+            val colorName = matchResult.groups[2]?.value
+            val content = matchResult.groups[3]?.value ?: ""
+
+            // 3. Determine brightness. It's bright unless "dark" is specified.
+            val isBright = !"dark".equals(brightnessSpecifier, ignoreCase = true)
+
+            // 4. Find the AnsiColor, defaulting to White if the name is invalid
+            val color = enumValueOfIgnoreCase(colorName, if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None)
+
+            // 5. Add the colored chunk
+            chunks.add(TextMessageChunk(content, color, AnsiColor.None, isBright))
+
+            // 6. Update our position in the string
+            lastIndex = matchResult.range.last + 1
+        }
+
+        // 7. Add any remaining plain text after the last tag
+        val remainingText = taggedText.substring(lastIndex)
+        if (remainingText.isNotEmpty()) {
+            chunks.add(TextMessageChunk(remainingText,
+                if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None,
+                AnsiColor.None,
+                brightWhiteAsDefault))
+        }
+
+        // 8. Call the original function with the assembled chunks
+        return chunks.toTypedArray()
     }
 }

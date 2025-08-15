@@ -45,7 +45,7 @@
             <fileNamePattern>${SYSTEM_LOG_PATH}/archived/silmaril.%d{yyyy-MM-dd}.log</fileNamePattern>
             <!-- keep 5 days' worth of history -->
             <maxHistory>5</maxHistory>
-            <totalSizeCap>100MB</totalSizeCap>
+            <totalSizeCap>50MB</totalSizeCap>
         </rollingPolicy>
     </appender>
 
