@@ -128,3 +128,15 @@ fun minutesToDaysFormatted(minutes: Int): String {
         else -> "$days дней"
     }
 }
+
+fun Double.toSmartString(): String {
+    // Check if the double has no fractional part.
+    // (e.g., 12.0 % 1.0 == 0.0)
+    return if (this % 1.0 == 0.0) {
+        // If it's a whole number, convert to Int to remove the decimal, then to String.
+        this.toInt().toString()
+    } else {
+        // Otherwise, return the default string representation.
+        this.toString()
+    }
+}

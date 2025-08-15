@@ -4,9 +4,9 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import io.github.oshai.kotlinlogging.KotlinLogging
-import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.joinOrNone
 import ru.adan.silmaril.misc.minutesToDaysFormatted
+import ru.adan.silmaril.misc.toSmartString
 
 data class LoreMessage(
     // --- Attributes ---
@@ -122,24 +122,34 @@ data class LoreMessage(
                 "Объект '<color=cyan>$name</color>', тип: $type",
                 "Вес: $weight, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer?:0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
                 *getWearSlots(),
+                *getWandOrStaffSpell(),
                 // заклинание
                 // заряд
             )
         } else {
-            return mutableListOf(
+            return listOfNotNull(
                 "Вы узнали некоторую информацию:",
                 "Объект '<color=cyan>$name</color>', тип: $type",
                 *getWearSlots(),
-                "Можно одеть           : <color=dark-cyan>${wearSlots.joinOrNone()}</color>",
                 "Флаги предмета        : <color=dark-cyan>${flags.joinOrNone()}</color>",
                 "Флаги запрета         : <color=dark-cyan>${restrictionFlags.joinOrNone()}</color>",
                 "Флаги неудобств       : <color=dark-cyan>${noFlags.joinOrNone()}</color>",
-                "Требуемый уровень : <color=dark-cyan>${minLevel}</color>",
+                if ((minLevel ?: 0) > 1) "Требуемый уровень : <color=dark-cyan>${minLevel}</color>" else null,
                 "Аффекты               : <color=dark-cyan>${affects.joinOrNone()}</color>",
-                "Вес:  $weight, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer ?: 0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material"
-                // заклинание
-                // заряд
+                "Вес:  ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer ?: 0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
+                *getWandOrStaffSpell(),
             )
+        }
+    }
+
+    fun getWandOrStaffSpell(): Array<String> {
+        if (wandOrStaffSpell != null) {
+            return arrayOf(
+                "Заклинания:  <color=dark-green>${wandOrStaffSpell.name}</color>",
+                "Имеет максимально ${wandOrStaffSpell.totalCharges} заряд, из них ${wandOrStaffSpell.chargesLeft} осталось."
+            )
+        } else {
+            return emptyArray()
         }
     }
 
