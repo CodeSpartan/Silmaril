@@ -21,6 +21,8 @@ class LoreManager() : KoinComponent {
     val profileManager: ProfileManager by inject()
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    private var lastLoreMessage: LoreMessage? = null
+
     fun cleanup() {
         coroutineScope.cancel()
     }
@@ -49,6 +51,7 @@ class LoreManager() : KoinComponent {
                 val file = if (files.size == 1) files[0] else fileExactMatch
                 LoreMessage.fromXml(file!!.readText(Charsets.UTF_16LE))?.let {
                     withContext(Dispatchers.Main) {
+                        lastLoreMessage = it
                         profileManager.currentClient.value.processLoreLines(it.loreAsTaggedTexts())
                     }
                 }
@@ -64,7 +67,8 @@ class LoreManager() : KoinComponent {
         }
     }
 
-    fun saveLoreIfNew(loreMessage: LoreMessage) {
+    fun saveLoreIfNew(loreMessage: LoreMessage, forceOverwrite: Boolean = false) {
+        lastLoreMessage = loreMessage
         coroutineScope.launch {
             val regex = Regex("""\s\(x\d+\)$""") // remove trailing stacks, e.g. (x3)
             loreMessage.name = loreMessage.name.replace(regex, "")
@@ -76,19 +80,40 @@ class LoreManager() : KoinComponent {
             }
             val files = directory.listFiles(filter)
 
-            if (files.size > 0) {
-                return@launch
+            if (!forceOverwrite) {
+                // if lore message isn't full and some file already exists (full or not full), we don't need to overwrite it
+                if (!loreMessage.isFull && files.size > 0) {
+                    return@launch
+                }
+                if (files.size > 0) {
+                    val file = files[0]
+                    LoreMessage.fromXml(file!!.readText(Charsets.UTF_16LE))?.let {
+                        // if lore message is full, but existing file is also full, we don't need to overwrite it
+                        if (it.isFull)
+                            return@launch
+                    }
+                }
             }
 
             val file = Paths.get(getLoresDirectory(), filename )
             file.toFile().writeText(loreMessage.toXml(), Charsets.UTF_16LE)
 
-            withContext(Dispatchers.Main) {
-                profileManager.currentMainViewModel.value.displayTaggedText(
-                    "Вы запомнили предмет.",
-                    false
-                )
+            if (!forceOverwrite) {
+                withContext(Dispatchers.Main) {
+                    profileManager.currentMainViewModel.value.displayTaggedText(
+                        "Вы запомнили предмет.",
+                        false
+                    )
+                }
             }
         }
+    }
+
+    fun commentLastLore(comment: String): Boolean {
+        if (lastLoreMessage == null) return false
+
+        lastLoreMessage?.comment = comment
+        saveLoreIfNew(lastLoreMessage!!, true)
+        return true
     }
 }

@@ -145,6 +145,7 @@ class Profile(
             "#sendAll" -> parseSendAllCommand(message)
             "#window" -> parseWindowCommand(message)
             "#lore" -> parseLoreCommand(message)
+            "#comment" -> parseCommentCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -685,5 +686,19 @@ class Profile(
         }
         val loreName = match.groupValues[1].trimEnd()
         scriptingEngine.loreCommand(loreName)
+    }
+
+    fun parseCommentCommand(message: String) {
+        val commentRegex = """\#comment (.+)""".toRegex()
+        val match = commentRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #comment - не смог распарсить. Правильный синтаксис: #comment ваш комментарий.")
+            return
+        }
+        if (scriptingEngine.commentCommand(match.groupValues[1].trimEnd())) {
+            mainViewModel.displayTaggedText("Вы сделали заметку.", false)
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #comment - команда оставляет комментарий на последнем отображенном лоре, а вы еще не отображали лоры.")
+        }
     }
 }

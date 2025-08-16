@@ -103,7 +103,7 @@ data class LoreMessage(
     val itemSetAffects: ItemSetAffects? = null,
 
     @field:JacksonXmlProperty(localName = "Comments")
-    val comment: String? = null
+    var comment: String? = null
 ) {
 
     companion object {
