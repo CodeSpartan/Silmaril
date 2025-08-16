@@ -1,8 +1,10 @@
 package ru.adan.silmaril.mud_messages
 
+import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
+import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.formatDuration
 import ru.adan.silmaril.misc.joinOrNone
@@ -101,14 +103,16 @@ data class LoreMessage(
 
     @field:JacksonXmlProperty(localName = "ItemSetAffects")
     val itemSetAffects: ItemSetAffects? = null,
+
+    @field:JacksonXmlProperty(localName = "Comments")
+    val comment: String? = null
 ) {
 
     companion object {
         private val logger = KotlinLogging.logger {}
-        val EMPTY = LoreMessage()
 
         fun fromXml(xml: String): LoreMessage? {
-            logger.info { xml }
+            logger.info { "LoreMessage.fromXml(): $xml" }
             val xmlMapper = XmlMapper()
             return try {
                 xmlMapper.readValue(xml, LoreMessage::class.java)
@@ -120,53 +124,64 @@ data class LoreMessage(
         }
     }
 
-    fun getLoreAsTaggedTexts(): List<String> {
+    fun toXml(): String {
+        val xmlMapper = XmlMapper().apply {
+            enable(SerializationFeature.INDENT_OUTPUT) // Enable pretty-printing
+            // We will add our own declaration, so we disable Jackson's default one
+            configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, false)
+        }
+        val xmlBody = xmlMapper.writeValueAsString(this)
+        val xmlDeclaration = "<?xml version=\"1.0\" encoding=\"utf-16\"?>"
+        return "$xmlDeclaration\n$xmlBody"
+    }
+
+    fun loreAsTaggedTexts(): List<String> {
         if (!isFull) {
             return listOfNotNull(
                 "Вы узнали некоторую информацию:",
                 "Объект '<color=cyan>$name</color>', тип: $type",
-                if ((minLevel ?: 0) > 1) "Требуемый уровень : <color=dark-cyan>${minLevel}</color>" else null,
+                if ((minLevel ?: 0) > 1) "Требуемый уровень     : <color=dark-cyan>${minLevel}</color>" else null,
                 "Вес: ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer?:0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
-                *getWearSlots(),
-                getWearingAffect(),
-                getScrollOrPotionSpells(),
-                *getWandOrStaffSpell(),
-                *getWeaponStats(),
-                *getArmorStats(),
-                *getSpellBook(),
-                *getIngredient(),
-                *getRecipe(),
-                *getAppliedEffects(),
-                *getItemSetEffects(),
-                // comments
+                *printWearSlots(),
+                printWearingAffect(),
+                printScrollOrPotionSpells(),
+                *printWandOrStaffSpell(),
+                *printWeaponStats(),
+                *printArmorStats(),
+                *printSpellBook(),
+                *printIngredient(),
+                *printRecipe(),
+                *printAppliedEffects(),
+                *printItemSetEffects(),
+                printCommentText(),
             )
         } else {
             return listOfNotNull(
                 "Вы узнали некоторую информацию:",
                 "Объект '<color=cyan>$name</color>', тип: $type",
-                *getWearSlots(),
+                *printWearSlots(),
                 "Флаги предмета        : <color=dark-cyan>${flags.joinOrNone()}</color>",
                 "Флаги запрета         : <color=dark-cyan>${restrictionFlags.joinOrNone()}</color>",
                 "Флаги неудобств       : <color=dark-cyan>${noFlags.joinOrNone()}</color>",
-                if ((minLevel ?: 0) > 1) "Требуемый уровень : <color=dark-cyan>${minLevel}</color>" else null,
+                if ((minLevel ?: 0) > 1) "Требуемый уровень     : <color=dark-cyan>${minLevel}</color>" else null,
                 "Аффекты               : <color=dark-cyan>${affects.joinOrNone()}</color>",
                 "Вес: ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer ?: 0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
-                getWearingAffect(),
-                getScrollOrPotionSpells(),
-                *getWandOrStaffSpell(),
-                *getWeaponStats(),
-                *getArmorStats(),
-                *getSpellBook(),
-                *getIngredient(),
-                *getRecipe(),
-                *getAppliedEffects(),
-                *getItemSetEffects(),
-                // comments
+                printWearingAffect(),
+                printScrollOrPotionSpells(),
+                *printWandOrStaffSpell(),
+                *printWeaponStats(),
+                *printArmorStats(),
+                *printSpellBook(),
+                *printIngredient(),
+                *printRecipe(),
+                *printAppliedEffects(),
+                *printItemSetEffects(),
+                printCommentText(),
             )
         }
     }
 
-    fun getWandOrStaffSpell(): Array<String> {
+    fun printWandOrStaffSpell(): Array<String> {
         if (wandOrStaffSpell != null) {
             return arrayOf(
                 "Заклинания:  <color=dark-green>${wandOrStaffSpell.name}</color>",
@@ -177,7 +192,7 @@ data class LoreMessage(
         }
     }
 
-    fun getScrollOrPotionSpells(): String? {
+    fun printScrollOrPotionSpells(): String? {
         return if (scrollOrPotionSpells.isNotEmpty()) {
             "Заклинания: ${scrollOrPotionSpells.joinToString { "<color=dark-green>"+it.name+"</color>" }}"
         } else {
@@ -185,14 +200,14 @@ data class LoreMessage(
         }
     }
 
-    fun getWearingAffect(): String? {
+    fun printWearingAffect(): String? {
         // @TODO: this string hasn't been checked
         return if (wearingAffect != null) {
             "Эффект при надевании или вооружении: ${wearingAffect.affectName}, Уровень: ${wearingAffect.level}, Время ${wearingAffect.resetTimeout}"
         } else null
     }
 
-    fun getWeaponStats(): Array<String> {
+    fun printWeaponStats(): Array<String> {
         return if (weaponStats != null) {
             arrayOf(
                 "Сила удара '${weaponStats.diceCount}D${weaponStats.diceSides}', средняя сила удара в раунд ${weaponStats.averageDamage}.",
@@ -201,7 +216,7 @@ data class LoreMessage(
         } else emptyArray()
     }
 
-    fun getArmorStats(): Array<String> {
+    fun printArmorStats(): Array<String> {
         return if (armorStats != null) {
             arrayOf(
                 "Класс защиты(AC): ${armorStats.armorClass}",
@@ -210,7 +225,7 @@ data class LoreMessage(
         } else emptyArray()
     }
 
-    fun getSpellBook(): Array<String> {
+    fun printSpellBook(): Array<String> {
         return if (spellBook != null) {
             arrayOf(
                 "Кто может прочитать: ${spellBook.profession}",
@@ -221,7 +236,7 @@ data class LoreMessage(
         } else emptyArray()
     }
 
-    fun getIngredient(): Array<String> {
+    fun printIngredient(): Array<String> {
         return if (ingredient != null) {
             arrayOf(
                 "Цвет: ${ingredient.color}",
@@ -230,7 +245,7 @@ data class LoreMessage(
         } else emptyArray()
     }
 
-    fun getRecipe(): Array<String> {
+    fun printRecipe(): Array<String> {
         return if (recipe != null) {
             arrayOf(
                 "Что: ${recipe.name}",
@@ -241,7 +256,13 @@ data class LoreMessage(
         } else emptyArray()
     }
 
-    fun getAppliedEffects(): Array<String> {
+    fun printCommentText(): String? {
+        return if (comment != null && comment != "") {
+            "Заметка: $comment"
+        } else null
+    }
+
+    fun printAppliedEffects(): Array<String> {
         // appliedEffects is a polymorphic list of multiple types of effects
         return if (appliedEffects == null ||
             (appliedEffects.enhances.isEmpty() && appliedEffects.skillEnhances.isEmpty()
@@ -261,13 +282,13 @@ data class LoreMessage(
                     appliedEffects.envenoms
 
             val sortedBySetItems = allAffects.sortedBy { it.necessarySetItemsCount }
-            getEffectsAsStrings(stringBuilderList, sortedBySetItems)
+            printEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
         }
     }
 
-    fun getItemSetEffects(): Array<String> {
+    fun printItemSetEffects(): Array<String> {
         // appliedEffects is a polymorphic list of multiple types of effects
         return if (itemSetAffects == null ||
             (itemSetAffects.enhances.isEmpty() && itemSetAffects.skillEnhances.isEmpty()
@@ -287,19 +308,19 @@ data class LoreMessage(
                     itemSetAffects.envenoms
 
             val sortedBySetItems = allAffects.sortedBy { it.necessarySetItemsCount }
-            getEffectsAsStrings(stringBuilderList, sortedBySetItems)
+            printEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
         }
     }
 
-    fun getEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<BasePrerequisiteCount>) {
+    fun printEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<BasePrerequisiteCount>) {
         sortedBySetItems.forEach { effect ->
             when(effect) {
                 is Enhance -> {
                     val effectStringBuilder = StringBuilder()
                     effectStringBuilder.append(" <color=black>${effect.modifiedParameter}</color>: ")
-                    effectStringBuilder.append(if (effect.value > 0) "<color=green>+" else "<color=red>-")
+                    effectStringBuilder.append(if (effect.value > 0) "<color=green>+" else "<color=red>")
                     effectStringBuilder.append("${effect.value}")
                     effectStringBuilder.append("</color>")
                     if (effect.sourceSkill != "")
@@ -313,8 +334,8 @@ data class LoreMessage(
 
                 is SkillEnhance -> {
                     val skillEnhanceBuilder = StringBuilder()
-                    val plusOrMinus = if (effect.enhanceValue > 0) "+" else "-"
-                    skillEnhanceBuilder.append("$plusOrMinus${effect.enhanceValue} к заклинанию/умению '${effect.skillName}'")
+                    val plusOrMinus = if (effect.enhanceValue > 0) "+" else ""
+                    skillEnhanceBuilder.append(" $plusOrMinus${effect.enhanceValue} к заклинанию/умению '${effect.skillName}'")
                     if (effect.necessarySetItemsCount > 0)
                         skillEnhanceBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
                     stringBuilderList.add(skillEnhanceBuilder.toString())
@@ -322,7 +343,7 @@ data class LoreMessage(
 
                 is SkillResist -> {
                     val skillResistBuilder = StringBuilder()
-                    val plusOrMinus = if (effect.resistValue > 0) "+" else "-"
+                    val plusOrMinus = if (effect.resistValue > 0) "+" else ""
                     skillResistBuilder.append(" Сопротивление заклинанию/умению '${effect.skillName}' $plusOrMinus${effect.resistValue}%")
                     if (effect.necessarySetItemsCount > 0)
                         skillResistBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
@@ -359,7 +380,7 @@ data class LoreMessage(
         }
     }
 
-    fun getWearSlots(): Array<String> {
+    fun printWearSlots(): Array<String> {
         return if (wearSlots.isEmpty()) {
             emptyArray()
         } else {

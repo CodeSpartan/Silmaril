@@ -46,6 +46,7 @@ class MudConnection(
     var profileName: String,
     private val onMessageReceived: (String) -> Unit,
     private val settingsManager: SettingsManager,
+    private val loreManager: LoreManager,
 ) {
     private val logger = KotlinLogging.logger {}
     private val gameEventsLogger = KotlinLogging.logger("GameEvents")
@@ -764,7 +765,10 @@ class MudConnection(
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
                 // 10 is LoreMessage
-                10 -> LoreMessage.fromXml(msg)?.let { processLoreLines(it.getLoreAsTaggedTexts()) }
+                10 -> LoreMessage.fromXml(msg)?.let {
+                    processLoreLines(it.loreAsTaggedTexts())
+                    loreManager.saveLoreIfNew(it)
+                }
                 // 11 is ProtocolVersion, it's always 1, we don't care
                 12 -> GroupStatusMessage.fromXml(msg)?.let { _lastGroupMessage.value = it.allCreatures }
                 13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it.allCreatures }
@@ -842,7 +846,7 @@ class MudConnection(
         return 0
     }
 
-    private suspend fun processLoreLines(taggedLoreLines: List<String>) {
+    suspend fun processLoreLines(taggedLoreLines: List<String>) {
         for (loreLine in taggedLoreLines) {
             val gluedLine = makeColoredChunksFromTaggedText(loreLine, false)
             val gluedString = gluedLine.joinToString(separator = "", transform = { chunk -> chunk.text})

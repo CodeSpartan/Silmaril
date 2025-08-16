@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.Variable
+import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -13,6 +14,7 @@ import kotlin.collections.set
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
+import kotlin.text.replace
 
 interface ScriptingEngine {
     // Properties
@@ -42,6 +44,7 @@ interface ScriptingEngine {
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun getAliases(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun switchWindowCommand(window: String) : Boolean
+    fun loreCommand(loreName: String)
 }
 
 open class ScriptingEngineImpl(
@@ -49,7 +52,8 @@ open class ScriptingEngineImpl(
     override val mainViewModel: MainViewModel,
     private val isGroupActive: (String) -> Boolean,
     private val settingsManager: SettingsManager,
-    private val profileManager: ProfileManager
+    private val profileManager: ProfileManager,
+    private val loreManager: LoreManager
 ) : ScriptingEngine {
     override val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
@@ -125,6 +129,10 @@ open class ScriptingEngineImpl(
 
     override fun switchWindowCommand(window: String) : Boolean {
         return profileManager.switchWindow(window)
+    }
+
+    override fun loreCommand(loreName: String) {
+        loreManager.findLoreInFiles(loreName.replace(" ", "_"))
     }
 
     override fun getVarCommand(varName: String): Variable? {

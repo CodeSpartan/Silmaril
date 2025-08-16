@@ -30,6 +30,7 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
+import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.TextTriggerManager
 
 fun main() {
@@ -48,6 +49,7 @@ fun main() {
             val profileManager: ProfileManager = koinInject()
             val textTriggerManager: TextTriggerManager = koinInject()
             val mapModel: MapModel = koinInject()
+            val loreManager: LoreManager = koinInject()
 
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
             val showAdditionalOutputWindow =
@@ -64,7 +66,7 @@ fun main() {
             // Main Window
             Window(
                 onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager)
+                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
                     exitApplication()
                 },
                 state = mainWindowState,
@@ -76,7 +78,7 @@ fun main() {
                     showAdditionalOutputWindow = showAdditionalOutputWindow,
                     showProfileDialog = showProfileDialog,
                     onExit = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
                         exitApplication()
                     }
                 )
@@ -132,11 +134,18 @@ fun main() {
     }
 }
 
-fun cleanupOnExit(mapModel: MapModel, profileManager: ProfileManager, settingsManager: SettingsManager, textTriggerManager: TextTriggerManager) {
+fun cleanupOnExit(
+    mapModel: MapModel,
+    profileManager: ProfileManager,
+    settingsManager: SettingsManager,
+    textTriggerManager: TextTriggerManager,
+    loreManager: LoreManager
+) {
     textTriggerManager.cleanup()
     mapModel.cleanup()
     profileManager.cleanup()
     settingsManager.cleanup()
+    loreManager.cleanup()
 }
 
 @Composable

@@ -4,6 +4,7 @@ import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import ru.adan.silmaril.model.LoreManager
 
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MudConnection
@@ -20,6 +21,7 @@ val appModule = module {
     singleOf (::MapModel)
     singleOf(::ProfileManager)
     singleOf(::TextTriggerManager)
+    singleOf(::LoreManager)
 
     factory { params ->
         Profile(
@@ -35,7 +37,8 @@ val appModule = module {
             port = params.get(),
             profileName = params[2],
             onMessageReceived = params.get(),
-            settingsManager = get()
+            settingsManager = get(),
+            loreManager = get(),
         )
     }
 
@@ -56,7 +59,8 @@ val appModule = module {
             mainViewModel = params.get(),
             isGroupActive = params.get(),
             settingsManager = get(),
-            profileManager = get()
+            profileManager = get(),
+            loreManager = get(),
         )
     }
 }

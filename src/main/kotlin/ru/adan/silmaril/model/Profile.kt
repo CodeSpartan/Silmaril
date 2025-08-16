@@ -144,6 +144,7 @@ class Profile(
             "#sendWindow" -> parseSendWindowCommand(message)
             "#sendAll" -> parseSendAllCommand(message)
             "#window" -> parseWindowCommand(message)
+            "#lore" -> parseLoreCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -673,5 +674,16 @@ class Profile(
         if (!scriptingEngine.switchWindowCommand(windowName)) {
             mainViewModel.displayErrorMessage("Ошибка #window - окно не найдено.")
         }
+    }
+
+    fun parseLoreCommand(message: String) {
+        val loreRegex = """\#lore ([\p{L}\p{N}_\-\s]+)$""".toRegex()
+        val match = loreRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #lore - не смог распарсить. Правильный синтаксис: #lore имя предмета.")
+            return
+        }
+        val loreName = match.groupValues[1]
+        scriptingEngine.loreCommand(loreName)
     }
 }
