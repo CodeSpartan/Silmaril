@@ -25,12 +25,12 @@ class LoreManager() : KoinComponent {
         coroutineScope.cancel()
     }
 
-    // loreName contains _ instead of spaces
     fun findLoreInFiles(loreName: String) {
+        val sanitized = loreName.replace(" ", "_").replace("\"", "")
         coroutineScope.launch {
             val directory = File(getLoresDirectory())
             val filter = FilenameFilter { _, name ->
-                name.contains(loreName, ignoreCase = true)
+                name.contains(sanitized, ignoreCase = true)
             }
             val files = directory.listFiles(filter)
 
@@ -44,7 +44,7 @@ class LoreManager() : KoinComponent {
                     )
                 }
             }
-            val fileExactMatch = files.find { it.name == loreName }
+            val fileExactMatch = files.find { it.name == sanitized }
             if (files.size == 1 || fileExactMatch != null ) {
                 val file = if (files.size == 1) files[0] else fileExactMatch
                 LoreMessage.fromXml(file!!.readText(Charsets.UTF_16LE))?.let {
@@ -52,7 +52,8 @@ class LoreManager() : KoinComponent {
                         profileManager.currentClient.value.processLoreLines(it.loreAsTaggedTexts())
                     }
                 }
-            } else {
+            }
+            if (files.size == 0 && fileExactMatch == null) {
                 withContext(Dispatchers.Main) {
                     profileManager.currentMainViewModel.value.displayTaggedText(
                         "Вы никогда не видели такого предмета.",
@@ -65,7 +66,9 @@ class LoreManager() : KoinComponent {
 
     fun saveLoreIfNew(loreMessage: LoreMessage) {
         coroutineScope.launch {
-            val filename = loreMessage.name.replace(" ", "_")
+            val regex = Regex("""\s\(x\d+\)$""") // remove trailing stacks, e.g. (x3)
+            loreMessage.name = loreMessage.name.replace(regex, "")
+            val filename = loreMessage.name.replace(" ", "_").replace("\"", "")
 
             val directory = File(getLoresDirectory())
             val filter = FilenameFilter { _, name ->

@@ -132,7 +132,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun loreCommand(loreName: String) {
-        loreManager.findLoreInFiles(loreName.replace(" ", "_"))
+        loreManager.findLoreInFiles(loreName)
     }
 
     override fun getVarCommand(varName: String): Variable? {
@@ -174,7 +174,7 @@ open class ScriptingEngineImpl(
 
     override fun processAlias(line: String): Pair<Boolean, String?> {
         for (alias in aliasesByPriority) {
-            val match = alias.condition.check(line)
+            val match = alias.condition.check(line.trim())
             if (match != null) {
                 if (alias.action.commandToSend != null) {
                     val returnStr = alias.action.commandToSend.invoke(this, match)

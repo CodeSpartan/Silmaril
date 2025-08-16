@@ -766,6 +766,7 @@ class MudConnection(
             when (_customMessageType) {
                 // 10 is LoreMessage
                 10 -> LoreMessage.fromXml(msg)?.let {
+                    printTextMessage("Вы узнали некоторую информацию:")
                     processLoreLines(it.loreAsTaggedTexts())
                     loreManager.saveLoreIfNew(it)
                 }
@@ -860,8 +861,10 @@ class MudConnection(
         return ColorfulTextMessage(arrayOf(TextMessageChunk("", AnsiColor.None)))
     }
 
-    private fun whiteTextMessage(text : String) : ColorfulTextMessage {
-        return ColorfulTextMessage(arrayOf(TextMessageChunk(text, AnsiColor.White, AnsiColor.None, true)))
+    private suspend fun printTextMessage(text : String) {
+        val colorfulText = ColorfulTextMessage(arrayOf(TextMessageChunk(text, AnsiColor.None, AnsiColor.None, false)))
+        onMessageReceived(text)
+        _colorfulTextMessages.emit(colorfulText)
     }
 
     private fun yellowTextMessage(text : String) : ColorfulTextMessage {

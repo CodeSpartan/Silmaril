@@ -19,7 +19,7 @@ import kotlin.collections.mutableListOf
 data class LoreMessage(
     // --- Attributes ---
     @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
-    val name: String = "",
+    var name: String = "",
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "Type")
     val type: String = "",
@@ -137,8 +137,7 @@ data class LoreMessage(
     fun loreAsTaggedTexts(): List<String> {
         if (!isFull) {
             return listOfNotNull(
-                "Вы узнали некоторую информацию:",
-                "Объект '<color=cyan>$name</color>', тип: $type",
+                "Объект '<color=cyan>$name</color>', Тип предмета: $type",
                 if ((minLevel ?: 0) > 1) "Требуемый уровень     : <color=dark-cyan>${minLevel}</color>" else null,
                 "Вес: ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer?:0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
                 *printWearSlots(),
@@ -156,8 +155,7 @@ data class LoreMessage(
             )
         } else {
             return listOfNotNull(
-                "Вы узнали некоторую информацию:",
-                "Объект '<color=cyan>$name</color>', тип: $type",
+                "Объект '<color=cyan>$name</color>', Тип предмета: $type",
                 *printWearSlots(),
                 "Флаги предмета        : <color=dark-cyan>${flags?.flags?.joinOrNone()}</color>",
                 "Флаги запрета         : <color=dark-cyan>${restrictionFlags?.restrictionFlags?.joinOrNone()}</color>",
@@ -386,25 +384,25 @@ data class LoreMessage(
             val stringBuilderList = mutableListOf<String>()
             for (wearSlot in wear.wearSlots) {
                 val wearLine = when (wearSlot) {
-                    "ABOUT" -> "Наверное, вы сможете надеть это на плечи. ?"
-                    "ARMS" -> "Наверное, вы сможете надеть это на руки. ?"
+                    "ABOUT" -> "Наверное, вы сможете набросить это на плечи."
+                    "ARMS" -> "Наверное, вы сможете надеть это на руки."
                     "BODY" -> "Наверное, вы сможете надеть это на тело."
-                    "DEF1" -> "доп слот 1?"
-                    "DEF2" -> "доп слот 2?"
-                    "DEF3" -> "доп слот 3?"
+                    "DEF1" -> "Наверное, вы сможете надеть это в дополнительный слот 1."
+                    "DEF2" -> "Наверное, вы сможете надеть это в дополнительный слот 2."
+                    "DEF3" -> "Наверное, вы сможете надеть это в дополнительный слот 3."
                     "DWIELD" -> "Наверное, вы сможете держать это в обеих руках."
                     "EARS" -> "Наверное, вы сможете надеть это на уши. ?"
                     "EYES" -> "Наверное, вы сможете надеть это на глаза. ?"
-                    "FEET" -> "Наверное, вы сможете надеть это на ступни. ?"
-                    "FINGER" -> "Наверное, вы сможете надеть это на палец. ?"
-                    "HANDS" -> "Наверное, вы сможете надеть это на кисти рук. ?"
+                    "FEET" -> "Наверное, вы сможете в это обуться."
+                    "FINGER" -> "Наверное, вы сможете надеть это на палец."
+                    "HANDS" -> "Наверное, вы сможете надеть это на кисти рук."
                     "HEAD" -> "Наверное, вы сможете надеть это на голову."
                     "HOLD" -> "Наверное, вы сможете держать это в левой руке."
-                    "LEGS" -> "Наверное, вы сможете надеть это на ноги. ?"
+                    "LEGS" -> "Наверное, вы сможете надеть это на ноги."
                     "NECK" -> "Наверное, вы сможете надеть это на шею."
-                    "WAIST" -> "Наверное, вы сможете надеть это на талию. ?" // вокруг талии?
+                    "WAIST" -> "Наверное, вы сможете надеть это вокруг талии."
                     "WIELD" -> "Наверное, вы сможете держать это в правой руке."
-                    "WRIST" -> "Наверное, вы сможете надеть это на запястья. ?"
+                    "WRIST" -> "Наверное, вы сможете надеть это на запястья."
                     else -> "Наверное, вы сможете надеть это в $wearSlot."
                 }
                 stringBuilderList.add(wearLine)
