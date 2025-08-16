@@ -69,6 +69,8 @@ dependencies {
     implementation("com.jcraft:jzlib:1.1.3")
     // Kaml (kotlin yaml)
     implementation("com.charleskorn.kaml:kaml:0.85.0")
+    // helps XML with serialization somehow
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.2")
 }
 
 compose.desktop {

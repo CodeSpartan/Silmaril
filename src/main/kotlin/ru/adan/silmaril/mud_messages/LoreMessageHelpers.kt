@@ -178,3 +178,53 @@ data class Recipe(
     @field:JacksonXmlProperty(isAttribute = true, localName = "MinLevel")
     val minLevel: Int = 0
 )
+
+// For <Wear><WearSlot>...</WearSlot></Wear>
+data class Wear(
+    // The combination of these two annotations is the fix
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "WearSlot")
+    val wearSlots: List<String> = emptyList()
+)
+
+// For <Flags><Flag>...</Flag></Flags>
+data class Flags(
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "Flag")
+    val flags: List<String> = emptyList()
+)
+
+// For <ObjectAffects><ObjectAffect>...</ObjectAffect></ObjectAffects>
+data class ObjectAffects(
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "ObjectAffect")
+    val objectAffects: List<String> = emptyList()
+)
+
+// For <RestrictionFlags><RestrictionFlag>...</RestrictionFlag></RestrictionFlags>
+data class RestrictionFlags(
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "RestrictionFlag")
+    val restrictionFlags: List<String> = emptyList()
+)
+
+// For <NoFlags><NoFlag>...</NoFlag></NoFlags>
+data class NoFlags(
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "NoFlag")
+    val noFlags: List<String> = emptyList()
+)
+
+// For <Affects><Affect>...</Affect></Affects>
+data class Affects(
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "Affect")
+    val affects: List<String> = emptyList()
+)
+
+// For <ScrollOrPotionSpells><Spell>...</Spell></ScrollOrPotionSpells>
+data class ScrollOrPotionSpells(
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    @field:JacksonXmlProperty(localName = "Spell")
+    val spells: List<ScrollOrPotionSpell> = emptyList()
+)

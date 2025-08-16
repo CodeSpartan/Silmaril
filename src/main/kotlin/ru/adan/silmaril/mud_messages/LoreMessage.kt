@@ -1,10 +1,13 @@
 package ru.adan.silmaril.mud_messages
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.formatDuration
 import ru.adan.silmaril.misc.joinOrNone
@@ -12,6 +15,7 @@ import ru.adan.silmaril.misc.minutesToDaysFormatted
 import ru.adan.silmaril.misc.toSmartString
 import kotlin.collections.mutableListOf
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class LoreMessage(
     // --- Attributes ---
     @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
@@ -44,40 +48,34 @@ data class LoreMessage(
     @field:JacksonXmlProperty(isAttribute = true, localName = "MinLevel")
     val minLevel: Int? = null,
 
-    @field:JacksonXmlProperty(isAttribute = true, localName = "IsFull")
+    // note the get instead of field. For a boolean property, the standard Java getter method is named isPropertyName(), which caused problems with field.
+    @get:JacksonXmlProperty(isAttribute = true, localName = "IsFull")
     val isFull: Boolean = false,
 
     // --- Child Elements ---
-    @field:JacksonXmlElementWrapper(localName = "Wear")
-    @field:JacksonXmlProperty(localName = "WearSlot")
-    val wearSlots: List<String> = emptyList(),
+    @field:JacksonXmlProperty(localName = "Wear")
+    val wear: Wear? = null,
 
-    @field:JacksonXmlElementWrapper(localName = "ObjectAffects")
-    @field:JacksonXmlProperty(localName = "ObjectAffect")
-    val objectAffects: List<String> = emptyList(),
+    @field:JacksonXmlProperty(localName = "ObjectAffects")
+    val objectAffects: ObjectAffects? = null,
 
-    @field:JacksonXmlElementWrapper(localName = "Flags")
-    @field:JacksonXmlProperty(localName = "Flag")
-    val flags: List<String> = emptyList(),
+    @field:JacksonXmlProperty(localName = "Flags")
+    val flags: Flags? = null,
 
-    @field:JacksonXmlElementWrapper(localName = "RestrictionFlags")
-    @field:JacksonXmlProperty(localName = "RestrictionFlag")
-    val restrictionFlags: List<String> = emptyList(),
+    @field:JacksonXmlProperty(localName = "RestrictionFlags")
+    val restrictionFlags: RestrictionFlags? = null,
 
-    @field:JacksonXmlElementWrapper(localName = "NoFlags")
-    @field:JacksonXmlProperty(localName = "NoFlag")
-    val noFlags: List<String> = emptyList(),
+    @field:JacksonXmlProperty(localName = "NoFlags")
+    val noFlags: NoFlags? = null,
 
-    @field:JacksonXmlElementWrapper(localName = "Affects")
-    @field:JacksonXmlProperty(localName = "Affect")
-    val affects: List<String> = emptyList(),
+    @field:JacksonXmlProperty(localName = "Affects")
+    val affects: Affects? = null,
+
+    @field:JacksonXmlProperty(localName = "ScrollOrPotionSpells")
+    val scrollOrPotionSpells: ScrollOrPotionSpells? = null,
 
     @field:JacksonXmlProperty(localName = "WearingAffect")
     val wearingAffect: WearingAffect? = null,
-
-    @field:JacksonXmlElementWrapper(localName = "ScrollOrPotionSpells")
-    @field:JacksonXmlProperty(localName = "Spell")
-    val scrollOrPotionSpells: List<ScrollOrPotionSpell> = emptyList(),
 
     @field:JacksonXmlProperty(localName = "WandOrStaffSpell")
     val wandOrStaffSpell: WandOrStaffSpell? = null,
@@ -110,10 +108,11 @@ data class LoreMessage(
 
     companion object {
         private val logger = KotlinLogging.logger {}
+        val EMPTY = LoreMessage() // You might need a default constructor or update this
 
         fun fromXml(xml: String): LoreMessage? {
             logger.info { "LoreMessage.fromXml(): $xml" }
-            val xmlMapper = XmlMapper()
+            val xmlMapper = XmlMapper().registerKotlinModule()
             return try {
                 xmlMapper.readValue(xml, LoreMessage::class.java)
             } catch (e: Exception) {
@@ -160,11 +159,11 @@ data class LoreMessage(
                 "Вы узнали некоторую информацию:",
                 "Объект '<color=cyan>$name</color>', тип: $type",
                 *printWearSlots(),
-                "Флаги предмета        : <color=dark-cyan>${flags.joinOrNone()}</color>",
-                "Флаги запрета         : <color=dark-cyan>${restrictionFlags.joinOrNone()}</color>",
-                "Флаги неудобств       : <color=dark-cyan>${noFlags.joinOrNone()}</color>",
+                "Флаги предмета        : <color=dark-cyan>${flags?.flags?.joinOrNone()}</color>",
+                "Флаги запрета         : <color=dark-cyan>${restrictionFlags?.restrictionFlags?.joinOrNone()}</color>",
+                "Флаги неудобств       : <color=dark-cyan>${noFlags?.noFlags?.joinOrNone()}</color>",
                 if ((minLevel ?: 0) > 1) "Требуемый уровень     : <color=dark-cyan>${minLevel}</color>" else null,
-                "Аффекты               : <color=dark-cyan>${affects.joinOrNone()}</color>",
+                "Аффекты               : <color=dark-cyan>${affects?.affects?.joinOrNone()}</color>",
                 "Вес: ${weight?.toSmartString()}, Цена: $price, Рента: $rent($rentEquipped), Таймер: $timer (${minutesToDaysFormatted(timer ?: 0)}), Оффлайн таймер: ${offlineTimer ?: 0} (${minutesToDaysFormatted(offlineTimer ?: 0)}), Материал: $material",
                 printWearingAffect(),
                 printScrollOrPotionSpells(),
@@ -193,8 +192,8 @@ data class LoreMessage(
     }
 
     fun printScrollOrPotionSpells(): String? {
-        return if (scrollOrPotionSpells.isNotEmpty()) {
-            "Заклинания: ${scrollOrPotionSpells.joinToString { "<color=dark-green>"+it.name+"</color>" }}"
+        return if (scrollOrPotionSpells != null && scrollOrPotionSpells.spells.isNotEmpty()) {
+            "Заклинания: ${scrollOrPotionSpells.spells.joinToString { "<color=dark-green>"+it.name+"</color>" }}"
         } else {
             null
         }
@@ -381,11 +380,11 @@ data class LoreMessage(
     }
 
     fun printWearSlots(): Array<String> {
-        return if (wearSlots.isEmpty()) {
+        return if (wear == null || wear.wearSlots.isEmpty()) {
             emptyArray()
         } else {
             val stringBuilderList = mutableListOf<String>()
-            for (wearSlot in wearSlots) {
+            for (wearSlot in wear.wearSlots) {
                 val wearLine = when (wearSlot) {
                     "ABOUT" -> "Наверное, вы сможете надеть это на плечи. ?"
                     "ARMS" -> "Наверное, вы сможете надеть это на руки. ?"

@@ -683,7 +683,7 @@ class Profile(
             mainViewModel.displayErrorMessage("Ошибка #lore - не смог распарсить. Правильный синтаксис: #lore имя предмета.")
             return
         }
-        val loreName = match.groupValues[1]
+        val loreName = match.groupValues[1].trimEnd()
         scriptingEngine.loreCommand(loreName)
     }
 }
