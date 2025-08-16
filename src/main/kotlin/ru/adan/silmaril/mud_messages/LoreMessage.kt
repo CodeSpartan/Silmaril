@@ -8,6 +8,7 @@ import ru.adan.silmaril.misc.formatDuration
 import ru.adan.silmaril.misc.joinOrNone
 import ru.adan.silmaril.misc.minutesToDaysFormatted
 import ru.adan.silmaril.misc.toSmartString
+import kotlin.collections.mutableListOf
 
 data class LoreMessage(
     // --- Attributes ---
@@ -251,68 +252,16 @@ data class LoreMessage(
         } else {
             val stringBuilderList = mutableListOf<String>()
 
-            stringBuilderList.add("Эффекты на вас :")
+            stringBuilderList.add("Эффекты на вас:")
 
-            // Enhance
-            appliedEffects.enhances.forEach {
-                val effectStringBuilder = StringBuilder()
-                effectStringBuilder.append(" <color=black>${it.modifiedParameter}</color>: ")
-                effectStringBuilder.append(if (it.value > 0) "<color=green>+" else "<color=red>-")
-                effectStringBuilder.append("${it.value}")
-                effectStringBuilder.append("</color>")
-                if (it.sourceSkill != "")
-                    effectStringBuilder.append(" (${it.sourceSkill})")
-                if (it.duration > 0)
-                    effectStringBuilder.append(" [${formatDuration(it.duration)}]")
-                if (it.necessarySetItemsCount > 0)
-                    effectStringBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(effectStringBuilder.toString())
-            }
+            val allAffects = appliedEffects.enhances +
+                    appliedEffects.skillResists +
+                    appliedEffects.skillEnhances +
+                    appliedEffects.magicArrows +
+                    appliedEffects.envenoms
 
-            appliedEffects.skillEnhances.forEach {
-                val skillEnhanceBuilder = StringBuilder()
-                val plusOrMinus = if (it.enhanceValue > 0) "+" else "-"
-                skillEnhanceBuilder.append("$plusOrMinus${it.enhanceValue} к заклинанию/умению '${it.skillName}'")
-                if (it.necessarySetItemsCount > 0)
-                    skillEnhanceBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(skillEnhanceBuilder.toString())
-            }
-
-            appliedEffects.skillResists.forEach {
-                val skillResistBuilder = StringBuilder()
-                val plusOrMinus = if (it.resistValue > 0) "+" else "-"
-                skillResistBuilder.append(" Сопротивление заклинанию/умению '${it.skillName}' $plusOrMinus${it.resistValue}%")
-                if (it.necessarySetItemsCount > 0)
-                    skillResistBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(skillResistBuilder.toString())
-            }
-
-            appliedEffects.envenoms.forEach {
-                val envenomBuilder = StringBuilder()
-                envenomBuilder.append(" Отравить: [${formatDuration(it.duration)}]")
-                if (it.necessarySetItemsCount > 0)
-                    envenomBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(envenomBuilder.toString())
-            }
-
-            appliedEffects.magicArrows.forEach {
-                val magicArrowsBuilder = StringBuilder()
-                val magicType = when(it.magicType) {
-                    "FIRE" -> "огня"
-                    "WATER" -> "воды"
-                    "AIR" -> "воздуха"
-                    "EARTH" -> "земли"
-                    else -> "неизвестного типа"
-                }
-                if (it.duration > 0)
-                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides} [${formatDuration(it.duration)}]")
-                else
-                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides}")
-
-                if (it.necessarySetItemsCount > 0)
-                    magicArrowsBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(magicArrowsBuilder.toString())
-            }
+            val sortedBySetItems = allAffects.sortedBy { it.necessarySetItemsCount }
+            getEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
         }
@@ -331,69 +280,82 @@ data class LoreMessage(
 
             stringBuilderList.add("Аффекты набора ${itemSetAffects.name}:")
 
-            // тут нужно отсортировать их по кол-ву necessarySetItemsCount
-            // Enhance
-            itemSetAffects.enhances.forEach {
-                val effectStringBuilder = StringBuilder()
-                effectStringBuilder.append(" <color=black>${it.modifiedParameter}</color>: ")
-                effectStringBuilder.append(if (it.value > 0) "<color=green>+" else "<color=red>-")
-                effectStringBuilder.append("${it.value}")
-                effectStringBuilder.append("</color>")
-                if (it.sourceSkill != "")
-                    effectStringBuilder.append(" (${it.sourceSkill})")
-                if (it.duration > 0)
-                    effectStringBuilder.append(" [${formatDuration(it.duration)}]")
-                if (it.necessarySetItemsCount > 0)
-                    effectStringBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(effectStringBuilder.toString())
-            }
+            val allAffects = itemSetAffects.enhances +
+                    itemSetAffects.skillResists +
+                    itemSetAffects.skillEnhances +
+                    itemSetAffects.magicArrows +
+                    itemSetAffects.envenoms
 
-            itemSetAffects.skillEnhances.forEach {
-                val skillEnhanceBuilder = StringBuilder()
-                val plusOrMinus = if (it.enhanceValue > 0) "+" else "-"
-                skillEnhanceBuilder.append("$plusOrMinus${it.enhanceValue} к заклинанию/умению '${it.skillName}'")
-                if (it.necessarySetItemsCount > 0)
-                    skillEnhanceBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(skillEnhanceBuilder.toString())
-            }
-
-            itemSetAffects.skillResists.forEach {
-                val skillResistBuilder = StringBuilder()
-                val plusOrMinus = if (it.resistValue > 0) "+" else "-"
-                skillResistBuilder.append(" Сопротивление заклинанию/умению '${it.skillName}' $plusOrMinus${it.resistValue}%")
-                if (it.necessarySetItemsCount > 0)
-                    skillResistBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(skillResistBuilder.toString())
-            }
-
-            itemSetAffects.envenoms.forEach {
-                val envenomBuilder = StringBuilder()
-                envenomBuilder.append(" Отравить: [${formatDuration(it.duration)}]")
-                if (it.necessarySetItemsCount > 0)
-                    envenomBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(envenomBuilder.toString())
-            }
-
-            itemSetAffects.magicArrows.forEach {
-                val magicArrowsBuilder = StringBuilder()
-                val magicType = when(it.magicType) {
-                    "FIRE" -> "огня"
-                    "WATER" -> "воды"
-                    "AIR" -> "воздуха"
-                    "EARTH" -> "земли"
-                    else -> "неизвестного типа"
-                }
-                if (it.duration > 0)
-                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides} [${formatDuration(it.duration)}]")
-                else
-                    magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${it.diceCount}D${it.diceSides}")
-
-                if (it.necessarySetItemsCount > 0)
-                    magicArrowsBuilder.append(" (Необходимо ${it.necessarySetItemsCount} предмет${if (it.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
-                stringBuilderList.add(magicArrowsBuilder.toString())
-            }
+            val sortedBySetItems = allAffects.sortedBy { it.necessarySetItemsCount }
+            getEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
+        }
+    }
+
+    fun getEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<BasePrerequisiteCount>) {
+        sortedBySetItems.forEach { effect ->
+            when(effect) {
+                is Enhance -> {
+                    val effectStringBuilder = StringBuilder()
+                    effectStringBuilder.append(" <color=black>${effect.modifiedParameter}</color>: ")
+                    effectStringBuilder.append(if (effect.value > 0) "<color=green>+" else "<color=red>-")
+                    effectStringBuilder.append("${effect.value}")
+                    effectStringBuilder.append("</color>")
+                    if (effect.sourceSkill != "")
+                        effectStringBuilder.append(" (${effect.sourceSkill})")
+                    if (effect.duration > 0)
+                        effectStringBuilder.append(" [${formatDuration(effect.duration)}]")
+                    if (effect.necessarySetItemsCount > 0)
+                        effectStringBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                    stringBuilderList.add(effectStringBuilder.toString())
+                }
+
+                is SkillEnhance -> {
+                    val skillEnhanceBuilder = StringBuilder()
+                    val plusOrMinus = if (effect.enhanceValue > 0) "+" else "-"
+                    skillEnhanceBuilder.append("$plusOrMinus${effect.enhanceValue} к заклинанию/умению '${effect.skillName}'")
+                    if (effect.necessarySetItemsCount > 0)
+                        skillEnhanceBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                    stringBuilderList.add(skillEnhanceBuilder.toString())
+                }
+
+                is SkillResist -> {
+                    val skillResistBuilder = StringBuilder()
+                    val plusOrMinus = if (effect.resistValue > 0) "+" else "-"
+                    skillResistBuilder.append(" Сопротивление заклинанию/умению '${effect.skillName}' $plusOrMinus${effect.resistValue}%")
+                    if (effect.necessarySetItemsCount > 0)
+                        skillResistBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                    stringBuilderList.add(skillResistBuilder.toString())
+                }
+
+                is Envenom -> {
+                    val envenomBuilder = StringBuilder()
+                    envenomBuilder.append(" Отравить: [${formatDuration(effect.duration)}]")
+                    if (effect.necessarySetItemsCount > 0)
+                        envenomBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                    stringBuilderList.add(envenomBuilder.toString())
+                }
+
+                is MagicArrows -> {
+                    val magicArrowsBuilder = StringBuilder()
+                    val magicType = when(effect.magicType) {
+                        "FIRE" -> "огня"
+                        "WATER" -> "воды"
+                        "AIR" -> "воздуха"
+                        "EARTH" -> "земли"
+                        else -> "неизвестного типа"
+                    }
+                    if (effect.duration > 0)
+                        magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${effect.diceCount}D${effect.diceSides} [${formatDuration(effect.duration)}]")
+                    else
+                        magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${effect.diceCount}D${effect.diceSides}")
+
+                    if (effect.necessarySetItemsCount > 0)
+                        magicArrowsBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
+                    stringBuilderList.add(magicArrowsBuilder.toString())
+                }
+            }
         }
     }
 

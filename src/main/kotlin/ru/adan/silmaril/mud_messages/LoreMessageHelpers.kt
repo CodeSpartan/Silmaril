@@ -21,26 +21,20 @@ data class ScrollOrPotionSpell(
 )
 
 data class SkillResist(
-    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
-    val necessarySetItemsCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "SkillName")
     val skillName: String = "",
     @field:JacksonXmlProperty(isAttribute = true, localName = "ResistValue")
     val resistValue: Int = 0
-)
+) : BasePrerequisiteCount()
 
 data class SkillEnhance(
-    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
-    val necessarySetItemsCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "SkillName")
     val skillName: String = "",
     @field:JacksonXmlProperty(isAttribute = true, localName = "EnhanceValue")
     val enhanceValue: Int = 0
-)
+) : BasePrerequisiteCount()
 
 data class MagicArrows(
-    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
-    val necessarySetItemsCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "MagicType")
     val magicType: String = "",
     @field:JacksonXmlProperty(isAttribute = true, localName = "DiceSides")
@@ -49,18 +43,14 @@ data class MagicArrows(
     val diceCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "Duration")
     val duration: Int = 0
-)
+) : BasePrerequisiteCount()
 
 data class Envenom(
-    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
-    val necessarySetItemsCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "Duration")
     val duration: Int = 0
-)
+) : BasePrerequisiteCount()
 
 data class Enhance(
-    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
-    val necessarySetItemsCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "SourceSkill")
     val sourceSkill: String = "",
     @field:JacksonXmlProperty(isAttribute = true, localName = "Type")
@@ -69,54 +59,53 @@ data class Enhance(
     val value: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "Duration")
     val duration: Int = 0
-)
+) : BasePrerequisiteCount()
 
-data class AppliedAffects(
+interface AffectsContainer {
+    val enhances: List<Enhance>
+    val skillResists: List<SkillResist>
+    val skillEnhances: List<SkillEnhance>
+    val magicArrows: List<MagicArrows>
+    val envenoms: List<Envenom>
+}
+
+interface SetPrerequisite {
+    val necessarySetItemsCount: Int
+}
+
+open class BasePrerequisiteCount : SetPrerequisite{
+    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
+    override val necessarySetItemsCount: Int = 0
+}
+
+open class BaseAffectsContainer : AffectsContainer {
     @field:JacksonXmlElementWrapper(useWrapping = false)
     @field:JacksonXmlProperty(localName = "Enhance")
-    val enhances: List<Enhance> = emptyList(),
+    override val enhances: List<Enhance> = emptyList()
 
     @field:JacksonXmlElementWrapper(useWrapping = false)
     @field:JacksonXmlProperty(localName = "SkillResist")
-    val skillResists: List<SkillResist> = emptyList(),
+    override val skillResists: List<SkillResist> = emptyList()
 
     @field:JacksonXmlElementWrapper(useWrapping = false)
     @field:JacksonXmlProperty(localName = "SkillEnhance")
-    val skillEnhances: List<SkillEnhance> = emptyList(),
+    override val skillEnhances: List<SkillEnhance> = emptyList()
 
     @field:JacksonXmlElementWrapper(useWrapping = false)
     @field:JacksonXmlProperty(localName = "MagicArrows")
-    val magicArrows: List<MagicArrows> = emptyList(),
+    override val magicArrows: List<MagicArrows> = emptyList()
 
     @field:JacksonXmlElementWrapper(useWrapping = false)
     @field:JacksonXmlProperty(localName = "Envenom")
-    val envenoms: List<Envenom> = emptyList()
-)
+    override val envenoms: List<Envenom> = emptyList()
+}
+
+class AppliedAffects : BaseAffectsContainer()
 
 data class ItemSetAffects(
     @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
-    val name: String = "",
-
-    @field:JacksonXmlElementWrapper(useWrapping = false)
-    @field:JacksonXmlProperty(localName = "Enhance")
-    val enhances: List<Enhance> = emptyList(),
-
-    @field:JacksonXmlElementWrapper(useWrapping = false)
-    @field:JacksonXmlProperty(localName = "SkillResist")
-    val skillResists: List<SkillResist> = emptyList(),
-
-    @field:JacksonXmlElementWrapper(useWrapping = false)
-    @field:JacksonXmlProperty(localName = "SkillEnhance")
-    val skillEnhances: List<SkillEnhance> = emptyList(),
-
-    @field:JacksonXmlElementWrapper(useWrapping = false)
-    @field:JacksonXmlProperty(localName = "MagicArrows")
-    val magicArrows: List<MagicArrows> = emptyList(),
-
-    @field:JacksonXmlElementWrapper(useWrapping = false)
-    @field:JacksonXmlProperty(localName = "Envenom")
-    val envenoms: List<Envenom> = emptyList()
-)
+    val name: String = ""
+) : BaseAffectsContainer()
 
 data class WandOrStaffSpell(
     @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
