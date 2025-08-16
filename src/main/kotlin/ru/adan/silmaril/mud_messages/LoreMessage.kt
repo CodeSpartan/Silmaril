@@ -68,7 +68,8 @@ data class LoreMessage(
     @field:JacksonXmlProperty(isAttribute = true, localName = "MinLevel")
     val minLevel: Int? = null,
 
-    // note the get instead of field. For a boolean property, the standard Java getter method is named isPropertyName(), which caused problems with field.
+    // Note the get instead of field. For a boolean property, the standard Java getter method is named isPropertyName(), which caused problems with field.
+    // Jackson's core was designed for Java
     @get:JacksonXmlProperty(isAttribute = true, localName = "IsFull")
     val isFull: Boolean = false,
 
