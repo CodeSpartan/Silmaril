@@ -1,10 +1,8 @@
 package ru.adan.silmaril.mud_messages
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -13,6 +11,28 @@ import ru.adan.silmaril.misc.formatDuration
 import ru.adan.silmaril.misc.joinOrNone
 import ru.adan.silmaril.misc.minutesToDaysFormatted
 import ru.adan.silmaril.misc.toSmartString
+import ru.adan.silmaril.xml_schemas.Affects
+import ru.adan.silmaril.xml_schemas.AppliedAffects
+import ru.adan.silmaril.xml_schemas.ArmorStats
+import ru.adan.silmaril.xml_schemas.BasePrerequisiteCount
+import ru.adan.silmaril.xml_schemas.Enhance
+import ru.adan.silmaril.xml_schemas.Envenom
+import ru.adan.silmaril.xml_schemas.Flags
+import ru.adan.silmaril.xml_schemas.Ingredient
+import ru.adan.silmaril.xml_schemas.ItemSetAffects
+import ru.adan.silmaril.xml_schemas.MagicArrows
+import ru.adan.silmaril.xml_schemas.NoFlags
+import ru.adan.silmaril.xml_schemas.ObjectAffects
+import ru.adan.silmaril.xml_schemas.Recipe
+import ru.adan.silmaril.xml_schemas.RestrictionFlags
+import ru.adan.silmaril.xml_schemas.ScrollOrPotionSpells
+import ru.adan.silmaril.xml_schemas.SkillEnhance
+import ru.adan.silmaril.xml_schemas.SkillResist
+import ru.adan.silmaril.xml_schemas.SpellBook
+import ru.adan.silmaril.xml_schemas.WandOrStaffSpell
+import ru.adan.silmaril.xml_schemas.WeaponStats
+import ru.adan.silmaril.xml_schemas.Wear
+import ru.adan.silmaril.xml_schemas.WearingAffect
 import kotlin.collections.mutableListOf
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -391,8 +411,8 @@ data class LoreMessage(
                     "DEF2" -> "Наверное, вы сможете надеть это в дополнительный слот 2."
                     "DEF3" -> "Наверное, вы сможете надеть это в дополнительный слот 3."
                     "DWIELD" -> "Наверное, вы сможете держать это в обеих руках."
-                    "EARS" -> "Наверное, вы сможете надеть это на уши. ?"
-                    "EYES" -> "Наверное, вы сможете надеть это на глаза. ?"
+                    "EARS" -> "Наверное, вы сможете вставить это в уши." //@TODO: какой стринг приходит в жабу?
+                    "EYES" -> "Наверное, вы сможете надвинуть это на глаза." //@TODO: какой стринг приходит в жабу?
                     "FEET" -> "Наверное, вы сможете в это обуться."
                     "FINGER" -> "Наверное, вы сможете надеть это на палец."
                     "HANDS" -> "Наверное, вы сможете надеть это на кисти рук."
