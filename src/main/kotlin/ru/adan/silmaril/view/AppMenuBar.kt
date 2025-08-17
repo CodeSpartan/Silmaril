@@ -17,6 +17,8 @@ import ru.adan.silmaril.visual_styles.StyleManager
 fun FrameWindowScope.AppMenuBar(
     showMapWindow: MutableState<Boolean>,
     showAdditionalOutputWindow: MutableState<Boolean>,
+    showGroupWindow: MutableState<Boolean>,
+    showMobsWindow: MutableState<Boolean>,
     showProfileDialog: MutableState<Boolean>,
     onExit: () -> Unit
 ) {
@@ -62,6 +64,24 @@ fun FrameWindowScope.AppMenuBar(
                 }
             }
             CheckboxItem(
+                text = "Окно группы",
+                mnemonic = 'г',
+                checked = showGroupWindow.value,
+                onCheckedChange = {
+                    showGroupWindow.value = it
+                    settingsManager.updateFloatingWindowState("GroupWindow", it)
+                }
+            )
+            CheckboxItem(
+                text = "Окно монстров",
+                mnemonic = 'м',
+                checked = showMobsWindow.value,
+                onCheckedChange = {
+                    showMobsWindow.value = it
+                    settingsManager.updateFloatingWindowState("MobsWindow", it)
+                }
+            )
+            CheckboxItem(
                 text = "Карта",
                 mnemonic = 'К',
                 checked = showMapWindow.value,
@@ -72,7 +92,7 @@ fun FrameWindowScope.AppMenuBar(
             )
             CheckboxItem(
                 text = "Окно вывода",
-                mnemonic = 'О',
+                mnemonic = 'в',
                 checked = showAdditionalOutputWindow.value,
                 onCheckedChange = {
                     showAdditionalOutputWindow.value = it

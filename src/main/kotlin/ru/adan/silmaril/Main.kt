@@ -30,8 +30,10 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
+import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.TextTriggerManager
+import ru.adan.silmaril.view.GroupWindow
 
 fun main() {
     startKoin {
@@ -49,11 +51,14 @@ fun main() {
             val profileManager: ProfileManager = koinInject()
             val textTriggerManager: TextTriggerManager = koinInject()
             val mapModel: MapModel = koinInject()
+            val groupModel: GroupModel = koinInject()
             val loreManager: LoreManager = koinInject()
 
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
             val showAdditionalOutputWindow =
                 remember { mutableStateOf(settingsManager.getFloatingWindowState("AdditionalOutput").show) }
+            val showGroupWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("GroupWindow").show) }
+            val showMobsWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MobsWindow").show) }
             val mainWindowState = rememberWindowState(
                 placement = settings.windowSettings.windowPlacement,
                 position = settings.windowSettings.windowPosition,
@@ -66,7 +71,7 @@ fun main() {
             // Main Window
             Window(
                 onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
+                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager, groupModel)
                     exitApplication()
                 },
                 state = mainWindowState,
@@ -76,9 +81,11 @@ fun main() {
                 AppMenuBar(
                     showMapWindow = showMapWindow,
                     showAdditionalOutputWindow = showAdditionalOutputWindow,
+                    showGroupWindow = showGroupWindow,
+                    showMobsWindow = showMobsWindow,
                     showProfileDialog = showProfileDialog,
                     onExit = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager, groupModel)
                         exitApplication()
                     }
                 )
@@ -120,6 +127,22 @@ fun main() {
                     AdditionalOutputWindow(profileManager.currentMainViewModel.value)
                 }
 
+                // Group widget
+                FloatingWindow(showGroupWindow, window, "GroupWindow")
+                {
+                    HoverManagerProvider(window) {
+                        GroupWindow(profileManager.currentClient.value, logger)
+                    }
+                }
+
+                // Mob widget
+//                FloatingWindow(showMobsWindow, window, "MobsWindow")
+//                {
+//                    HoverManagerProvider(window) {
+//                        MobsWindow(profileManager.currentClient.value, logger)
+//                    }
+//                }
+
                 // Hidden by default, "Open new game window from profile" dialog
                 ProfileDialog(
                     showProfileDialog, profileManager.gameWindows.value,
@@ -139,13 +162,15 @@ fun cleanupOnExit(
     profileManager: ProfileManager,
     settingsManager: SettingsManager,
     textTriggerManager: TextTriggerManager,
-    loreManager: LoreManager
+    loreManager: LoreManager,
+    groupModel: GroupModel
 ) {
     textTriggerManager.cleanup()
     mapModel.cleanup()
     profileManager.cleanup()
     settingsManager.cleanup()
     loreManager.cleanup()
+    groupModel.cleanup()
 }
 
 @Composable

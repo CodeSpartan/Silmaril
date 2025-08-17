@@ -20,6 +20,8 @@ class ClassicBlackColorStyle : ColorStyle() {
             UiColor.MapRoomStroke -> Color.White
             UiColor.HoverBackground -> Color(0xFF242424)
             UiColor.HoverSeparator -> Color(0xff2b2b2b)
+            UiColor.GroupTitleFontColor -> Color(0xff454545)
+            UiColor.GroupNameFontColor -> Color(0xff8f8f8f)
             else -> Color.White
         }
     }

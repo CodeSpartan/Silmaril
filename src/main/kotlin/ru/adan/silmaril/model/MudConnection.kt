@@ -764,7 +764,6 @@ class MudConnection(
             val byteMsg = mainBuffer.copyOfRange(skipBytes, mainBufferLastValidIndex)
             val msg = String(byteMsg, charset)
             when (_customMessageType) {
-                // 10 is LoreMessage
                 10 -> LoreMessage.fromXml(msg)?.let {
                     printTextMessage("Вы узнали некоторую информацию:")
                     processLoreLines(it.loreAsTaggedTexts())

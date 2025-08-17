@@ -4,6 +4,7 @@ import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.LoreManager
 
 import ru.adan.silmaril.model.MapModel
@@ -19,6 +20,7 @@ import ru.adan.silmaril.viewmodel.MainViewModel
 val appModule = module {
     singleOf (::SettingsManager)
     singleOf (::MapModel)
+    singleOf (::GroupModel)
     singleOf(::ProfileManager)
     singleOf(::TextTriggerManager)
     singleOf(::LoreManager)

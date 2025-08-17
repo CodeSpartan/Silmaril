@@ -97,9 +97,7 @@ fun MapWindow(client: MudConnection, logger: KLogger) {
         modifier = Modifier
             .fillMaxSize()
             .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
-            .onGloballyPositioned { layoutCoordinates ->
-                internalPadding = layoutCoordinates.positionInWindow()
-            }
+            .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
     ) {
         RoomsCanvas(
             settingsManager = settingsManager,

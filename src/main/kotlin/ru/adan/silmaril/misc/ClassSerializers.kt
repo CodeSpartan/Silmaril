@@ -31,7 +31,7 @@ data class WindowSettings(
 
 @Serializable
 data class FloatWindowSettings(
-    val show: Boolean = true,
+    val show: Boolean = false,
     @Serializable(with = PointSerializer::class)
     val windowPosition: Point = Point(100, 100),
     @Serializable(with = DimensionSerializer::class)

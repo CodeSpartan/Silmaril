@@ -24,5 +24,6 @@ fun AdditionalOutputWindow(mainViewModel: MainViewModel) {
             .fillMaxSize()
             .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
     ) {
+
     }
 }

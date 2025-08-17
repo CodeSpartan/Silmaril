@@ -34,9 +34,9 @@ data class Settings(
     val mapsUrl: String = "http://adan.ru/files/Maps.zip",
     @Serializable(with = InstantSerializer::class)
     val lastMapsUpdateDate: Instant = Instant.EPOCH,
-    val font: String = "FiraMono",
+    val font: String = "RobotoMono",
     val fontSize: Int = 15,
-    val colorStyle: String = "Black",
+    val colorStyle: String = "ModernBlack",
     val gameWindows: MutableList<String> = mutableListOf("Default"), // value is the window name and the profile name
     val windowSettings: WindowSettings = WindowSettings(),
     val floatWindows: Map<String, FloatWindowSettings> = mapOf(
@@ -49,6 +49,16 @@ data class Settings(
             show = true,
             windowPosition = Point(600, 700),
             windowSize = Dimension(400, 400),
+        ),
+        "GroupWindow" to FloatWindowSettings(
+            show = true,
+            windowPosition = Point(100, 200),
+            windowSize = Dimension(400, 300),
+        ),
+        "MobsWindow" to FloatWindowSettings(
+            show = true,
+            windowPosition = Point(100, 700),
+            windowSize = Dimension(400, 300),
         ),
     ),
     // Whether commands separated by a semicolon (e.g. "say hello;w") are echoed on separate lines or a single line
@@ -69,7 +79,7 @@ class SettingsManager {
     private val _settingsFlow = MutableStateFlow(settings.value.windowSettings)
     private val _floatWindowsFlow = MutableStateFlow(settings.value.floatWindows)
     fun getFloatingWindowState(windowName: String) : FloatWindowSettings {
-        return settings.value.floatWindows[windowName]!!
+        return settings.value.floatWindows[windowName] ?: FloatWindowSettings()
     }
 
     private val _profiles = MutableStateFlow(mutableListOf<String>())

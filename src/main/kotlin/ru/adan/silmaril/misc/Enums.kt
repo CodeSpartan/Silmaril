@@ -23,4 +23,6 @@ enum class UiColor {
     MapRoomStroke,
     HoverBackground,
     HoverSeparator,
+    GroupTitleFontColor,
+    GroupNameFontColor,
 }
