@@ -35,17 +35,11 @@ import com.fasterxml.jackson.databind.jsontype.TypeSerializer
     JsonSubTypes.Type(MagicArrows::class,  name = "MagicArrows"),
     JsonSubTypes.Type(Envenom::class,      name = "Envenom"),
 )
-interface Affect
-
-interface SetPrerequisite {
+interface Affect {
     val necessarySetItemsCount: Int
 }
 
-open class BasePrerequisiteCount : SetPrerequisite, Affect {
-    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
-    override val necessarySetItemsCount: Int = 0
-}
-
+// this is the class that catches <AppliedAffects> and <ItemSetAffects> and (de)serializes the effects (e.g. Enhance,..)
 open class BaseAffectsContainer {
     @JsonIgnore
     private val _affects = mutableListOf<Affect>()
@@ -105,16 +99,20 @@ data class SkillResist(
     @field:JacksonXmlProperty(isAttribute = true, localName = "SkillName")
     val skillName: String = "",
     @field:JacksonXmlProperty(isAttribute = true, localName = "ResistValue")
-    val resistValue: Int = 0
-) : BasePrerequisiteCount()
+    val resistValue: Int = 0,
+    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
+    override val necessarySetItemsCount: Int = 0
+) : Affect
 
 @JsonTypeName("SkillEnhance")
 data class SkillEnhance(
     @field:JacksonXmlProperty(isAttribute = true, localName = "SkillName")
     val skillName: String = "",
     @field:JacksonXmlProperty(isAttribute = true, localName = "EnhanceValue")
-    val enhanceValue: Int = 0
-) : BasePrerequisiteCount()
+    val enhanceValue: Int = 0,
+    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
+    override val necessarySetItemsCount: Int = 0
+) : Affect
 
 @JsonTypeName("MagicArrows")
 data class MagicArrows(
@@ -125,14 +123,18 @@ data class MagicArrows(
     @field:JacksonXmlProperty(isAttribute = true, localName = "DiceCount")
     val diceCount: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "Duration")
-    val duration: Int = 0
-) : BasePrerequisiteCount()
+    val duration: Int = 0,
+    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
+    override val necessarySetItemsCount: Int = 0
+) : Affect
 
 @JsonTypeName("Envenom")
 data class Envenom(
     @field:JacksonXmlProperty(isAttribute = true, localName = "Duration")
-    val duration: Int = 0
-) : BasePrerequisiteCount()
+    val duration: Int = 0,
+    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
+    override val necessarySetItemsCount: Int = 0
+) : Affect
 
 @JsonTypeName("Enhance")
 data class Enhance(
@@ -143,8 +145,10 @@ data class Enhance(
     @field:JacksonXmlProperty(isAttribute = true, localName = "Value")
     val value: Int = 0,
     @field:JacksonXmlProperty(isAttribute = true, localName = "Duration")
-    val duration: Int = 0
-) : BasePrerequisiteCount()
+    val duration: Int = 0,
+    @field:JacksonXmlProperty(isAttribute = true, localName = "NecessarySetItemsCount")
+    override val necessarySetItemsCount: Int = 0
+) : Affect
 
 /**
  * end of polymorphic stuff

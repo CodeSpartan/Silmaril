@@ -14,8 +14,6 @@ import ru.adan.silmaril.misc.toSmartString
 import ru.adan.silmaril.xml_schemas.Affects
 import ru.adan.silmaril.xml_schemas.AppliedAffects
 import ru.adan.silmaril.xml_schemas.ArmorStats
-import ru.adan.silmaril.xml_schemas.BaseAffectsContainer
-import ru.adan.silmaril.xml_schemas.BasePrerequisiteCount
 import ru.adan.silmaril.xml_schemas.Enhance
 import ru.adan.silmaril.xml_schemas.Envenom
 import ru.adan.silmaril.xml_schemas.Flags
@@ -27,7 +25,6 @@ import ru.adan.silmaril.xml_schemas.ObjectAffects
 import ru.adan.silmaril.xml_schemas.Recipe
 import ru.adan.silmaril.xml_schemas.RestrictionFlags
 import ru.adan.silmaril.xml_schemas.ScrollOrPotionSpells
-import ru.adan.silmaril.xml_schemas.SetPrerequisite
 import ru.adan.silmaril.xml_schemas.SkillEnhance
 import ru.adan.silmaril.xml_schemas.SkillResist
 import ru.adan.silmaril.xml_schemas.SpellBook
@@ -291,8 +288,7 @@ data class LoreMessage(
 
             stringBuilderList.add("Эффекты на вас:")
 
-            val allAffects = appliedEffects.affects
-            val sortedBySetItems = allAffects.filterIsInstance<BasePrerequisiteCount>().sortedBy { it.necessarySetItemsCount }
+            val sortedBySetItems = appliedEffects.affects.sortedBy { it.necessarySetItemsCount }
             printEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
@@ -308,15 +304,14 @@ data class LoreMessage(
 
             stringBuilderList.add("Аффекты набора ${itemSetAffects.name}:")
 
-            val allAffects = itemSetAffects.affects
-            val sortedBySetItems = allAffects.filterIsInstance<BasePrerequisiteCount>().sortedBy { it.necessarySetItemsCount }
+            val sortedBySetItems = itemSetAffects.affects.sortedBy { it.necessarySetItemsCount }
             printEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
         }
     }
 
-    fun printEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<BasePrerequisiteCount>) {
+    fun printEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<ru.adan.silmaril.xml_schemas.Affect>) {
         sortedBySetItems.forEach { effect ->
             when(effect) {
                 is Enhance -> {
