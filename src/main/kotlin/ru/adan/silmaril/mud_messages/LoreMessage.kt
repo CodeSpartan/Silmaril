@@ -14,6 +14,7 @@ import ru.adan.silmaril.misc.toSmartString
 import ru.adan.silmaril.xml_schemas.Affects
 import ru.adan.silmaril.xml_schemas.AppliedAffects
 import ru.adan.silmaril.xml_schemas.ArmorStats
+import ru.adan.silmaril.xml_schemas.BaseAffectsContainer
 import ru.adan.silmaril.xml_schemas.BasePrerequisiteCount
 import ru.adan.silmaril.xml_schemas.Enhance
 import ru.adan.silmaril.xml_schemas.Envenom
@@ -26,6 +27,7 @@ import ru.adan.silmaril.xml_schemas.ObjectAffects
 import ru.adan.silmaril.xml_schemas.Recipe
 import ru.adan.silmaril.xml_schemas.RestrictionFlags
 import ru.adan.silmaril.xml_schemas.ScrollOrPotionSpells
+import ru.adan.silmaril.xml_schemas.SetPrerequisite
 import ru.adan.silmaril.xml_schemas.SkillEnhance
 import ru.adan.silmaril.xml_schemas.SkillResist
 import ru.adan.silmaril.xml_schemas.SpellBook
@@ -282,24 +284,15 @@ data class LoreMessage(
 
     fun printAppliedEffects(): Array<String> {
         // appliedEffects is a polymorphic list of multiple types of effects
-        return if (appliedEffects == null ||
-            (appliedEffects.enhances.isEmpty() && appliedEffects.skillEnhances.isEmpty()
-                && appliedEffects.skillResists.isEmpty() && appliedEffects.envenoms.isEmpty() && appliedEffects.magicArrows.isEmpty()
-            )
-        ) {
+        return if (appliedEffects == null || appliedEffects.affects.isEmpty()) {
             emptyArray()
         } else {
             val stringBuilderList = mutableListOf<String>()
 
             stringBuilderList.add("Эффекты на вас:")
 
-            val allAffects = appliedEffects.enhances +
-                    appliedEffects.skillResists +
-                    appliedEffects.skillEnhances +
-                    appliedEffects.magicArrows +
-                    appliedEffects.envenoms
-
-            val sortedBySetItems = allAffects.sortedBy { it.necessarySetItemsCount }
+            val allAffects = appliedEffects.affects
+            val sortedBySetItems = allAffects.filterIsInstance<BasePrerequisiteCount>().sortedBy { it.necessarySetItemsCount }
             printEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
@@ -308,24 +301,15 @@ data class LoreMessage(
 
     fun printItemSetEffects(): Array<String> {
         // appliedEffects is a polymorphic list of multiple types of effects
-        return if (itemSetAffects == null ||
-            (itemSetAffects.enhances.isEmpty() && itemSetAffects.skillEnhances.isEmpty()
-                    && itemSetAffects.skillResists.isEmpty() && itemSetAffects.envenoms.isEmpty() && itemSetAffects.magicArrows.isEmpty()
-                    )
-        ) {
+        return if (itemSetAffects == null || itemSetAffects.affects.isEmpty()) {
             emptyArray()
         } else {
             val stringBuilderList = mutableListOf<String>()
 
             stringBuilderList.add("Аффекты набора ${itemSetAffects.name}:")
 
-            val allAffects = itemSetAffects.enhances +
-                    itemSetAffects.skillResists +
-                    itemSetAffects.skillEnhances +
-                    itemSetAffects.magicArrows +
-                    itemSetAffects.envenoms
-
-            val sortedBySetItems = allAffects.sortedBy { it.necessarySetItemsCount }
+            val allAffects = itemSetAffects.affects
+            val sortedBySetItems = allAffects.filterIsInstance<BasePrerequisiteCount>().sortedBy { it.necessarySetItemsCount }
             printEffectsAsStrings(stringBuilderList, sortedBySetItems)
 
             stringBuilderList.toTypedArray()
