@@ -12,6 +12,7 @@ import ru.adan.silmaril.misc.joinOrNone
 import ru.adan.silmaril.misc.minutesToDaysFormatted
 import ru.adan.silmaril.misc.toSmartString
 import ru.adan.silmaril.xml_schemas.Affects
+import ru.adan.silmaril.xml_schemas.Affect
 import ru.adan.silmaril.xml_schemas.AppliedAffects
 import ru.adan.silmaril.xml_schemas.ArmorStats
 import ru.adan.silmaril.xml_schemas.Enhance
@@ -311,7 +312,7 @@ data class LoreMessage(
         }
     }
 
-    fun printEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<ru.adan.silmaril.xml_schemas.Affect>) {
+    fun printEffectsAsStrings(stringBuilderList : MutableList<String>, sortedBySetItems: List<Affect>) {
         sortedBySetItems.forEach { effect ->
             when(effect) {
                 is Enhance -> {
