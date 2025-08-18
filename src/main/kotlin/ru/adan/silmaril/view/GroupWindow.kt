@@ -26,7 +26,6 @@ import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -34,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,8 +41,6 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.not_same_room
-import ru.adan.silmaril.generated.resources.*
-import ru.adan.silmaril.generated.resources.standing
 import ru.adan.silmaril.generated.resources.target
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
@@ -52,7 +48,7 @@ import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.mud_messages.Position
 import kotlin.math.roundToInt
-import com.composables.person
+import com.composables.standing
 
 @Composable
 fun GroupWindow(client: MudConnection, logger: KLogger) {
@@ -388,9 +384,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
-                                imageVector = person,
-                                contentDescription = "Favorite Icon",
-                                //contentScale = ContentScale.FillHeight,
+                                imageVector = standing,
+                                contentDescription = "Standing",
                                 colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina)),
                             )
                         }

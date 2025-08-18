@@ -7,13 +7,13 @@ import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-val person: ImageVector
+val standing: ImageVector
     get() {
         if (_person != null) return _person!!
         
         _person = ImageVector.Builder(
             name = "person",
-            defaultWidth = 188.dp,
+            defaultWidth = 185.dp,
             defaultHeight = 512.dp,
             viewportWidth = 85.75f,
             viewportHeight = 236.99f
