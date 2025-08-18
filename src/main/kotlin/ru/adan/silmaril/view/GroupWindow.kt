@@ -25,7 +25,9 @@ import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -117,6 +119,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             modifier = Modifier.align(Alignment.CenterEnd),
                             color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 15.sp, fontFamily = robotoFont)
                     }
+
+                    // Name box
                     Box(
                         modifier = Modifier
                             .absoluteOffset(x = 38.dp)
@@ -124,8 +128,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             //.background(Color.LightGray)
                             .padding(top = 3.dp),
                         contentAlignment = Alignment.Center
-                    )
-                    {
+                    ) {
                         Text(groupMate.name.capitalized(),
                             modifier = Modifier.align(Alignment.CenterStart),
                             color = currentColorStyle.getUiColor(UiColor.GroupNameFontColor),
@@ -141,31 +144,67 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .absoluteOffset(x = 120.dp)
                             .width(65.dp)
-                            .background(Color.LightGray)
-                            .padding(top = 4.dp),
+                            //.background(Color.LightGray)
+                            .padding(top = 3.dp, bottom = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Row {
-                            // if we know exact max hp
+                        val hpColor = when (groupMate.hitsPercent) {
+                            in 70.0..100.0 -> currentColorStyle.getUiColor(UiColor.HpGood)
+                            in 30.0..70.0 -> currentColorStyle.getUiColor(UiColor.HpMedium)
+                            in 0.0..30.0 -> currentColorStyle.getUiColor(UiColor.HpBad)
+                            else -> currentColorStyle.getUiColor(UiColor.HpExecrable)
+                        }
+
+                        Row (verticalAlignment = Alignment.Top) {
+                            // if we know exact max hp, print 250/250
                             if (groupKnownHp.contains(groupMate.name)) {
                                 Text("${groupKnownHp[groupMate.name]?.times(groupMate.hitsPercent)?.div(100)?.roundToInt()}",
                                     fontSize = 15.sp,
                                     fontFamily = robotoFont,
+                                    color = hpColor,
+                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp)
                                     )
                                 Text("/${groupKnownHp[groupMate.name]}",
                                     fontSize = 12.sp,
-                                    fontFamily = robotoFont,)
+                                    fontFamily = robotoFont,
+                                    color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor),
+                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
+                                    )
                             }
-                            // if we know only hp percent
+                            // if we know only hp percent, print 250%
                             else {
                                 Text("${groupMate.hitsPercent.roundToInt()}",
                                     fontSize = 15.sp,
-                                    fontFamily = robotoFont,)
+                                    fontFamily = robotoFont,
+                                    color = hpColor,
+                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp)
+                                    )
                                 Text("%",
                                     fontSize = 12.sp,
-                                    fontFamily = robotoFont,)
+                                    fontFamily = robotoFont,
+                                    color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor),
+                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
+                                    )
                             }
                         }
+
+                        // background hp bar
+                        Box(modifier = Modifier.fillMaxWidth()
+                            .height(2.dp)
+                            .align(Alignment.BottomCenter)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(currentColorStyle.getUiColor(UiColor.GroupTitleFontColor))
+                            .offset(y = (-5).dp)
+                        )
+
+                        // foreground hp bar
+                        Box(modifier = Modifier.fillMaxWidth((groupMate.hitsPercent.toFloat()/100).coerceIn(0f, 1f))
+                            .height(2.dp)
+                            .align(Alignment.BottomStart)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(hpColor)
+                            .offset(y = (-5).dp)
+                        )
                     }
                 }
             }

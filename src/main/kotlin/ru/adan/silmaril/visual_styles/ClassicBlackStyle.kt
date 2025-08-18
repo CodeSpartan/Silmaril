@@ -22,6 +22,10 @@ class ClassicBlackColorStyle : ColorStyle() {
             UiColor.HoverSeparator -> Color(0xff2b2b2b)
             UiColor.GroupTitleFontColor -> Color(0xff454545)
             UiColor.GroupNameFontColor -> Color(0xff8f8f8f)
+            UiColor.HpGood -> Color(0xff91e966)
+            UiColor.HpMedium -> Color(0xffe9d866)
+            UiColor.HpBad -> Color(0xffe94747)
+            UiColor.HpExecrable -> Color(0xffc91c1c)
             else -> Color.White
         }
     }

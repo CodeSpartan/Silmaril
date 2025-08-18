@@ -24,12 +24,15 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
     private val _knownGroupHPs = MutableStateFlow(mapOf<String, Int>())
     val knownGroupHPs: StateFlow<Map<String, Int>> get() = _knownGroupHPs
 
+    //@TODO: move knownGroupHPs to some other singleton class more appropriate for this, e.g. "GameState"
     // called from GroupModel's coroutine
     suspend fun addKnownHp(name: String, maxHp: Int) {
-        val updatedMap = _knownGroupHPs.value.toMutableMap().apply {
-            this[name] = maxHp
+        if (_knownGroupHPs.value[name] != maxHp) {
+            val updatedMap = _knownGroupHPs.value.toMutableMap().apply {
+                this[name] = maxHp
+            }
+            _knownGroupHPs.emit(updatedMap)
         }
-        _knownGroupHPs.emit(updatedMap)
     }
 
     fun addProfile(windowName: String) {

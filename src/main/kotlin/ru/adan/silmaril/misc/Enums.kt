@@ -25,4 +25,8 @@ enum class UiColor {
     HoverSeparator,
     GroupTitleFontColor,
     GroupNameFontColor,
+    HpGood,
+    HpMedium,
+    HpBad,
+    HpExecrable,
 }

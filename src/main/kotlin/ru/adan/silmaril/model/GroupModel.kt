@@ -32,7 +32,7 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
                 if (myName == "") {
                     val myNameMatch = myNameRegex.find(textMessage)
                     if (myNameMatch != null) {
-                        logger.info { "My name is $myName" }
+                        logger.debug { "My name is $myName" }
                         myName = myNameMatch.groupValues[1]
                     }
                 }
@@ -40,7 +40,7 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
                     val myMaxHpMatch = myMaxHpRegex.find(textMessage)
                     if (myMaxHpMatch != null) {
                         myMaxHp = myMaxHpMatch.groupValues[1].toInt()
-                        logger.info { "$myName has max hp: $myMaxHp" }
+                        logger.debug { "$myName has max hp: $myMaxHp" }
                         profileManager.addKnownHp(myName, myMaxHp)
                     }
                 }
@@ -49,7 +49,7 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
                 if (othersMaxHpMatch != null) {
                     val groupMateName = othersMaxHpMatch.groupValues[1]
                     val groupMateMaxHp = othersMaxHpMatch.groupValues[2].toInt()
-                    logger.info { "$groupMateName has max hp: $groupMateMaxHp" }
+                    logger.debug { "$groupMateName has max hp: $groupMateMaxHp" }
                     profileManager.addKnownHp(groupMateName, groupMateMaxHp)
                 }
             }
