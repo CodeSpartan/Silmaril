@@ -20,7 +20,6 @@ import androidx.compose.ui.layout.positionInWindow
 import io.github.oshai.kotlinlogging.KLogger
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.UiColor
-import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
@@ -33,7 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.koin.dsl.koinApplication
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.model.ProfileManager
@@ -71,23 +69,23 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                 verticalAlignment = Alignment.Top
             ) {
                 Box(modifier = Modifier.width(120.dp).padding(start = 37.dp)) {
-                    Text(text="Согрупник", color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                    Text(text="Согрупник", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
                 Box(modifier = Modifier.width(65.dp), contentAlignment = Alignment.Center) {
-                    Text("HP", color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                    Text("HP", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
                 Box(modifier = Modifier.width(60.dp).padding(start = 9.dp), contentAlignment = Alignment.Center) {
-                    Text("Стамина", color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                    Text("Стамина", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
                 Box(modifier = Modifier.width(60.dp), contentAlignment = Alignment.Center) {
-                    Text("Мем", color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                    Text("Мем", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Эффекты", textAlign = TextAlign.Center, color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                    Text("Эффекты", textAlign = TextAlign.Center, color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
             }
 
@@ -97,7 +95,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     .fillMaxWidth()
                     .padding(start = 21.dp, end = 10.dp, top = 2.dp)
                     .height(1.dp)
-                    .background(color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor))
+                    .background(color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
             )
 
             groupMates.forEachIndexed  { index, groupMate ->
@@ -107,6 +105,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         .height(25.dp),
                     contentAlignment = Alignment.TopStart
                 ) {
+                    // Index box
                     Box(
                         modifier = Modifier
                             .absoluteOffset(x = 13.dp)
@@ -117,7 +116,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     ) {
                         Text("${index+1}",
                             modifier = Modifier.align(Alignment.CenterEnd),
-                            color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor), fontSize = 15.sp, fontFamily = robotoFont)
+                            color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 15.sp, fontFamily = robotoFont)
                     }
 
                     // Name box
@@ -131,7 +130,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     ) {
                         Text(groupMate.name.capitalized(),
                             modifier = Modifier.align(Alignment.CenterStart),
-                            color = currentColorStyle.getUiColor(UiColor.GroupNameFontColor),
+                            color = currentColorStyle.getUiColor(UiColor.GroupPrimaryFontColor),
                             fontSize = 15.sp,
                             fontFamily = robotoFont,
                             maxLines = 1,
@@ -167,7 +166,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 Text("/${groupKnownHp[groupMate.name]}",
                                     fontSize = 12.sp,
                                     fontFamily = robotoFont,
-                                    color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor),
+                                    color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
                                     modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
                                     )
                             }
@@ -182,7 +181,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 Text("%",
                                     fontSize = 12.sp,
                                     fontFamily = robotoFont,
-                                    color = currentColorStyle.getUiColor(UiColor.GroupTitleFontColor),
+                                    color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
                                     modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
                                     )
                             }
@@ -193,7 +192,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .height(2.dp)
                             .align(Alignment.BottomCenter)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(currentColorStyle.getUiColor(UiColor.GroupTitleFontColor))
+                            .background(currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
                             .offset(y = (-5).dp)
                         )
 
@@ -203,6 +202,49 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .align(Alignment.BottomStart)
                             .clip(RoundedCornerShape(2.dp))
                             .background(hpColor)
+                            .offset(y = (-5).dp)
+                        )
+                    }
+
+                    // Stamina box
+                    Box(
+                        modifier = Modifier
+                            .absoluteOffset(x = 194.dp)
+                            .width(60.dp)
+                            //.background(Color.LightGray)
+                            .padding(top = 3.dp, bottom = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row (verticalAlignment = Alignment.Top) {
+                            Text("${groupMate.movesPercent.roundToInt()}",
+                                fontSize = 15.sp,
+                                fontFamily = robotoFont,
+                                color = currentColorStyle.getUiColor(UiColor.Stamina),
+                                modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp)
+                            )
+                            Text("%",
+                                fontSize = 12.sp,
+                                fontFamily = robotoFont,
+                                color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
+                                modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
+                            )
+                        }
+
+                        // background stamina bar
+                        Box(modifier = Modifier.fillMaxWidth()
+                            .height(2.dp)
+                            .align(Alignment.BottomCenter)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
+                            .offset(y = (-5).dp)
+                        )
+
+                        // foreground stamina bar
+                        Box(modifier = Modifier.fillMaxWidth((groupMate.movesPercent.toFloat()/100).coerceIn(0f, 1f))
+                            .height(2.dp)
+                            .align(Alignment.BottomStart)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(currentColorStyle.getUiColor(UiColor.Stamina))
                             .offset(y = (-5).dp)
                         )
                     }

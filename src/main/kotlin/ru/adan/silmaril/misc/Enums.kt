@@ -23,10 +23,11 @@ enum class UiColor {
     MapRoomStroke,
     HoverBackground,
     HoverSeparator,
-    GroupTitleFontColor,
-    GroupNameFontColor,
+    GroupSecondaryFontColor,
+    GroupPrimaryFontColor,
     HpGood,
     HpMedium,
     HpBad,
     HpExecrable,
+    Stamina
 }
