@@ -1,5 +1,6 @@
 package ru.adan.silmaril.view
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.jetbrains.compose.resources.painterResource
+import ru.adan.silmaril.generated.resources.Res
+import ru.adan.silmaril.generated.resources.not_same_room
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.model.ProfileManager
@@ -68,7 +72,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
             Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Box(modifier = Modifier.width(120.dp).padding(start = 37.dp)) {
+                Box(modifier = Modifier.width(123.dp).padding(start = 40.dp)) {
                     Text(text="Согрупник", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
@@ -76,7 +80,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     Text("HP", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
-                Box(modifier = Modifier.width(60.dp).padding(start = 9.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.width(66.dp).padding(start = 12.dp), contentAlignment = Alignment.Center) {
                     Text("Стамина", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
@@ -105,10 +109,27 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         .height(25.dp),
                     contentAlignment = Alignment.TopStart
                 ) {
+                    if (!groupMate.inSameRoom) {
+                        // Icon: Not same room
+                        Box(
+                            modifier = Modifier
+                                .absoluteOffset(x = 3.dp)
+                                .width(15.dp)
+                                //.background(Color.LightGray)
+                                .padding(top = 5.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(
+                                painter = painterResource(Res.drawable.not_same_room),
+                                contentDescription = "not same room"
+                            )
+                        }
+                    }
+
                     // Index box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 13.dp)
+                            .absoluteOffset(x = 16.dp)
                             .width(20.dp)
                             //.background(Color.LightGray)
                             .padding(top = 3.dp),
@@ -122,7 +143,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Name box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 38.dp)
+                            .absoluteOffset(x = 41.dp)
                             .width(81.dp)
                             //.background(Color.LightGray)
                             .padding(top = 3.dp),
@@ -141,7 +162,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // HP Box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 120.dp)
+                            .absoluteOffset(x = 123.dp)
                             .width(65.dp)
                             //.background(Color.LightGray)
                             .padding(top = 3.dp, bottom = 4.dp),
@@ -209,7 +230,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Stamina box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 194.dp)
+                            .absoluteOffset(x = 197.dp)
                             .width(60.dp)
                             //.background(Color.LightGray)
                             .padding(top = 3.dp, bottom = 4.dp),
