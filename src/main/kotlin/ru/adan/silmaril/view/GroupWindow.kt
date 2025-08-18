@@ -26,12 +26,15 @@ import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Icon
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,11 +43,16 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.not_same_room
+import ru.adan.silmaril.generated.resources.*
+import ru.adan.silmaril.generated.resources.standing
+import ru.adan.silmaril.generated.resources.target
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
+import ru.adan.silmaril.mud_messages.Position
 import kotlin.math.roundToInt
+import com.composables.person
 
 @Composable
 fun GroupWindow(client: MudConnection, logger: KLogger) {
@@ -105,6 +113,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
         groupMates.forEach { groupMate ->
             val serverMemTime = groupMate.memTime ?: 0
             val localMemTime = groupMateMemTimers[groupMate.name]
+            // wait time arrives as "90" to mean "9 seconds", so always divide by 10
             val serverWaitTime = groupMate.waitState?.div(10.0) ?: 0.0
             val localWaitTime = groupMateWaitTimers[groupMate.name]
 
@@ -162,7 +171,11 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     Text("Стамина", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
-                Box(modifier = Modifier.width(60.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.width(50.dp).padding(start = 10.dp), contentAlignment = Alignment.Center) {
+                    Text("Статус", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                }
+
+                Box(modifier = Modifier.width(60.dp).padding(start = 9.dp), contentAlignment = Alignment.Center) {
                     Text("Мем", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
@@ -348,7 +361,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .background(currentColorStyle.getUiColor(UiColor.Stamina))
                         )
 
-                        // wait time
+                        // wait time bar
                         val displayWaitTime = groupMateWaitTimers[groupMate.name]
                         if (displayWaitTime != null && displayWaitTime > 0.0) {
                             Box(
@@ -362,14 +375,53 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         }
                     }
 
-                    val displayedMem = groupMateMemTimers[groupMate.name]
+                    // Position icon
+                    if (groupMate.position != Position.Standing) {
+                        Box(
+                            modifier = Modifier
+                                .absoluteOffset(x = 262.dp)
+                                .offset(y = (-2).dp)
+                                .width(22.dp)
+                                .height(22.dp)
+                                //.background(Color.LightGray)
+                                .padding(top = 0.dp, bottom = 0.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                imageVector = person,
+                                contentDescription = "Favorite Icon",
+                                //contentScale = ContentScale.FillHeight,
+                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina)),
+                            )
+                        }
+                    }
+
+                    // Is target icon
+                    if (!groupMate.isAttacked) {
+                        Box(
+                            modifier = Modifier
+                                .absoluteOffset(x = 284.dp)
+                                .offset(y = (-2).dp)
+                                .width(22.dp)
+                                //.background(Color.LightGray)
+                                .padding(top = 0.dp, bottom = 0.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(Res.drawable.target),
+                                contentDescription = "is target"
+                            )
+                        }
+                    }
+
                     // Mem box
+                    val displayedMem = groupMateMemTimers[groupMate.name]
                     if (displayedMem != null && displayedMem > 0) {
                         Box(
                             modifier = Modifier
-                                .absoluteOffset(x = 257.dp)
+                                .absoluteOffset(x = 311.dp)
                                 .width(55.dp)
-                                //.background(Color.LightGray)
+                                .background(Color.LightGray)
                                 .padding(top = 0.dp, bottom = 0.dp),
                             contentAlignment = Alignment.Center
                         ) {
