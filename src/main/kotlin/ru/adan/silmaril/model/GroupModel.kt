@@ -25,6 +25,11 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
     val myNameRegex = """^Вы \p{L}+ (\p{L}+), \p{L}+ \d+ уровня\.$""".toRegex()
     val myMaxHpRegex = """^Вы имеете \d+\((\d+)\) единиц здоровья, \d+\(\d+\) энергетических единиц\.$""".toRegex()
     val othersMaxHpRegex = """^(\p{L}+) сообщи(?:л|ла|ло|ли) группе: \d+\/(\d+)H, \d+\/\d+V$""".toRegex()
+    val petRegex1 = """^Имя:\s+([\p{L}\s]+), Где находится: В комнате <.+>$""".toRegex()
+    val petRegex2 = """^Состояние: \d+\/(\d+)H, \d+\/\d+V$""".toRegex()
+
+    var groupPetName = ""
+    var petOnNextLine = false
 
     fun init() {
         scopeDefault.launch {
@@ -51,6 +56,24 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
                     val groupMateMaxHp = othersMaxHpMatch.groupValues[2].toInt()
                     logger.debug { "$groupMateName has max hp: $groupMateMaxHp" }
                     profileManager.addKnownHp(groupMateName, groupMateMaxHp)
+                }
+
+                if (petOnNextLine) {
+                    petOnNextLine = false
+                    val petHpRegexMatch = petRegex2.find(textMessage)
+                    if (petHpRegexMatch != null) {
+                        val petHp = petHpRegexMatch.groupValues[1].toInt()
+                        logger.debug { "$groupPetName has max hp: $petHp" }
+                        profileManager.addKnownHp(groupPetName, petHp)
+                    }
+                    groupPetName = ""
+                }
+
+                val petNameRegexMatch = petRegex1.find(textMessage)
+                if (petNameRegexMatch != null) {
+                    groupPetName = petNameRegexMatch.groupValues[1]
+                    petOnNextLine = true
+                    logger.debug { "Found pet: $groupPetName, checking next line for pet hp"}
                 }
             }
         }
