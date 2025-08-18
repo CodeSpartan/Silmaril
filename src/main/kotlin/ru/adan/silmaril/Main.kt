@@ -30,7 +30,6 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
-import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.TextTriggerManager
 import ru.adan.silmaril.view.GroupWindow
@@ -51,7 +50,6 @@ fun main() {
             val profileManager: ProfileManager = koinInject()
             val textTriggerManager: TextTriggerManager = koinInject()
             val mapModel: MapModel = koinInject()
-            val groupModel: GroupModel = koinInject()
             val loreManager: LoreManager = koinInject()
 
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
@@ -71,7 +69,7 @@ fun main() {
             // Main Window
             Window(
                 onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager, groupModel)
+                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
                     exitApplication()
                 },
                 state = mainWindowState,
@@ -85,7 +83,7 @@ fun main() {
                     showMobsWindow = showMobsWindow,
                     showProfileDialog = showProfileDialog,
                     onExit = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager, groupModel)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
                         exitApplication()
                     }
                 )
@@ -163,14 +161,12 @@ fun cleanupOnExit(
     settingsManager: SettingsManager,
     textTriggerManager: TextTriggerManager,
     loreManager: LoreManager,
-    groupModel: GroupModel
 ) {
     textTriggerManager.cleanup()
     mapModel.cleanup()
     profileManager.cleanup()
     settingsManager.cleanup()
     loreManager.cleanup()
-    groupModel.cleanup()
 }
 
 @Composable

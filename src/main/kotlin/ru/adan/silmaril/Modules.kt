@@ -1,8 +1,6 @@
 package ru.adan.silmaril
 
-import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.LoreManager
@@ -20,7 +18,6 @@ import ru.adan.silmaril.viewmodel.MainViewModel
 val appModule = module {
     singleOf (::SettingsManager)
     singleOf (::MapModel)
-    singleOf (::GroupModel)
     singleOf(::ProfileManager)
     singleOf(::TextTriggerManager)
     singleOf(::LoreManager)
@@ -51,6 +48,13 @@ val appModule = module {
             onInsertVariables = params[2],
             onProcessAliases = params[3],
             onMessageReceived = params[4],
+            settingsManager = get()
+        )
+    }
+
+    factory { params ->
+        GroupModel(
+            client = params[0],
             settingsManager = get()
         )
     }

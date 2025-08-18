@@ -1,13 +1,9 @@
 package ru.adan.silmaril.model
 
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import org.koin.compose.koinInject
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
@@ -17,11 +13,24 @@ import ru.adan.silmaril.viewmodel.MainViewModel
 class ProfileManager(private val settingsManager: SettingsManager) : KoinComponent {
     var currentClient: MutableState<MudConnection>
     var currentMainViewModel: MutableState<MainViewModel>
+    var currentGroupModel: MutableState<GroupModel>
     var currentProfileName: MutableState<String>
     var selectedTabIndex = mutableStateOf(0)
 
     private val _gameWindows = MutableStateFlow<Map<String, Profile>>(emptyMap())
     val gameWindows: StateFlow<Map<String, Profile>> = _gameWindows
+
+    //@TODO: move knownGroupHPs to some other singleton class more appropriate for this, e.g. "GameState"
+    private val _knownGroupHPs = MutableStateFlow(mapOf<String, Int>())
+    val knownGroupHPs: StateFlow<Map<String, Int>> get() = _knownGroupHPs
+
+    // called from GroupModel's coroutine
+    suspend fun addKnownHp(name: String, maxHp: Int) {
+        val updatedMap = _knownGroupHPs.value.toMutableMap().apply {
+            this[name] = maxHp
+        }
+        _knownGroupHPs.emit(updatedMap)
+    }
 
     fun addProfile(windowName: String) {
         val newProfile: Profile = get { parametersOf(windowName) }
@@ -38,6 +47,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         }
         currentClient = mutableStateOf(gameWindows.value.values.first().client)
         currentMainViewModel = mutableStateOf(gameWindows.value.values.first().mainViewModel)
+        currentGroupModel = mutableStateOf(gameWindows.value.values.first().groupModel)
         currentProfileName = mutableStateOf(gameWindows.value.values.first().profileName.capitalized())
     }
 

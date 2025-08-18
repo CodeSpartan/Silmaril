@@ -58,6 +58,14 @@ class Profile(
         }
     }
 
+    val groupModel: GroupModel by lazy {
+        get {
+            parametersOf(
+                client
+            )
+        }
+    }
+
     val scriptingEngine: ScriptingEngine  by lazy {
         get<ScriptingEngine > { parametersOf(profileName, mainViewModel, ::isGroupActive) }
     }
@@ -88,6 +96,7 @@ class Profile(
             // @TODO: move this to ProfileManager or somewhere that it can't be cancelled
             textTriggerManager.initExplicit(this@Profile)
             mapModel.areMapsReady.first { it }
+            groupModel.init()
             // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
         }
@@ -118,6 +127,7 @@ class Profile(
     fun cleanup() {
         scopeDefault.cancel()
         mainViewModel.cleanup()
+        groupModel.cleanup()
     }
 
     fun onSystemMessage(message: String) {

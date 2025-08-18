@@ -71,6 +71,10 @@ class MudConnection(
     private val _colorfulTextMessages = MutableSharedFlow<ColorfulTextMessage>()
     val colorfulTextMessages = _colorfulTextMessages.asSharedFlow()  // Expose flow to MainViewModel
 
+    // Flow to emit received text messages as simple strings (for GroupModel)
+    private val _unformattedTextMessages = MutableSharedFlow<String>()
+    val unformattedTextMessages = _unformattedTextMessages.asSharedFlow()
+
     private val _currentRoomMessages = MutableStateFlow(CurrentRoomMessage.EMPTY)
     val currentRoomMessages: StateFlow<CurrentRoomMessage> get() = _currentRoomMessages
 
@@ -410,7 +414,11 @@ class MudConnection(
             catch (e: IOException) {
                 logger.error { "Error while receiving data" }
             } finally {
-                _colorfulTextMessages.emit(yellowTextMessage("Связь потеряна."))
+                val textString = "Связь потеряна."
+                val colorfulTextMessage = yellowTextMessage(textString)
+                onMessageReceived(textString)
+                _unformattedTextMessages.emit(textString)
+                _colorfulTextMessages.emit(colorfulTextMessage)
                 _connectionState.value = ConnectionState.DISCONNECTED
                 if (settingsManager.settings.value.autoReconnect) {
                     reconnect()
@@ -792,6 +800,7 @@ class MudConnection(
 
             // send glued string to the trigger system
             onMessageReceived(gluedString)
+            _unformattedTextMessages.emit(gluedString)
 
             var str = "Text message: \n"
             for (chunk in gluedMessage.chunks) {
@@ -852,6 +861,7 @@ class MudConnection(
             val gluedString = gluedLine.joinToString(separator = "", transform = { chunk -> chunk.text})
             gameEventsLogger.info { gluedString }
             onMessageReceived(gluedString)
+            _unformattedTextMessages.emit(gluedString)
             _colorfulTextMessages.emit(ColorfulTextMessage(gluedLine))
         }
     }
@@ -863,6 +873,7 @@ class MudConnection(
     private suspend fun printTextMessage(text : String) {
         val colorfulText = ColorfulTextMessage(arrayOf(TextMessageChunk(text, AnsiColor.None, AnsiColor.None, false)))
         onMessageReceived(text)
+        _unformattedTextMessages.emit(text)
         _colorfulTextMessages.emit(colorfulText)
     }
 

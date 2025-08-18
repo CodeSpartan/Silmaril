@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,19 +27,20 @@ import ru.adan.silmaril.visual_styles.StyleManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.koin.dsl.koinApplication
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
-import ru.adan.silmaril.mud_messages.Creature
+import ru.adan.silmaril.model.ProfileManager
+import kotlin.math.roundToInt
 
 @Composable
 fun GroupWindow(client: MudConnection, logger: KLogger) {
-    val groupModel: GroupModel = koinInject()
     val settingsManager: SettingsManager = koinInject()
+    val profileManager: ProfileManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
 
     var internalPadding by remember { mutableStateOf(Offset.Zero) }
@@ -49,6 +49,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
     val currentColorStyle = remember(currentColorStyleName) {StyleManager.getStyle(currentColorStyleName)}
 
     val groupMates by client.lastGroupMessage.collectAsState()
+    val groupKnownHp by profileManager.knownGroupHPs.collectAsState()
+
 //    var groupMates by remember { mutableStateOf<List<Creature>>(emptyList()) }
 //    LaunchedEffect(client) {
 //        client.lastGroupMessage.collect { creatures ->
@@ -130,7 +132,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             fontSize = 15.sp,
                             fontFamily = robotoFont,
                             maxLines = 1,
-                            overflow = TextOverflow.Clip,
+                            overflow = TextOverflow.Ellipsis,
                             )
                     }
 
@@ -143,11 +145,26 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .padding(top = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // if know exact max hp
-                        // if know only hp percent
                         Row {
-                            Text("${groupMate.hitsPercent}")
-                            Text("/${groupMate.hitsPercent}")
+                            // if we know exact max hp
+                            if (groupKnownHp.contains(groupMate.name)) {
+                                Text("${groupKnownHp[groupMate.name]?.times(groupMate.hitsPercent)?.div(100)?.roundToInt()}",
+                                    fontSize = 15.sp,
+                                    fontFamily = robotoFont,
+                                    )
+                                Text("/${groupKnownHp[groupMate.name]}",
+                                    fontSize = 12.sp,
+                                    fontFamily = robotoFont,)
+                            }
+                            // if we know only hp percent
+                            else {
+                                Text("${groupMate.hitsPercent.roundToInt()}",
+                                    fontSize = 15.sp,
+                                    fontFamily = robotoFont,)
+                                Text("%",
+                                    fontSize = 12.sp,
+                                    fontFamily = robotoFont,)
+                            }
                         }
                     }
                 }
