@@ -38,6 +38,7 @@ import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.not_same_room
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
+import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
 import kotlin.math.roundToInt
 
@@ -268,6 +269,26 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .background(currentColorStyle.getUiColor(UiColor.Stamina))
                             .offset(y = (-5).dp)
                         )
+                    }
+
+                    // Mem box
+                    if (groupMate.memTime != null && groupMate.memTime > 0) {
+                        Box(
+                            modifier = Modifier
+                                .absoluteOffset(x = 257.dp)
+                                .width(55.dp)
+                                //.background(Color.LightGray)
+                                .padding(top = 3.dp, bottom = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                formatMem(groupMate.memTime),
+                                fontSize = 12.sp,
+                                fontFamily = robotoFont,
+                                color = currentColorStyle.getUiColor(UiColor.GroupPrimaryFontColor),
+                                modifier = Modifier.padding(bottom = 1.dp),
+                            )
+                        }
                     }
                 }
             }

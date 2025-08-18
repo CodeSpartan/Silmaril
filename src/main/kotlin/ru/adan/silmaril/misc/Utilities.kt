@@ -163,3 +163,9 @@ fun formatDuration(totalHours: Int): String {
         "$days дн. $hours час."
     }
 }
+
+fun formatMem(seconds: Int): String {
+    val minutes = (seconds / 60).toString().padStart(2, '0')
+    val remainingSeconds = (seconds % 60).toString().padStart(2, '0')
+    return "$minutes:$remainingSeconds"
+}
