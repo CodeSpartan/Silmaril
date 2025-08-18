@@ -26,13 +26,16 @@ import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.not_same_room
@@ -55,6 +58,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 
     val groupMates by client.lastGroupMessage.collectAsState()
     val groupKnownHp by profileManager.knownGroupHPs.collectAsState()
+    val groupMateTimers = remember { mutableStateMapOf<String, Int>() }
 
 //    var groupMates by remember { mutableStateOf<List<Creature>>(emptyList()) }
 //    LaunchedEffect(client) {
@@ -62,6 +66,46 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 //            groupMates = creatures
 //        }
 //    }
+
+    // This will tick all mem timers every second
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            groupMateTimers.keys.forEach { name ->
+                groupMateTimers[name]?.let { currentTime ->
+                    if (currentTime > 0) {
+                        groupMateTimers[name] = currentTime - 1
+                    }
+                }
+            }
+        }
+    }
+
+    // This will update mem timers if new information arrives and diverges from our local mem y more than 2 seconds
+    LaunchedEffect(groupMates) {
+        val updatedTimers = SnapshotStateMap<String, Int>()
+        groupMates.forEach { groupMate ->
+            val serverTime = groupMate.memTime ?: 0
+            val localTime = groupMateTimers[groupMate.name]
+
+            if (localTime == null) {
+                // If we don't have a local timer for this group mate, create one.
+                updatedTimers[groupMate.name] = serverTime
+            } else {
+                // If a local timer exists, check if the server time is significantly different.
+                // We use a threshold of 2 seconds to account for network latency and the update interval.
+                if (kotlin.math.abs(serverTime - localTime) > 2 || serverTime == 0) {
+                    updatedTimers[groupMate.name] = serverTime
+                } else {
+                    // Otherwise, keep the local timer value.
+                    updatedTimers[groupMate.name] = localTime
+                }
+            }
+        }
+        // Replace the old map with the updated one to remove timers for group mates who have left.
+        groupMateTimers.clear()
+        groupMateTimers.putAll(updatedTimers)
+    }
 
     Box(
         modifier = Modifier
@@ -271,8 +315,9 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         )
                     }
 
+                    val displayedMem = groupMateTimers[groupMate.name]
                     // Mem box
-                    if (groupMate.memTime != null && groupMate.memTime > 0) {
+                    if (displayedMem != null && displayedMem > 0) {
                         Box(
                             modifier = Modifier
                                 .absoluteOffset(x = 257.dp)
@@ -282,7 +327,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                formatMem(groupMate.memTime),
+                                formatMem(displayedMem),
                                 fontSize = 12.sp,
                                 fontFamily = robotoFont,
                                 color = currentColorStyle.getUiColor(UiColor.GroupPrimaryFontColor),
