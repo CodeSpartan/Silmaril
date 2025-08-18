@@ -9,12 +9,12 @@ data class Creature(
     val isAttacked: Boolean,
     val affects: List<Affect>,
 
-    // Common properties with logic applied
+    // Group-specific
     val inSameRoom: Boolean,
+    // NPC specific
     val isPlayerCharacter: Boolean,
     val isBoss: Boolean,
-
-    // Pet-specific properties (nullable)
+    // Pet(groupmate)-specific properties (nullable)
     val owner: String? = null,
     // Groupmate-specific properties (nullable)
     val memTime: Int? = null,

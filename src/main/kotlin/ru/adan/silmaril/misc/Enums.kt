@@ -29,5 +29,6 @@ enum class UiColor {
     HpMedium,
     HpBad,
     HpExecrable,
-    Stamina
+    Stamina,
+    WaitTime,
 }

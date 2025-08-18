@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,7 +59,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 
     val groupMates by client.lastGroupMessage.collectAsState()
     val groupKnownHp by profileManager.knownGroupHPs.collectAsState()
-    val groupMateTimers = remember { mutableStateMapOf<String, Int>() }
+    val groupMateMemTimers = remember { mutableStateMapOf<String, Int>() }
+    val groupMateWaitTimers = remember { mutableStateMapOf<String, Double>() }
 
 //    var groupMates by remember { mutableStateOf<List<Creature>>(emptyList()) }
 //    LaunchedEffect(client) {
@@ -71,40 +73,71 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
-            groupMateTimers.keys.forEach { name ->
-                groupMateTimers[name]?.let { currentTime ->
+            groupMateMemTimers.keys.forEach { name ->
+                groupMateMemTimers[name]?.let { currentTime ->
                     if (currentTime > 0) {
-                        groupMateTimers[name] = currentTime - 1
+                        groupMateMemTimers[name] = currentTime - 1
                     }
                 }
             }
         }
     }
 
-    // This will update mem timers if new information arrives and diverges from our local mem y more than 2 seconds
-    LaunchedEffect(groupMates) {
-        val updatedTimers = SnapshotStateMap<String, Int>()
-        groupMates.forEach { groupMate ->
-            val serverTime = groupMate.memTime ?: 0
-            val localTime = groupMateTimers[groupMate.name]
+    // This will tick all wait timers every 100 ms
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(100) // More frequent delay
+            groupMateWaitTimers.keys.forEach { name ->
+                groupMateWaitTimers[name]?.let { currentTime ->
+                    if (currentTime > 0.0) {
+                        // Decrement by the delay interval (0.1 seconds)
+                        groupMateWaitTimers[name] = (currentTime - 0.1).coerceAtLeast(0.0)
+                    }
+                }
+            }
+        }
+    }
 
-            if (localTime == null) {
+    // This will update mem timers if new information arrives and diverges from our local mem y more than 1 seconds
+    LaunchedEffect(groupMates) {
+        val updatedMemTimers = SnapshotStateMap<String, Int>()
+        val updatedWaitTimers = SnapshotStateMap<String, Double>()
+        groupMates.forEach { groupMate ->
+            val serverMemTime = groupMate.memTime ?: 0
+            val localMemTime = groupMateMemTimers[groupMate.name]
+            val serverWaitTime = groupMate.waitState?.div(10.0) ?: 0.0
+            val localWaitTime = groupMateWaitTimers[groupMate.name]
+
+            if (localMemTime == null) {
                 // If we don't have a local timer for this group mate, create one.
-                updatedTimers[groupMate.name] = serverTime
+                updatedMemTimers[groupMate.name] = serverMemTime
             } else {
                 // If a local timer exists, check if the server time is significantly different.
                 // We use a threshold of 2 seconds to account for network latency and the update interval.
-                if (kotlin.math.abs(serverTime - localTime) > 2 || serverTime == 0) {
-                    updatedTimers[groupMate.name] = serverTime
+                if (kotlin.math.abs(serverMemTime - localMemTime) > 1 || serverMemTime == 0) {
+                    updatedMemTimers[groupMate.name] = serverMemTime
                 } else {
                     // Otherwise, keep the local timer value.
-                    updatedTimers[groupMate.name] = localTime
+                    updatedMemTimers[groupMate.name] = localMemTime
+                }
+            }
+
+            if (localWaitTime == null) {
+                updatedWaitTimers[groupMate.name] = serverWaitTime
+            } else {
+                if (kotlin.math.abs(serverWaitTime - localWaitTime) > 0.5 || localWaitTime == 0.0) {
+                    updatedWaitTimers[groupMate.name] = serverWaitTime
+                } else {
+                    updatedWaitTimers[groupMate.name] = localWaitTime
                 }
             }
         }
         // Replace the old map with the updated one to remove timers for group mates who have left.
-        groupMateTimers.clear()
-        groupMateTimers.putAll(updatedTimers)
+        groupMateMemTimers.clear()
+        groupMateMemTimers.putAll(updatedMemTimers)
+
+        groupMateWaitTimers.clear()
+        groupMateWaitTimers.putAll(updatedWaitTimers)
     }
 
     Box(
@@ -142,7 +175,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 21.dp, end = 10.dp, top = 2.dp)
+                    .padding(start = 21.dp, end = 10.dp, top = 2.dp, bottom = 7.dp)
                     .height(1.dp)
                     .background(color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
             )
@@ -151,7 +184,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(25.dp),
+                        //.background(Color.LightGray)
+                        .height(28.dp),
                     contentAlignment = Alignment.TopStart
                 ) {
                     if (!groupMate.inSameRoom) {
@@ -161,7 +195,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 .absoluteOffset(x = 3.dp)
                                 .width(15.dp)
                                 //.background(Color.LightGray)
-                                .padding(top = 5.dp),
+                                .padding(top = 2.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Image(
@@ -177,7 +211,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .absoluteOffset(x = 16.dp)
                             .width(20.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 3.dp),
+                            .padding(top = 0.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("${index+1}",
@@ -191,7 +225,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .absoluteOffset(x = 41.dp)
                             .width(81.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 3.dp),
+                            .padding(top = 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(groupMate.name.capitalized(),
@@ -210,7 +244,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .absoluteOffset(x = 123.dp)
                             .width(65.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 3.dp, bottom = 4.dp),
+                            .padding(top = 0.dp, bottom = 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         val hpColor = when (groupMate.hitsPercent) {
@@ -233,7 +267,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                     fontSize = 12.sp,
                                     fontFamily = robotoFont,
                                     color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
-                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
+                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp),
                                     )
                             }
                             // if we know only hp percent, print 250%
@@ -248,27 +282,27 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                     fontSize = 12.sp,
                                     fontFamily = robotoFont,
                                     color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
-                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
+                                    modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp),
                                     )
                             }
                         }
 
                         // background hp bar
                         Box(modifier = Modifier.fillMaxWidth()
+                            .offset(y = (-3).dp)
                             .height(2.dp)
                             .align(Alignment.BottomCenter)
                             .clip(RoundedCornerShape(2.dp))
                             .background(currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
-                            .offset(y = (-5).dp)
                         )
 
                         // foreground hp bar
                         Box(modifier = Modifier.fillMaxWidth((groupMate.hitsPercent.toFloat()/100).coerceIn(0f, 1f))
+                            .offset(y = (-3).dp)
                             .height(2.dp)
                             .align(Alignment.BottomStart)
                             .clip(RoundedCornerShape(2.dp))
                             .background(hpColor)
-                            .offset(y = (-5).dp)
                         )
                     }
 
@@ -278,7 +312,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .absoluteOffset(x = 197.dp)
                             .width(60.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 3.dp, bottom = 4.dp),
+                            .padding(top = 0.dp, bottom = 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row (verticalAlignment = Alignment.Top) {
@@ -292,30 +326,43 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 fontSize = 12.sp,
                                 fontFamily = robotoFont,
                                 color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
-                                modifier = Modifier.align(Alignment.Bottom).padding(bottom = 1.dp),
+                                modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp),
                             )
                         }
 
                         // background stamina bar
                         Box(modifier = Modifier.fillMaxWidth()
+                            .offset(y = (-3).dp)
                             .height(2.dp)
                             .align(Alignment.BottomCenter)
                             .clip(RoundedCornerShape(2.dp))
                             .background(currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
-                            .offset(y = (-5).dp)
                         )
 
                         // foreground stamina bar
                         Box(modifier = Modifier.fillMaxWidth((groupMate.movesPercent.toFloat()/100).coerceIn(0f, 1f))
+                            .offset(y = (-3).dp)
                             .height(2.dp)
                             .align(Alignment.BottomStart)
                             .clip(RoundedCornerShape(2.dp))
                             .background(currentColorStyle.getUiColor(UiColor.Stamina))
-                            .offset(y = (-5).dp)
                         )
+
+                        // wait time
+                        val displayWaitTime = groupMateWaitTimers[groupMate.name]
+                        if (displayWaitTime != null && displayWaitTime > 0.0) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth((displayWaitTime.coerceIn(0.0, 8.0) / 8.0).toFloat())
+                                    //.offset(y = (-1).dp)
+                                    .height(2.dp)
+                                    .align(Alignment.BottomStart)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(currentColorStyle.getUiColor(UiColor.WaitTime))
+                            )
+                        }
                     }
 
-                    val displayedMem = groupMateTimers[groupMate.name]
+                    val displayedMem = groupMateMemTimers[groupMate.name]
                     // Mem box
                     if (displayedMem != null && displayedMem > 0) {
                         Box(
@@ -323,7 +370,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 .absoluteOffset(x = 257.dp)
                                 .width(55.dp)
                                 //.background(Color.LightGray)
-                                .padding(top = 3.dp, bottom = 4.dp),
+                                .padding(top = 0.dp, bottom = 0.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -337,8 +384,6 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     }
                 }
             }
-
-
         }
     }
 }
