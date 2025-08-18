@@ -46,6 +46,7 @@ interface ScriptingEngine {
     fun switchWindowCommand(window: String) : Boolean
     fun loreCommand(loreName: String)
     fun commentCommand(comment: String): Boolean
+    fun isThisCurrentWindowCommand(): Boolean
 }
 
 open class ScriptingEngineImpl(
@@ -138,6 +139,10 @@ open class ScriptingEngineImpl(
 
     override fun commentCommand(comment: String): Boolean {
         return loreManager.commentLastLore(comment)
+    }
+
+    override fun isThisCurrentWindowCommand(): Boolean {
+        return profileManager.currentProfileName.value.equals(profileName, ignoreCase = true)
     }
 
     override fun getVarCommand(varName: String): Variable? {

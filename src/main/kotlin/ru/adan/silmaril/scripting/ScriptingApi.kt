@@ -84,3 +84,7 @@ fun ScriptingEngine.unVar(varName: String) {
 fun ScriptingEngine.window(windowName: String) {
     switchWindowCommand(windowName)
 }
+
+fun ScriptingEngine.isThisCurrentWindow(): Boolean {
+    return isThisCurrentWindowCommand()
+}
