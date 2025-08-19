@@ -301,6 +301,7 @@ class Profile(
                 mainViewModel.displaySystemMessage("Группа $groupName выключена.")
             }
             scriptingEngine.sortTriggersByPriority()
+            scriptingEngine.sortAliasesByPriority()
         } else {
             val groupRegex2 = """\#group [{]?([\p{L}\p{N}_]+)[}]?$""".toRegex()
             val match2 = groupRegex2.find(message)
