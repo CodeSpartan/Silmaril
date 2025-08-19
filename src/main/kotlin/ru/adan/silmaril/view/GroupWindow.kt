@@ -372,41 +372,46 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         }
                     }
 
-                    // Position icon
-                    if (groupMate.position != Position.Standing) {
-                        Box(
-                            modifier = Modifier
-                                .absoluteOffset(x = 262.dp)
-                                .offset(y = (-2).dp)
-                                .width(22.dp)
-                                .height(22.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                    // Position icon & Target icon
+                    Box(
+                        modifier = Modifier
+                            .absoluteOffset(x = 262.dp)
+                            .offset(y = (-2).dp)
+                            .width(44.dp)
+                            .height(22.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row {
+                            if (groupMate.position != Position.Standing)
                             Image(
-                                painter = painterResource(Res.drawable.standing),
-                                contentDescription = "Standing",
-                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina)),
+                                painter = painterResource(when (groupMate.position) {
+                                    Position.Dying -> Res.drawable.rip
+                                    Position.Sleeping -> Res.drawable.sleeping
+                                    Position.Resting -> Res.drawable.resting
+                                    Position.Sitting -> Res.drawable.sitting
+                                    Position.Fighting -> Res.drawable.fighting
+                                    //Position.Standing -> Res.drawable.standing
+                                    Position.Riding -> Res.drawable.riding
+                                    else -> Res.drawable.standing
+                                }),
+                                modifier = Modifier.width(22.dp).height(22.dp),
+                                contentDescription = "Position",
+                                colorFilter = when (groupMate.position) {
+                                    Position.Dying -> null
+                                    Position.Fighting -> null
+                                    Position.Sitting -> ColorFilter.tint(currentColorStyle.getUiColor(UiColor.HpBad))
+                                    else -> ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina))
+                                },
+                            )
+                            if (groupMate.isAttacked)
+                            Image(
+                                painter = painterResource(Res.drawable.target),
+                                modifier = Modifier.width(22.dp),
+                                contentDescription = "Is target",
                             )
                         }
                     }
 
-                    // Is target icon
-                    if (!groupMate.isAttacked) {
-                        Box(
-                            modifier = Modifier
-                                .absoluteOffset(x = 284.dp)
-                                .offset(y = (-2).dp)
-                                .width(22.dp)
-                                .height(22.dp)
-                                .padding(top = 0.dp, bottom = 0.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(Res.drawable.target),
-                                contentDescription = "is target",
-                            )
-                        }
-                    }
 
                     // Mem box
                     val displayedMem = groupMateMemTimers[groupMate.name]
@@ -415,7 +420,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             modifier = Modifier
                                 .absoluteOffset(x = 311.dp)
                                 .width(55.dp)
-                                .background(Color.LightGray)
+                                //.background(Color.LightGray)
                                 .padding(top = 0.dp, bottom = 0.dp),
                             contentAlignment = Alignment.Center
                         ) {
