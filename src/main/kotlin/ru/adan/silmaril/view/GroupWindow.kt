@@ -40,8 +40,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import ru.adan.silmaril.generated.resources.Res
-import ru.adan.silmaril.generated.resources.not_same_room
-import ru.adan.silmaril.generated.resources.target
+import ru.adan.silmaril.generated.resources.*
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.misc.formatMem
@@ -201,15 +200,17 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         // Icon: Not same room
                         Box(
                             modifier = Modifier
-                                .absoluteOffset(x = 3.dp)
-                                .width(15.dp)
+                                .absoluteOffset(x = 0.dp)
+                                .width(21.dp)
+                                .height(21.dp)
                                 //.background(Color.LightGray)
-                                .padding(top = 2.dp),
+                                .padding(top = 0.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Image(
                                 painter = painterResource(Res.drawable.not_same_room),
-                                contentDescription = "not same room"
+                                contentDescription = "not same room",
+                                modifier = Modifier.offset(x = (-3).dp, y = (-3).dp),
                             )
                         }
                     }
