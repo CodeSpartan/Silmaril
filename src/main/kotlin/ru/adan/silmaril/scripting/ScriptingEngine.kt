@@ -67,6 +67,7 @@ open class ScriptingEngineImpl(
     private var aliasesByPriority = listOf<Trigger>()
 
     private var currentlyLoadingScript = ""
+    private val regexContainsPercentPatterns = Regex("""%\d+""")
 
     override fun addTriggerToGroup(group: String, trigger: Trigger) {
         if (!triggers.containsKey(group)) {
@@ -188,8 +189,19 @@ open class ScriptingEngineImpl(
             if (match != null) {
                 if (alias.action.commandToSend != null) {
                     val returnStr = alias.action.commandToSend.invoke(this, match)
+
+                    // When it's a normal alias (not DSL) without any matching patterns such as %0, %1, etc,
+                    // then there's an automatically added (.+) at the end of the condition (see AliasCondition::parsePattern).
+                    // But if nothing matches the (.+) in the action, then append " %0" to the action, so that
+                    // a simple #al {e} {eat} will allow "e food" -> "eat food"
+                    if (alias.action.originalCommand != null) {
+                        if (!regexContainsPercentPatterns.containsMatchIn(alias.action.originalCommand))
+                            if (1 in match.groupValues.indices)
+                                return true to line.replace(match.groupValues[0], returnStr + " " + match.groupValues[1]).trim()
+                    }
                     return true to returnStr
                 } else {
+                    // In DSL, don't return any string. The lambda is supposed to issue its own "sends".
                     alias.action.lambda.invoke(this, match)
                     return true to null
                 }
