@@ -432,15 +432,26 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     }
 
                     // Effects
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(22.dp)
-                            .padding(top = 0.dp, bottom = 0.dp, end = 10.dp)
-                            .background(Color.LightGray),
-                        contentAlignment = Alignment.Center
+                            .padding(top = 0.dp, bottom = 0.dp, end = 10.dp),
+                            //.background(Color.LightGray)
+                        verticalAlignment = Alignment.Top
                     ) {
-
+                        groupMate.affects.forEach { affect ->
+                            Image(
+                                painter = painterResource(when (affect.name) {
+                                    "голод" -> Res.drawable.hunger
+                                    "жажда" -> Res.drawable.thirst
+                                    "полет" -> Res.drawable.hermes
+                                    else -> Res.drawable.standing
+                                }),
+                                modifier = Modifier.width(27.dp).padding(end = 2.dp),
+                                contentDescription = "Effect",
+                            )
+                        }
                     }
                 }
             }
