@@ -33,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -189,24 +191,23 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
             )
 
             groupMates.forEachIndexed  { index, groupMate ->
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         //.background(Color.LightGray)
                         .height(28.dp),
-                    contentAlignment = Alignment.TopStart
+                    verticalAlignment = Alignment.Top
                 ) {
-                    if (!groupMate.inSameRoom) {
-                        // Icon: Not same room
-                        Box(
-                            modifier = Modifier
-                                .absoluteOffset(x = 0.dp)
-                                .width(21.dp)
-                                .height(21.dp)
-                                //.background(Color.LightGray)
-                                .padding(top = 0.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
+                    // Icon: not same room
+                    Box(
+                        modifier = Modifier
+                            .width(21.dp)
+                            .height(21.dp)
+                            //.background(Color.LightGray)
+                            .padding(top = 0.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (!groupMate.inSameRoom) {
                             Image(
                                 painter = painterResource(Res.drawable.not_same_room),
                                 contentDescription = "not same room",
@@ -218,8 +219,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Index box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 16.dp)
                             .width(20.dp)
+                            .offset(x = (-5).dp)
                             //.background(Color.LightGray)
                             .padding(top = 0.dp),
                         contentAlignment = Alignment.Center,
@@ -232,8 +233,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Name box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 41.dp)
-                            .width(81.dp)
+                            .width(82.dp)
                             //.background(Color.LightGray)
                             .padding(top = 0.dp),
                         contentAlignment = Alignment.Center
@@ -251,7 +251,6 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // HP Box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 123.dp)
                             .width(65.dp)
                             //.background(Color.LightGray)
                             .padding(top = 0.dp, bottom = 0.dp),
@@ -319,10 +318,9 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Stamina box
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 197.dp)
-                            .width(60.dp)
+                            .width(69.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp, bottom = 0.dp),
+                            .padding(top = 0.dp, bottom = 0.dp, start = 9.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row (verticalAlignment = Alignment.Top) {
@@ -375,10 +373,10 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Position icon & Target icon
                     Box(
                         modifier = Modifier
-                            .absoluteOffset(x = 262.dp)
                             .offset(y = (-2).dp)
-                            .width(44.dp)
-                            .height(22.dp),
+                            .width(49.dp)
+                            .height(22.dp)
+                            .padding(start = 5.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row {
@@ -415,15 +413,14 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 
                     // Mem box
                     val displayedMem = groupMateMemTimers[groupMate.name]
-                    if (displayedMem != null && displayedMem > 0) {
-                        Box(
-                            modifier = Modifier
-                                .absoluteOffset(x = 311.dp)
-                                .width(55.dp)
-                                //.background(Color.LightGray)
-                                .padding(top = 0.dp, bottom = 0.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                    Box(
+                        modifier = Modifier
+                            .width(60.dp)
+                            //.background(Color.LightGray)
+                            .padding(top = 0.dp, bottom = 0.dp, start = 5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (displayedMem != null && displayedMem > 0) {
                             Text(
                                 formatMem(displayedMem),
                                 fontSize = 12.sp,
@@ -432,6 +429,18 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 modifier = Modifier.padding(bottom = 1.dp),
                             )
                         }
+                    }
+
+                    // Effects
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(22.dp)
+                            .padding(top = 0.dp, bottom = 0.dp, end = 10.dp)
+                            .background(Color.LightGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+
                     }
                 }
             }
