@@ -132,7 +132,7 @@ data class LoreMessage(
         val EMPTY = LoreMessage() // You might need a default constructor or update this
 
         fun fromXml(xml: String): LoreMessage? {
-            logger.info { "LoreMessage.fromXml(): $xml" }
+            logger.debug { "LoreMessage.fromXml(): $xml" }
             val xmlMapper = XmlMapper().registerKotlinModule()
             return try {
                 xmlMapper.readValue(xml, LoreMessage::class.java)
