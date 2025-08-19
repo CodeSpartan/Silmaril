@@ -228,7 +228,8 @@ data class LoreMessage(
     fun printWeaponStats(): Array<String> {
         return if (weaponStats != null) {
             arrayOf(
-                "Сила удара '${weaponStats.diceCount}D${weaponStats.diceSides}', средняя сила удара в раунд ${weaponStats.averageDamage}.",
+                // it's adan's bug that dice sides and dice count are reversed
+                "Сила удара '${weaponStats.diceSides}D${weaponStats.diceCount}', средняя сила удара в раунд ${weaponStats.averageDamage}.",
                 "Требует знаний в области '${weaponStats.requiredSkill}'"
             )
         } else emptyArray()
@@ -366,9 +367,9 @@ data class LoreMessage(
                         else -> "неизвестного типа"
                     }
                     if (effect.duration > 0)
-                        magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${effect.diceCount}D${effect.diceSides} [${formatDuration(effect.duration)}]")
+                        magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${effect.diceSides}D${effect.diceCount} [${formatDuration(effect.duration)}]")
                     else
-                        magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${effect.diceCount}D${effect.diceSides}")
+                        magicArrowsBuilder.append(" Магические стрелы: доп. повреждения магией $magicType ${effect.diceSides}D${effect.diceCount}")
 
                     if (effect.necessarySetItemsCount > 0)
                         magicArrowsBuilder.append(" (Необходимо ${effect.necessarySetItemsCount} предмет${if (effect.necessarySetItemsCount < 5) "а" else "ов"} из набора)")
