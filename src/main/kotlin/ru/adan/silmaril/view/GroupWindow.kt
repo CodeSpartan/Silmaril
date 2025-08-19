@@ -48,7 +48,7 @@ import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.mud_messages.Position
 import kotlin.math.roundToInt
-import com.composables.standing
+import ru.adan.silmaril.generated.resources.standing
 
 @Composable
 fun GroupWindow(client: MudConnection, logger: KLogger) {
@@ -378,13 +378,11 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 .absoluteOffset(x = 262.dp)
                                 .offset(y = (-2).dp)
                                 .width(22.dp)
-                                .height(22.dp)
-                                //.background(Color.LightGray)
-                                .padding(top = 0.dp, bottom = 0.dp),
+                                .height(22.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
-                                imageVector = standing,
+                                painter = painterResource(Res.drawable.standing),
                                 contentDescription = "Standing",
                                 colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina)),
                             )
@@ -398,13 +396,13 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                 .absoluteOffset(x = 284.dp)
                                 .offset(y = (-2).dp)
                                 .width(22.dp)
-                                //.background(Color.LightGray)
+                                .height(22.dp)
                                 .padding(top = 0.dp, bottom = 0.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
                                 painter = painterResource(Res.drawable.target),
-                                contentDescription = "is target"
+                                contentDescription = "is target",
                             )
                         }
                     }
