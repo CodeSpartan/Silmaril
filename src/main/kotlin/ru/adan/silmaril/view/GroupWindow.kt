@@ -224,7 +224,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .width(21.dp)
                             .height(21.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp),
+                            .padding(top = 3.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (!groupMate.inSameRoom) {
@@ -242,7 +242,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .width(20.dp)
                             .offset(x = (-5).dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp),
+                            .padding(top = 3.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("${index+1}",
@@ -255,7 +255,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .width(82.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp),
+                            .padding(top = 3.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(groupMate.name.capitalized(),
@@ -273,7 +273,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .width(65.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp, bottom = 0.dp),
+                            .padding(top = 3.dp, bottom = 0.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         val hpColor = when (groupMate.hitsPercent) {
@@ -340,7 +340,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .width(69.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp, bottom = 0.dp, start = 9.dp),
+                            .padding(top = 3.dp, bottom = 0.dp, start = 9.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row (verticalAlignment = Alignment.Top) {
@@ -396,7 +396,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .offset(y = (-2).dp)
                             .width(49.dp)
                             .height(22.dp)
-                            .padding(start = 5.dp),
+                            .padding(start = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row {
@@ -437,7 +437,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .width(60.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 2.dp, bottom = 0.dp, start = 5.dp),
+                            .padding(top = 5.dp, bottom = 0.dp, start = 5.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (displayedMem != null && displayedMem > 0) {
