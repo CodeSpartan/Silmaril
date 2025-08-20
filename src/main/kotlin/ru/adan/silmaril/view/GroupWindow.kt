@@ -461,10 +461,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         verticalAlignment = Alignment.Top
                     ) {
                         groupMateEffects[index]?.forEach { effect ->
-//                            Box(modifier = Modifier.background(Color.DarkGray)) {
-//                                Effect(currentColorStyle, effect)
-//                            }
-                            Effect(currentColorStyle, effect)
+                            Effect(currentColorStyle, robotoFont, effect)
                         }
                     }
                 }

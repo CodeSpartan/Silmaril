@@ -3,17 +3,22 @@ package ru.adan.silmaril.view
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import ru.adan.silmaril.generated.resources.Res
@@ -23,38 +28,57 @@ import ru.adan.silmaril.mud_messages.Affect
 import ru.adan.silmaril.visual_styles.ColorStyle
 
 @Composable
-fun Effect(colorStyle: ColorStyle, effect: GroupMateEffect) {
-    Image(
-        painter = painterResource(effect.icon),
-        modifier = Modifier.width(24.dp),
-        contentDescription = "Effect",
-    )
-
-    // Round counting dots
+fun Effect(colorStyle: ColorStyle, font: FontFamily, effect: GroupMateEffect) {
     Box(
         modifier = Modifier
-            .width(8.dp)
             .fillMaxHeight()
-            //.background(Color.DarkGray)
-            .padding(end = 4.dp),
-        contentAlignment = Alignment.BottomStart
+            .width(32.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        if (effect.isRoundBased && effect.rounds != null && effect.rounds > 0) {
-            for (i in 0..effect.rounds.coerceAtMost(6) - 1) {
-                Box(
-                    modifier = Modifier
-                        .offset(y = (-1 - (4 * i)).dp)
-                        .height(2.dp)
-                        .width(6.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(colorStyle.getUiColor(UiColor.HpMedium))
-                )
+        Image(
+            painter = painterResource(effect.icon),
+            modifier = Modifier.width(24.dp),
+            contentDescription = "Effect",
+        )
+
+        // Round counting dots
+        Box(
+            modifier = Modifier
+                //.offset(x = 24.dp)
+                .width(8.dp)
+                .fillMaxHeight()
+                .align(Alignment.BottomEnd)
+                //.background(Color.DarkGray)
+                .padding(end = 4.dp),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            if (effect.isRoundBased && effect.rounds != null && effect.rounds > 0) {
+                for (i in 0..effect.rounds.coerceAtMost(6) - 1) {
+                    Box(
+                        modifier = Modifier
+                            .offset(y = (-1 - (4 * i)).dp)
+                            .height(2.dp)
+                            .width(6.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(colorStyle.getUiColor(UiColor.HpMedium))
+                    )
+                }
             }
+        }
+
+        if (!effect.isRoundBased && effect.duration != null && effect.duration < 60) {
+            Text(
+                text = "${effect.duration.coerceAtLeast(0)}",
+                color = colorStyle.getUiColor(UiColor.GroupPrimaryFontColor),
+                fontSize = 8.sp,
+                fontFamily = font,
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
         }
     }
 }
 
-data class GroupMateEffect (
+data class GroupMateEffect(
     val name: String,
     val icon: DrawableResource,
     val isRoundBased: Boolean,
@@ -69,26 +93,26 @@ data class GroupMateEffect (
                 "жажда" -> Res.drawable.thirst
                 "полет" -> Res.drawable.hermes
                 "ускорение" -> Res.drawable.accelerate
-                 // blesses
+                // blesses
                 "благословение" -> Res.drawable.bless
                 "точность" -> Res.drawable.bless
                 "слепота" -> Res.drawable.blind
                 "проклятие" -> Res.drawable.curse
-                 // cleric heals
+                // cleric heals
                 "легкое заживление" -> Res.drawable.heal_cleric
                 "серьезное заживление" -> Res.drawable.heal_cleric
                 "критическое заживление" -> Res.drawable.heal_cleric
                 "заживление" -> Res.drawable.heal_cleric
-                 // druid heals
+                // druid heals
                 "легкое обновление" -> Res.drawable.heal_druid
                 "серьезное обновление" -> Res.drawable.heal_druid
                 "критическое обновление" -> Res.drawable.heal_druid
-                 // holds
+                // holds
                 "придержать персону" -> Res.drawable.hold_person
                 "придержать любого" -> Res.drawable.hold_person
                 "невидимость" -> Res.drawable.invisibility
                 "каменное проклятие" -> Res.drawable.petrification
-                 // poisons
+                // poisons
                 "яд" -> Res.drawable.poison
                 "ядовитый выстрел" -> Res.drawable.poison
                 "защита" -> Res.drawable.shield1
@@ -102,7 +126,7 @@ data class GroupMateEffect (
                 else -> null
             }
 
-            val isRoundBased = when(a.name) {
+            val isRoundBased = when (a.name) {
                 "яд" -> true
                 "ядовитый выстрел" -> true
                 "ускорение" -> true
