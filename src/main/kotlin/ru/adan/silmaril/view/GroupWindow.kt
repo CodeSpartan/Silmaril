@@ -33,8 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,7 +47,6 @@ import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.mud_messages.Position
 import kotlin.math.roundToInt
-import ru.adan.silmaril.generated.resources.standing
 
 @Composable
 fun GroupWindow(client: MudConnection, logger: KLogger) {
@@ -153,7 +150,10 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
             .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
     ) {
         Column() {
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            // Title row
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 Box(modifier = Modifier.width(123.dp).padding(start = 40.dp)) {
@@ -190,7 +190,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     .background(color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor))
             )
 
-            groupMates.forEachIndexed  { index, groupMate ->
+            groupMates.forEachIndexed { index, groupMate ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -435,22 +435,17 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(22.dp)
+                            .height(24.dp)
                             .padding(top = 0.dp, bottom = 0.dp, end = 10.dp),
                             //.background(Color.LightGray)
                         verticalAlignment = Alignment.Top
                     ) {
                         groupMate.affects.forEach { affect ->
-                            Image(
-                                painter = painterResource(when (affect.name) {
-                                    "голод" -> Res.drawable.hunger
-                                    "жажда" -> Res.drawable.thirst
-                                    "полет" -> Res.drawable.hermes
-                                    else -> Res.drawable.standing
-                                }),
-                                modifier = Modifier.width(27.dp).padding(end = 2.dp),
-                                contentDescription = "Effect",
-                            )
+                            Box(modifier = Modifier.background(Color.DarkGray)) {
+                                Effect(affect)
+                            }
+                            Box(modifier = Modifier.width(1.dp))
+                            //Effect(affect)
                         }
                     }
                 }

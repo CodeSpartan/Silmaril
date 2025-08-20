@@ -5,6 +5,7 @@ import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.input.key.KeyEvent
 import ru.adan.silmaril.model.SettingsManager
 import java.awt.Dimension
 import androidx.compose.ui.window.Window
@@ -72,6 +73,7 @@ fun main() {
                     cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
                     exitApplication()
                 },
+                onPreviewKeyEvent = profileManager::onHotkeyKey,
                 state = mainWindowState,
                 title = "Silmaril",
                 icon = painterResource(Res.drawable.icon),
