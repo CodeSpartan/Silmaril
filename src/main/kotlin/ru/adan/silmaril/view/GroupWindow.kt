@@ -63,6 +63,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
     val groupKnownHp by profileManager.knownGroupHPs.collectAsState()
     val groupMateMemTimers = remember { mutableStateMapOf<String, Int>() }
     val groupMateWaitTimers = remember { mutableStateMapOf<String, Double>() }
+    val groupMateEffects = remember { mutableStateMapOf<Int, List<GroupMateEffect>>()} // key is the order of groupmates in the message
 
 //    var groupMates by remember { mutableStateOf<List<Creature>>(emptyList()) }
 //    LaunchedEffect(client) {
@@ -72,6 +73,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 //    }
 
     // This will tick all mem timers every second
+    // And also tick all effects by 1 sec
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
@@ -80,6 +82,14 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     if (currentTime > 0) {
                         groupMateMemTimers[name] = currentTime - 1
                     }
+                }
+            }
+            groupMateEffects.keys.forEach { index ->
+                groupMateEffects[index]?.let { effects ->
+                    val updatedListOfEffects = effects.map { effect ->
+                        effect.copy(duration = effect.duration?.minus(1))
+                    }
+                    groupMateEffects[index] = updatedListOfEffects
                 }
             }
         }
@@ -104,7 +114,10 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
     LaunchedEffect(groupMates) {
         val updatedMemTimers = SnapshotStateMap<String, Int>()
         val updatedWaitTimers = SnapshotStateMap<String, Double>()
-        groupMates.forEach { groupMate ->
+        val updatedEffects = SnapshotStateMap<Int, List<GroupMateEffect>>()
+
+        // update mem timers and wait timers
+        groupMates.forEachIndexed { index, groupMate ->
             val serverMemTime = groupMate.memTime ?: 0
             val localMemTime = groupMateMemTimers[groupMate.name]
             // wait time arrives as "90" to mean "9 seconds", so always divide by 10
@@ -134,6 +147,10 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     updatedWaitTimers[groupMate.name] = localWaitTime
                 }
             }
+
+            updatedEffects[index] = groupMate.affects.mapNotNull { affect ->
+                GroupMateEffect.fromAffect(affect)
+            }
         }
         // Replace the old map with the updated one to remove timers for group mates who have left.
         groupMateMemTimers.clear()
@@ -141,6 +158,9 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 
         groupMateWaitTimers.clear()
         groupMateWaitTimers.putAll(updatedWaitTimers)
+
+        groupMateEffects.clear()
+        groupMateEffects.putAll(updatedEffects)
     }
 
     Box(
@@ -417,7 +437,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .width(60.dp)
                             //.background(Color.LightGray)
-                            .padding(top = 0.dp, bottom = 0.dp, start = 5.dp),
+                            .padding(top = 2.dp, bottom = 0.dp, start = 5.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (displayedMem != null && displayedMem > 0) {
@@ -440,12 +460,11 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             //.background(Color.LightGray)
                         verticalAlignment = Alignment.Top
                     ) {
-                        groupMate.affects.forEach { affect ->
-                            Box(modifier = Modifier.background(Color.DarkGray)) {
-                                Effect(affect)
-                            }
-                            Box(modifier = Modifier.width(1.dp))
-                            //Effect(affect)
+                        groupMateEffects[index]?.forEach { effect ->
+//                            Box(modifier = Modifier.background(Color.DarkGray)) {
+//                                Effect(currentColorStyle, effect)
+//                            }
+                            Effect(currentColorStyle, effect)
                         }
                     }
                 }
