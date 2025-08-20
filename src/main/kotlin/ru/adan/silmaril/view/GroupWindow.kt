@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -150,6 +149,17 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
 
             updatedEffects[index] = groupMate.affects.mapNotNull { affect ->
                 GroupMateEffect.fromAffect(affect)
+            }
+
+            // because MUD only updates effects duration once per minute, but we're counting them down,
+            // we have to make them survive between messages that MUD sends, ignoring MUD's values
+            // if the value is just like the old one
+            for (newEffectInstance in updatedEffects[index]!!) {
+                val sameEffectBeforeUpdate = groupMateEffects[index]?.firstOrNull { it.name == newEffectInstance.name }
+                if (newEffectInstance.lastServerDuration == sameEffectBeforeUpdate?.lastServerDuration) {
+                    // keep the duration that we're counting down
+                    newEffectInstance.duration = sameEffectBeforeUpdate?.duration
+                }
             }
         }
         // Replace the old map with the updated one to remove timers for group mates who have left.
@@ -402,16 +412,18 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         Row {
                             if (groupMate.position != Position.Standing)
                             Image(
-                                painter = painterResource(when (groupMate.position) {
-                                    Position.Dying -> Res.drawable.rip
-                                    Position.Sleeping -> Res.drawable.sleeping
-                                    Position.Resting -> Res.drawable.resting
-                                    Position.Sitting -> Res.drawable.sitting
-                                    Position.Fighting -> Res.drawable.fighting
-                                    //Position.Standing -> Res.drawable.standing
-                                    Position.Riding -> Res.drawable.riding
-                                    else -> Res.drawable.standing
-                                }),
+                                painter = painterResource(
+                                    when (groupMate.position) {
+                                        Position.Dying -> Res.drawable.rip
+                                        Position.Sleeping -> Res.drawable.sleeping
+                                        Position.Resting -> Res.drawable.resting
+                                        Position.Sitting -> Res.drawable.sitting
+                                        Position.Fighting -> Res.drawable.fighting
+                                        //Position.Standing -> Res.drawable.standing
+                                        Position.Riding -> Res.drawable.riding
+                                        else -> Res.drawable.standing
+                                    }
+                                ),
                                 modifier = Modifier.width(22.dp).height(22.dp),
                                 contentDescription = "Position",
                                 colorFilter = when (groupMate.position) {

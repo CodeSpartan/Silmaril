@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,13 +65,14 @@ fun Effect(colorStyle: ColorStyle, font: FontFamily, effect: GroupMateEffect) {
             }
         }
 
-        if (!effect.isRoundBased && effect.duration != null && effect.duration < 60) {
+        val currentDuration = effect.duration
+        if (!effect.isRoundBased && currentDuration != null && currentDuration < 60) {
             Text(
-                text = "${effect.duration.coerceAtLeast(0)}",
+                text = "${currentDuration.coerceAtLeast(0)}",
                 color = colorStyle.getUiColor(UiColor.GroupPrimaryFontColor),
                 fontSize = 8.sp,
                 fontFamily = font,
-                modifier = Modifier.align(Alignment.BottomEnd)
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-2).dp)
             )
         }
     }
@@ -82,7 +82,8 @@ data class GroupMateEffect(
     val name: String,
     val icon: DrawableResource,
     val isRoundBased: Boolean,
-    val duration: Int?,
+    var duration: Int?,
+    val lastServerDuration: Int?,
     val rounds: Int?
 ) {
     companion object {
@@ -154,6 +155,7 @@ data class GroupMateEffect(
                 return GroupMateEffect(
                     name = a.name,
                     duration = a.duration,
+                    lastServerDuration = a.duration,
                     rounds = a.rounds,
                     icon = resource,
                     isRoundBased = isRoundBased,
