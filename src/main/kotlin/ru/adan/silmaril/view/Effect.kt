@@ -3,7 +3,6 @@ package ru.adan.silmaril.view
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -12,9 +11,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,12 +35,31 @@ import ru.adan.silmaril.misc.UiColor
 import ru.adan.silmaril.mud_messages.Affect
 import ru.adan.silmaril.visual_styles.ColorStyle
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun Effect(colorStyle: ColorStyle, font: FontFamily, effect: GroupMateEffect) {
+fun Effect(
+    colorStyle: ColorStyle,
+    font: FontFamily,
+    effect: GroupMateEffect,
+    onEffectHover: (show: Boolean, mousePos: Offset, widgetPos: Offset) -> Unit
+    ) {
+
+    var widgetPos by remember { mutableStateOf(Offset.Zero) }
+
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .width(32.dp),
+            .width(32.dp)
+            .onGloballyPositioned { layoutCoordinates ->
+                widgetPos = layoutCoordinates.positionInWindow()
+                //composableScreenPosition = layoutCoordinates.localToScreen(Offset.Zero)
+            }
+            .onPointerEvent(PointerEventType.Move) { event ->
+                onEffectHover(true, event.changes.first().position, widgetPos)
+            }
+            .onPointerEvent(PointerEventType.Exit) { event ->
+                onEffectHover(false, event.changes.first().position, widgetPos)
+            },
         contentAlignment = Alignment.CenterStart
     ) {
         Image(

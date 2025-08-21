@@ -68,7 +68,6 @@ fun MapWindow(client: MudConnection, logger: KLogger) {
     val ownerWindow = OwnerWindow.current
     var internalPadding by remember { mutableStateOf(Offset.Zero) }
     var tooltipOffset by remember { mutableStateOf(Offset.Zero) }
-
     val dpi = LocalDensity.current.density
 
     LaunchedEffect(client) {

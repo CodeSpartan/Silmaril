@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Divider
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,7 +32,7 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
             .background(style.getUiColor(UiColor.HoverBackground))
             .padding(14.dp)
         ) {
-            val robotoFont = FontManager.getFont("RobotoClassic")
+            val robotoFont = remember { FontManager.getFont("RobotoClassic") }
             Text(
                 room.name,
                 color = Color.White,

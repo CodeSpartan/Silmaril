@@ -32,6 +32,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,7 @@ import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.mud_messages.Position
+import java.util.Objects
 import kotlin.math.roundToInt
 
 @Composable
@@ -53,7 +55,12 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
     val profileManager: ProfileManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
 
+    val hoverManager = LocalHoverManager.current
+    val ownerWindow = OwnerWindow.current
     var internalPadding by remember { mutableStateOf(Offset.Zero) }
+    var tooltipOffset by remember { mutableStateOf(Offset.Zero) }
+    val dpi = LocalDensity.current.density
+
     val robotoFont = FontManager.getFont("RobotoClassic")
     val currentColorStyleName = settings.colorStyle
     val currentColorStyle = remember(currentColorStyleName) {StyleManager.getStyle(currentColorStyleName)}
@@ -472,8 +479,22 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             //.background(Color.LightGray)
                         verticalAlignment = Alignment.Top
                     ) {
-                        groupMateEffects[index]?.forEach { effect ->
-                            Effect(currentColorStyle, robotoFont, effect)
+                        groupMateEffects[index]?.forEachIndexed { effectIndex, effect ->
+                            Effect(currentColorStyle, robotoFont, effect, onEffectHover = { show, mousePos, widgetPos ->
+                                tooltipOffset =  (internalPadding + widgetPos + Offset(50f, 35f)) / dpi
+                                if (show) {
+                                    hoverManager.show(
+                                        ownerWindow,
+                                        tooltipOffset,
+                                        250,
+                                        Objects.hash(index, effectIndex, effect.name.hashCode()),
+                                    ) {
+                                        EffectTooltip(effect, robotoFont, currentColorStyle)
+                                    }
+                                } else {
+                                    hoverManager.hide()
+                                }
+                            })
                         }
                     }
                 }
