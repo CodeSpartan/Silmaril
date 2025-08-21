@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,25 +41,30 @@ import ru.adan.silmaril.visual_styles.ColorStyle
 fun Effect(
     colorStyle: ColorStyle,
     font: FontFamily,
-    effect: GroupMateEffect,
-    onEffectHover: (show: Boolean, mousePos: Offset, widgetPos: Offset) -> Unit
+    effect: CreatureEffect,
+    onEffectHover: (show: Boolean, mousePos: Offset, effectPos: Offset) -> Unit
     ) {
 
-    var widgetPos by remember { mutableStateOf(Offset.Zero) }
+    var effectPosInWindow by remember { mutableStateOf(Offset.Zero) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onEffectHover(false, Offset.Zero, Offset.Zero)
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxHeight()
             .width(32.dp)
             .onGloballyPositioned { layoutCoordinates ->
-                widgetPos = layoutCoordinates.positionInWindow()
-                //composableScreenPosition = layoutCoordinates.localToScreen(Offset.Zero)
+                effectPosInWindow = layoutCoordinates.positionInWindow()
             }
             .onPointerEvent(PointerEventType.Move) { event ->
-                onEffectHover(true, event.changes.first().position, widgetPos)
+                onEffectHover(true, event.changes.first().position, effectPosInWindow)
             }
             .onPointerEvent(PointerEventType.Exit) { event ->
-                onEffectHover(false, event.changes.first().position, widgetPos)
+                onEffectHover(false, Offset.Zero, Offset.Zero)
             },
         contentAlignment = Alignment.CenterStart
     ) {
@@ -106,7 +112,7 @@ fun Effect(
     }
 }
 
-data class GroupMateEffect(
+data class CreatureEffect(
     val name: String,
     val icon: DrawableResource,
     val isRoundBased: Boolean,
@@ -115,7 +121,7 @@ data class GroupMateEffect(
     val rounds: Int?
 ) {
     companion object {
-        fun fromAffect(a: Affect): GroupMateEffect? {
+        fun fromAffect(a: Affect): CreatureEffect? {
 
             val resource = when (a.name) {
                 "голод" -> Res.drawable.hunger
@@ -180,7 +186,7 @@ data class GroupMateEffect(
             }
 
             if (resource != null) {
-                return GroupMateEffect(
+                return CreatureEffect(
                     name = a.name,
                     duration = a.duration,
                     lastServerDuration = a.duration,

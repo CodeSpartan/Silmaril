@@ -33,6 +33,10 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
     private val _knownGroupHPs = MutableStateFlow(mapOf<String, Int>())
     val knownGroupHPs: StateFlow<Map<String, Int>> get() = _knownGroupHPs
 
+    //@TODO: implement mob hp prediction
+    private val _knownMobsHPs = MutableStateFlow(mapOf<String, Int>())
+    val knownMobsHPs: StateFlow<Map<String, Int>> get() = _knownMobsHPs
+
     //@TODO: move knownGroupHPs to some other singleton class more appropriate for this, e.g. "GameState"
     // called from GroupModel's coroutine
     suspend fun addKnownHp(name: String, maxHp: Int) {

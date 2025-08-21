@@ -34,6 +34,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.TextTriggerManager
 import ru.adan.silmaril.view.GroupWindow
+import ru.adan.silmaril.view.MobsWindow
 
 fun main() {
     startKoin {
@@ -136,12 +137,12 @@ fun main() {
                 }
 
                 // Mob widget
-//                FloatingWindow(showMobsWindow, window, "MobsWindow")
-//                {
-//                    HoverManagerProvider(window) {
-//                        MobsWindow(profileManager.currentClient.value, logger)
-//                    }
-//                }
+                FloatingWindow(showMobsWindow, window, "MobsWindow")
+                {
+                    HoverManagerProvider(window) {
+                        MobsWindow(profileManager.currentClient.value, logger)
+                    }
+                }
 
                 // Hidden by default, "Open new game window from profile" dialog
                 ProfileDialog(

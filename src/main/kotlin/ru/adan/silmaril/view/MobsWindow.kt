@@ -50,7 +50,7 @@ import java.util.Objects
 import kotlin.math.roundToInt
 
 @Composable
-fun GroupWindow(client: MudConnection, logger: KLogger) {
+fun MobsWindow(client: MudConnection, logger: KLogger) {
     val settingsManager: SettingsManager = koinInject()
     val profileManager: ProfileManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
@@ -65,24 +65,16 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
     val currentColorStyleName = settings.colorStyle
     val currentColorStyle = remember(currentColorStyleName) {StyleManager.getStyle(currentColorStyleName)}
 
-    val creatures by client.lastGroupMessage.collectAsState()
-    val creatureKnownHPs by profileManager.knownGroupHPs.collectAsState()
-    val creatureMemTimers = remember { mutableStateMapOf<String, Int>() }
-    val creatureWaitTimers = remember { mutableStateMapOf<String, Double>() }
+    val creatures by client.lastMonstersMessage.collectAsState()
+    val creatureKnownHPs by profileManager.knownMobsHPs.collectAsState()
+    //val creatureMemTimers = remember { mutableStateMapOf<String, Int>() }
+    //val creatureWaitTimers = remember { mutableStateMapOf<String, Double>() }
     val creatureEffects = remember { mutableStateMapOf<Int, List<CreatureEffect>>()} // key is the order of creatures in the message
 
-    // This will tick all mem timers every second
-    // And also tick all effects by 1 sec
+    // This will tick effects every second
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
-            creatureMemTimers.keys.forEach { name ->
-                creatureMemTimers[name]?.let { currentTime ->
-                    if (currentTime > 0) {
-                        creatureMemTimers[name] = currentTime - 1
-                    }
-                }
-            }
             creatureEffects.keys.forEach { index ->
                 creatureEffects[index]?.let { effects ->
                     val updatedListOfEffects = effects.map { effect ->
@@ -94,63 +86,15 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
         }
     }
 
-    // This will tick all wait timers every 100 ms
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(100) // More frequent delay
-            creatureWaitTimers.keys.forEach { name ->
-                creatureWaitTimers[name]?.let { currentTime ->
-                    if (currentTime > 0.0) {
-                        // Decrement by the delay interval (0.1 seconds)
-                        creatureWaitTimers[name] = (currentTime - 0.1).coerceAtLeast(0.0)
-                    }
-                }
-            }
-        }
-    }
-
-    // This will update mem timers if new information arrives and diverges from our local mem y more than 1 seconds
+    // This will update effect timers if new information arrives and diverges from our local timer by more than 1 minute
     LaunchedEffect(creatures) {
-        val updatedMemTimers = SnapshotStateMap<String, Int>()
-        val updatedWaitTimers = SnapshotStateMap<String, Double>()
         val updatedEffects = SnapshotStateMap<Int, List<CreatureEffect>>()
 
-        // update mem timers and wait timers
+        // update effect timers
         creatures.forEachIndexed { index, creature ->
-            val serverMemTime = creature.memTime ?: 0
-            val localMemTime = creatureMemTimers[creature.name]
-            // wait time arrives as "90" to mean "9 seconds", so always divide by 10
-            val serverWaitTime = creature.waitState?.div(10.0) ?: 0.0
-            val localWaitTime = creatureWaitTimers[creature.name]
-
-            if (localMemTime == null) {
-                // If we don't have a local timer for this group mate, create one.
-                updatedMemTimers[creature.name] = serverMemTime
-            } else {
-                // If a local timer exists, check if the server time is significantly different.
-                // We use a threshold of 2 seconds to account for network latency and the update interval.
-                if (kotlin.math.abs(serverMemTime - localMemTime) > 1 || serverMemTime == 0) {
-                    updatedMemTimers[creature.name] = serverMemTime
-                } else {
-                    // Otherwise, keep the local timer value.
-                    updatedMemTimers[creature.name] = localMemTime
-                }
-            }
-
-            if (localWaitTime == null) {
-                updatedWaitTimers[creature.name] = serverWaitTime
-            } else {
-                if (kotlin.math.abs(serverWaitTime - localWaitTime) > 0.5 || localWaitTime == 0.0) {
-                    updatedWaitTimers[creature.name] = serverWaitTime
-                } else {
-                    updatedWaitTimers[creature.name] = localWaitTime
-                }
-            }
-
             updatedEffects[index] = creature.affects.mapNotNull { affect ->
                 CreatureEffect.fromAffect(affect)
             }
-
             // because MUD only updates effects duration once per minute, but we're counting them down,
             // we have to make them survive between messages that MUD sends, ignoring MUD's values
             // if the value is just like the old one
@@ -162,13 +106,6 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                 }
             }
         }
-        // Replace the old map with the updated one to remove timers for group mates who have left.
-        creatureMemTimers.clear()
-        creatureMemTimers.putAll(updatedMemTimers)
-
-        creatureWaitTimers.clear()
-        creatureWaitTimers.putAll(updatedWaitTimers)
-
         creatureEffects.clear()
         creatureEffects.putAll(updatedEffects)
     }
@@ -186,8 +123,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                 .padding(top = 6.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Box(modifier = Modifier.width(123.dp).padding(start = 40.dp)) {
-                    Text(text="Согрупник", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
+                Box(modifier = Modifier.width(183.dp).padding(start = 40.dp)) {
+                    Text(text="Существо", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
                 Box(modifier = Modifier.width(65.dp), contentAlignment = Alignment.Center) {
@@ -202,11 +139,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     Text("Статус", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
 
-                Box(modifier = Modifier.width(60.dp).padding(start = 0.dp), contentAlignment = Alignment.Center) {
-                    Text("Мем", color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
-                }
-
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.weight(1f).padding(start = 9.dp), contentAlignment = Alignment.Center) {
                     Text("Эффекты", textAlign = TextAlign.Center, color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor), fontSize = 12.sp, fontFamily = robotoFont)
                 }
             }
@@ -228,7 +161,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         .height(28.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    // Icon: not same room
+                    // Icon: is player character
                     Box(
                         modifier = Modifier
                             .width(21.dp)
@@ -237,11 +170,12 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .padding(top = 3.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (!creature.inSameRoom) {
+                        if (creature.isPlayerCharacter) {
                             Image(
-                                painter = painterResource(Res.drawable.not_same_room),
-                                contentDescription = "not same room",
-                                modifier = Modifier.offset(x = (-2).dp),
+                                painter = painterResource(Res.drawable.player_character),
+                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina)),
+                                contentDescription = "is player character",
+                                modifier = Modifier.size(11.dp),
                             )
                         }
                     }
@@ -263,7 +197,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     // Name box
                     Box(
                         modifier = Modifier
-                            .width(82.dp)
+                            .width(142.dp)
                             //.background(Color.LightGray)
                             .padding(top = 3.dp),
                         contentAlignment = Alignment.Center
@@ -275,7 +209,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             fontFamily = robotoFont,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            )
+                        )
                     }
 
                     // HP Box
@@ -301,13 +235,13 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                     fontFamily = robotoFont,
                                     color = hpColor,
                                     modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp)
-                                    )
+                                )
                                 Text("/${creatureKnownHPs[creature.name]}",
                                     fontSize = 12.sp,
                                     fontFamily = robotoFont,
                                     color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
                                     modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp),
-                                    )
+                                )
                             }
                             // if we know only hp percent, print 250%
                             else {
@@ -316,13 +250,13 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                                     fontFamily = robotoFont,
                                     color = hpColor,
                                     modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp)
-                                    )
+                                )
                                 Text("%",
                                     fontSize = 12.sp,
                                     fontFamily = robotoFont,
                                     color = currentColorStyle.getUiColor(UiColor.GroupSecondaryFontColor),
                                     modifier = Modifier.align(Alignment.Bottom).padding(bottom = 3.dp),
-                                    )
+                                )
                             }
                         }
 
@@ -385,19 +319,6 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                             .clip(RoundedCornerShape(2.dp))
                             .background(currentColorStyle.getUiColor(UiColor.Stamina))
                         )
-
-                        // wait time bar
-                        val displayWaitTime = creatureWaitTimers[creature.name]
-                        if (displayWaitTime != null && displayWaitTime > 0.0) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth((displayWaitTime.coerceIn(0.0, 8.0) / 8.0).toFloat())
-                                    //.offset(y = (-1).dp)
-                                    .height(2.dp)
-                                    .align(Alignment.BottomStart)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(currentColorStyle.getUiColor(UiColor.WaitTime))
-                            )
-                        }
                     }
 
                     // Position icon & Target icon
@@ -411,55 +332,34 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     ) {
                         Row {
                             if (creature.position != Position.Standing)
-                            Image(
-                                painter = painterResource(
-                                    when (creature.position) {
-                                        Position.Dying -> Res.drawable.rip
-                                        Position.Sleeping -> Res.drawable.sleeping
-                                        Position.Resting -> Res.drawable.resting
-                                        Position.Sitting -> Res.drawable.sitting
-                                        Position.Fighting -> Res.drawable.fighting
-                                        //Position.Standing -> Res.drawable.standing
-                                        Position.Riding -> Res.drawable.riding
-                                        else -> Res.drawable.standing
-                                    }
-                                ),
-                                modifier = Modifier.width(22.dp).height(22.dp),
-                                contentDescription = "Position",
-                                colorFilter = when (creature.position) {
-                                    Position.Dying -> null
-                                    Position.Fighting -> null
-                                    Position.Sitting -> ColorFilter.tint(currentColorStyle.getUiColor(UiColor.HpBad))
-                                    else -> ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina))
-                                },
-                            )
+                                Image(
+                                    painter = painterResource(
+                                        when (creature.position) {
+                                            Position.Dying -> Res.drawable.rip
+                                            Position.Sleeping -> Res.drawable.sleeping
+                                            Position.Resting -> Res.drawable.resting
+                                            Position.Sitting -> Res.drawable.sitting
+                                            Position.Fighting -> Res.drawable.fighting
+                                            //Position.Standing -> Res.drawable.standing
+                                            Position.Riding -> Res.drawable.riding
+                                            else -> Res.drawable.standing
+                                        }
+                                    ),
+                                    modifier = Modifier.width(22.dp).height(22.dp),
+                                    contentDescription = "Position",
+                                    colorFilter = when (creature.position) {
+                                        Position.Dying -> null
+                                        Position.Fighting -> null
+                                        Position.Sitting -> ColorFilter.tint(currentColorStyle.getUiColor(UiColor.HpBad))
+                                        else -> ColorFilter.tint(currentColorStyle.getUiColor(UiColor.Stamina))
+                                    },
+                                )
                             if (creature.isAttacked)
-                            Image(
-                                painter = painterResource(Res.drawable.target),
-                                modifier = Modifier.width(22.dp),
-                                contentDescription = "Is target",
-                            )
-                        }
-                    }
-
-
-                    // Mem box
-                    val displayedMem = creatureMemTimers[creature.name]
-                    Box(
-                        modifier = Modifier
-                            .width(60.dp)
-                            //.background(Color.DarkGray)
-                            .padding(top = 5.dp, bottom = 0.dp, start = 0.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (displayedMem != null && displayedMem > 0) {
-                            Text(
-                                formatMem(displayedMem),
-                                fontSize = 12.sp,
-                                fontFamily = robotoFont,
-                                color = currentColorStyle.getUiColor(UiColor.GroupPrimaryFontColor),
-                                modifier = Modifier.padding(bottom = 1.dp),
-                            )
+                                Image(
+                                    painter = painterResource(Res.drawable.target),
+                                    modifier = Modifier.width(22.dp),
+                                    contentDescription = "Is target",
+                                )
                         }
                     }
 
@@ -468,8 +368,8 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(24.dp)
-                            .padding(top = 0.dp, bottom = 0.dp, end = 10.dp),
-                            //.background(Color.LightGray)
+                            .padding(top = 0.dp, start = 8.dp, bottom = 0.dp, end = 10.dp),
+                        //.background(Color.LightGray)
                         verticalAlignment = Alignment.Top
                     ) {
                         creatureEffects[index]?.forEachIndexed { effectIndex, effect ->
