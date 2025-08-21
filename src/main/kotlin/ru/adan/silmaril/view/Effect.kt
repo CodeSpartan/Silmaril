@@ -152,10 +152,14 @@ data class CreatureEffect(
                 "ядовитый выстрел" -> Res.drawable.poison
                 "защита" -> Res.drawable.shield1
                 "замедление" -> Res.drawable.slow
-
-//                "голод" -> Res.drawable.hunger
-//                "жажда" -> Res.drawable.thirst
-//                "полет" -> Res.drawable.hermes
+                "сила энтов" -> Res.drawable.ents
+                "паралич" -> Res.drawable.paralysis
+                "шок" -> Res.drawable.shock
+                "молчание" -> Res.drawable.silence
+                "оглушение" -> Res.drawable.stunned
+                "иммуность к оглушению" -> Res.drawable.stun_immune
+                "торнадо" -> Res.drawable.tornado
+                "слабость" -> Res.drawable.weak
 
                 // -> Res.drawable.shield2
                 else -> null
