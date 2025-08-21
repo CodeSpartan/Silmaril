@@ -178,6 +178,13 @@ fun MobsWindow(client: MudConnection, logger: KLogger) {
                                 modifier = Modifier.size(11.dp),
                             )
                         }
+                        if (creature.isBoss) {
+                            Image(
+                                painter = painterResource(Res.drawable.skull),
+                                contentDescription = "is boss",
+                                modifier = Modifier.size(15.dp),
+                            )
+                        }
                     }
 
                     // Index box
