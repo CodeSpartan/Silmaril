@@ -66,6 +66,14 @@ class Profile(
         }
     }
 
+    val mobsModel: MobsModel by lazy {
+        get {
+            parametersOf(
+                client
+            )
+        }
+    }
+
     val scriptingEngine: ScriptingEngine  by lazy {
         get<ScriptingEngine > { parametersOf(profileName, mainViewModel, ::isGroupActive) }
     }
@@ -128,6 +136,7 @@ class Profile(
         scopeDefault.cancel()
         mainViewModel.cleanup()
         groupModel.cleanup()
+        mobsModel.cleanup()
     }
 
     fun onSystemMessage(message: String) {

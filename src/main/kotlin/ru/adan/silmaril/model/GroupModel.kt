@@ -1,15 +1,20 @@
 package ru.adan.silmaril.model
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.adan.silmaril.mud_messages.Creature
 import kotlin.getValue
 
 class GroupModel(private val client: MudConnection, private val settingsManager: SettingsManager) : KoinComponent {
@@ -30,6 +35,17 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
 
     var groupPetName = ""
     var petOnNextLine = false
+
+    private val groupMates: StateFlow<List<Creature>> = client.lastGroupMessage
+        .stateIn(
+            scope = scopeDefault,
+            started = SharingStarted.Eagerly, // is initialized and runs continuously
+            initialValue = emptyList()
+        )
+
+    fun getGroupMates(): List<Creature> {
+        return groupMates.value
+    }
 
     fun init() {
         scopeDefault.launch {

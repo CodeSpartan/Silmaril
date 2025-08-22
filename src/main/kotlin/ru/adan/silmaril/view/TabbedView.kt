@@ -56,6 +56,8 @@ fun TabbedView(
                                         val firstValidProfile = profileManager.gameWindows.value.values.first()
                                         profileManager.currentClient.value = firstValidProfile.client
                                         profileManager.currentMainViewModel.value = firstValidProfile.mainViewModel
+                                        profileManager.currentGroupModel.value = firstValidProfile.groupModel
+                                        profileManager.currentMobsModel.value = firstValidProfile.mobsModel
 
                                         val firstAvailableTabIndex =
                                             tabs.indexOfFirst { it.title == firstValidProfile.profileName }

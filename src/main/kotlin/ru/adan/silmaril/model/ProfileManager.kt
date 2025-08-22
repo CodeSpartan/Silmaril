@@ -21,6 +21,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
     var currentClient: MutableState<MudConnection>
     var currentMainViewModel: MutableState<MainViewModel>
     var currentGroupModel: MutableState<GroupModel>
+    var currentMobsModel: MutableState<MobsModel>
     var currentProfileName: MutableState<String>
     var selectedTabIndex = mutableStateOf(0)
 
@@ -64,6 +65,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         currentClient = mutableStateOf(gameWindows.value.values.first().client)
         currentMainViewModel = mutableStateOf(gameWindows.value.values.first().mainViewModel)
         currentGroupModel = mutableStateOf(gameWindows.value.values.first().groupModel)
+        currentMobsModel = mutableStateOf(gameWindows.value.values.first().mobsModel)
         currentProfileName = mutableStateOf(gameWindows.value.values.first().profileName.capitalized())
     }
 
@@ -84,6 +86,8 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         currentClient.value = gameWindows.value[windowName]!!.client
         currentMainViewModel.value = gameWindows.value[windowName]!!.mainViewModel
         currentProfileName.value = windowName.capitalized()
+        currentGroupModel.value = gameWindows.value[windowName]!!.groupModel
+        currentMobsModel.value = gameWindows.value[windowName]!!.mobsModel
         return true
     }
 

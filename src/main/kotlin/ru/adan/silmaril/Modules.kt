@@ -6,6 +6,7 @@ import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.LoreManager
 
 import ru.adan.silmaril.model.MapModel
+import ru.adan.silmaril.model.MobsModel
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.model.ProfileManager
@@ -54,6 +55,13 @@ val appModule = module {
 
     factory { params ->
         GroupModel(
+            client = params[0],
+            settingsManager = get()
+        )
+    }
+
+    factory { params ->
+        MobsModel(
             client = params[0],
             settingsManager = get()
         )
