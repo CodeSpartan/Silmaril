@@ -130,25 +130,21 @@ open class ScriptingEngineImpl(
         profileManager.gameWindows.value[window]?.mainViewModel?.treatUserInput(command)
     }
 
-    override fun switchWindowCommand(window: String) : Boolean {
-        return profileManager.switchWindow(window)
-    }
+    override fun switchWindowCommand(window: String) : Boolean =
+        profileManager.switchWindow(window)
 
     override fun loreCommand(loreName: String) {
         loreManager.findLoreInFiles(loreName)
     }
 
-    override fun commentCommand(comment: String): Boolean {
-        return loreManager.commentLastLore(comment)
-    }
+    override fun commentCommand(comment: String): Boolean =
+        loreManager.commentLastLore(comment)
 
-    override fun isThisCurrentWindowCommand(): Boolean {
-        return profileManager.currentProfileName.value.equals(profileName, ignoreCase = true)
-    }
+    override fun isThisCurrentWindowCommand(): Boolean =
+        profileManager.currentProfileName.value.equals(profileName, ignoreCase = true)
 
-    override fun getVarCommand(varName: String): Variable? {
-        return profileManager.gameWindows.value[profileName]?.getVariable(varName)
-    }
+    override fun getVarCommand(varName: String): Variable? =
+        profileManager.gameWindows.value[profileName]?.getVariable(varName)
 
     override fun setVarCommand(varName: String, varValue: Any) {
         profileManager.gameWindows.value[profileName]?.setVariable(varName, varValue)
@@ -249,13 +245,9 @@ open class ScriptingEngineImpl(
         }
     }
 
-    override fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>> {
-        return triggers
-    }
+    override fun getTriggers() = triggers
 
-    override fun getAliases(): MutableMap<String, CopyOnWriteArrayList<Trigger>> {
-        return aliases
-    }
+    override fun getAliases() = aliases
 
     /** Private methods **/
 
