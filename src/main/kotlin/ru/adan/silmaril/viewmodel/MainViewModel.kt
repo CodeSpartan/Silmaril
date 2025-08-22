@@ -62,7 +62,7 @@ class MainViewModel(
         }
 
         if (message.startsWith("#")) {
-            val displayFeedback = !message.startsWith("#output")
+            val displayFeedback = !message.startsWith("#output") && !message.startsWith("#window")
 
             val withVariables = onInsertVariables(message)
             if (displayAsUserInput && displayFeedback) {
