@@ -84,6 +84,14 @@ fun getAliasesDirectory(): String {
     return path
 }
 
+fun getHotkeysDirectory(): String {
+    val path = Paths.get(getProgramDirectory(), "hotkeys").toString()
+    val dir = File(path)
+    if (!dir.exists())
+        dir.mkdirs()
+    return path
+}
+
 fun getLoresDirectory(): String {
     val path = Paths.get(getProgramDirectory(), "lores").toString()
     val dir = File(path)

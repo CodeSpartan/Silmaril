@@ -5,7 +5,6 @@ import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.input.key.KeyEvent
 import ru.adan.silmaril.model.SettingsManager
 import java.awt.Dimension
 import androidx.compose.ui.window.Window
@@ -32,7 +31,7 @@ import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.model.LoreManager
-import ru.adan.silmaril.model.TextTriggerManager
+import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.view.GroupWindow
 import ru.adan.silmaril.view.MobsWindow
 
@@ -50,7 +49,7 @@ fun main() {
             val settingsManager: SettingsManager = koinInject()
             val settings by settingsManager.settings.collectAsState()
             val profileManager: ProfileManager = koinInject()
-            val textTriggerManager: TextTriggerManager = koinInject()
+            val textMacrosManager: TextMacrosManager = koinInject()
             val mapModel: MapModel = koinInject()
             val loreManager: LoreManager = koinInject()
 
@@ -71,7 +70,7 @@ fun main() {
             // Main Window
             Window(
                 onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
+                    cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager)
                     exitApplication()
                 },
                 onPreviewKeyEvent = profileManager::onHotkeyKey,
@@ -86,7 +85,7 @@ fun main() {
                     showMobsWindow = showMobsWindow,
                     showProfileDialog = showProfileDialog,
                     onExit = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textTriggerManager, loreManager)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager)
                         exitApplication()
                     }
                 )
@@ -162,10 +161,10 @@ fun cleanupOnExit(
     mapModel: MapModel,
     profileManager: ProfileManager,
     settingsManager: SettingsManager,
-    textTriggerManager: TextTriggerManager,
+    textMacrosManager: TextMacrosManager,
     loreManager: LoreManager,
 ) {
-    textTriggerManager.cleanup()
+    textMacrosManager.cleanup()
     mapModel.cleanup()
     profileManager.cleanup()
     settingsManager.cleanup()

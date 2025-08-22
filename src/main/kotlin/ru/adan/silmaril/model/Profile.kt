@@ -26,8 +26,8 @@ import java.io.File
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.getOrNull
-import ru.adan.silmaril.scripting.AliasCondition
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
 
@@ -80,8 +80,7 @@ class Profile(
 
     // lazy injection
     val profileManager: ProfileManager by inject()
-
-    val textTriggerManager: TextTriggerManager by inject()
+    val textMacrosManager: TextMacrosManager by inject()
 
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -102,7 +101,7 @@ class Profile(
             compileTriggers()
             // only one profile will initialize triggerManager, others will not be able to
             // @TODO: move this to ProfileManager or somewhere that it can't be cancelled
-            textTriggerManager.initExplicit(this@Profile)
+            textMacrosManager.initExplicit(this@Profile)
             mapModel.areMapsReady.first { it }
             groupModel.init()
             // connect after triggers are compiled and maps are ready
@@ -157,6 +156,11 @@ class Profile(
             "#unal" -> parseRemoveAlias(message)
             "#unalias" -> parseRemoveAlias(message)
             "#aliases" -> printAllAliases()
+            "#hot" -> parseAddHotkey(message)
+            "#hotkey" -> parseAddHotkey(message)
+            "#unhot" -> parseRemoveHotkey(message)
+            "#unhotkey" -> parseRemoveHotkey(message)
+            "#hotkeys" -> printAllHotkeys()
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -349,6 +353,12 @@ class Profile(
         profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addAliasToGroup(groupName, newAlias) }
     }
 
+    fun addSingleHotkeyToAll(hotkey: String, action: String, groupName: String, priority: Int) {
+        val newHotkey = Hotkey.create(hotkey, action, priority)
+        if (newHotkey != null)
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addHotkeyToGroup(groupName, newHotkey) }
+    }
+
     fun addSingleTriggerToWindow(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
         val newTrigger =
             if (isRegex) Trigger.regCreate(condition, action, priority, false)
@@ -359,6 +369,12 @@ class Profile(
     fun addSingleAliasToWindow(shorthand: String, action: String, groupName: String, priority: Int) {
         val newAlias = Trigger.createAlias(shorthand, action, priority, false)
         scriptingEngine.addTriggerToGroup(groupName, newAlias)
+    }
+
+    fun addSingleHotkeyToWindow(keyString: String, action: String, groupName: String, priority: Int) {
+        val newHotkey = Hotkey.create(keyString, action, priority)
+        if (newHotkey != null)
+            scriptingEngine.addHotkeyToGroup(groupName, newHotkey)
     }
 
     fun parseTextTrigger(message: String) {
@@ -426,7 +442,7 @@ class Profile(
         }
 
         if (groupName != "SESSION")
-            textTriggerManager.saveTextTrigger(condition, action, groupName, priority, isRegex)
+            textMacrosManager.saveTextTrigger(condition, action, groupName, priority, isRegex)
 
         mainViewModel.displaySystemMessage("Триггер добавлен в группу {$groupName}.")
 
@@ -475,7 +491,7 @@ class Profile(
         }
 
         if (groupName != "SESSION")
-            textTriggerManager.deleteTextTrigger(condition, action, groupName, priority, isRegex)
+            textMacrosManager.deleteTextTrigger(condition, action, groupName, priority, isRegex)
 
         if (removedTrigger)
             mainViewModel.displaySystemMessage("Триггер успешно удален.")
@@ -525,7 +541,7 @@ class Profile(
         }
 
         if (groupName != "SESSION")
-            textTriggerManager.deleteTextAlias(shorthand, action, groupName, priority)
+            textMacrosManager.deleteTextAlias(shorthand, action, groupName, priority)
 
         if (removedAlias)
             mainViewModel.displaySystemMessage("Алиас успешно удален.")
@@ -620,7 +636,7 @@ class Profile(
         }
 
         if (groupName != "SESSION")
-            textTriggerManager.saveTextAlias(shorthand, action, groupName, priority)
+            textMacrosManager.saveTextAlias(shorthand, action, groupName, priority)
 
         mainViewModel.displaySystemMessage("Алиас добавлен в группу {$groupName}.")
 
@@ -719,6 +735,133 @@ class Profile(
             mainViewModel.displayTaggedText("Вы сделали заметку.", false)
         } else {
             mainViewModel.displayErrorMessage("Ошибка #comment - команда оставляет комментарий на последнем отображенном лоре, а вы еще не отображали лоры.")
+        }
+    }
+
+    private fun parseAddHotkey(message: String) {
+        val hotkeyRegexBig = """\#hot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val hotkeyRegexMedium = """\#hot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val hotkeyRegexMediumV2 = """\#hot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val hotkeyRegexSmall = """\#hot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = hotkeyRegexBig.find(message)
+            ?: hotkeyRegexMedium.find(message)
+            ?: hotkeyRegexMediumV2.find(message)
+            ?: hotkeyRegexSmall.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #hotkey - не смог распарсить. Правильный синтаксис: #hotkey {комбинация клавиш} {команда} {приоритет} {группа}.")
+            return
+        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val hotkeyString = groups["hotkey"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        logger.debug { "Parsed trigger: $entireCommand" }
+        logger.debug { "Hotkey: $hotkeyString" }
+        logger.debug { "Action: $action" }
+        logger.debug { "Priority: $priority" }
+        logger.debug { "Group: $groupName" }
+
+        settingsManager.addGroup(groupName)
+
+        val newHotkey = Hotkey.create(hotkeyString, action, priority)
+
+        if (newHotkey == null) {
+            mainViewModel.displayErrorMessage("Ошибка #hotkey - такой клавиши не найдено, см. документацию.")
+            return
+        }
+
+        // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
+        // They're not saved to any file, so they're transient.
+        // The "SESSION" group always exists and is enabled at every launch of the program, even if it had been manually disabled before.
+        if (groupName == "SESSION") {
+            scriptingEngine.addHotkeyToGroup(groupName, newHotkey)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortHotkeysByPriority()
+        }
+        else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                profile.scriptingEngine.addHotkeyToGroup(groupName, newHotkey)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortHotkeysByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textMacrosManager.saveHotkey(hotkeyString, action, groupName, priority)
+
+        mainViewModel.displaySystemMessage("Хоткей добавлен в группу {$groupName}.")
+
+        if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
+            mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
+        }
+    }
+
+    fun parseRemoveHotkey(message: String) {
+        val hotkeyRegexBig = """\#unhot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val hotkeyRegexMedium = """\#unhot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val hotkeyRegexMediumV2 = """\#unhot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val hotkeyRegexSmall = """\#unhot(?:key)? \{(?<hotkey>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = hotkeyRegexBig.find(message)
+            ?: hotkeyRegexMedium.find(message)
+            ?: hotkeyRegexMediumV2.find(message)
+            ?: hotkeyRegexSmall.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #unhotkey - не смог распарсить. Правильный синтаксис: #unhotkey {комбинация клавиш} {команда} {приоритет} {группа}.")
+            return
+        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val hotkeyString = groups["hotkey"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        logger.debug { "Parsed trigger: $entireCommand" }
+        logger.debug { "Shorthand: $hotkeyString" }
+        logger.debug { "Action: $action" }
+        logger.debug { "Priority: $priority" }
+        logger.debug { "Group: $groupName" }
+
+        var removedHotkey = false
+        if (groupName == "SESSION") {
+            removedHotkey = scriptingEngine.removeHotkeyFromGroup(hotkeyString, action, priority, groupName)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortHotkeysByPriority()
+        } else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                removedHotkey = profile.scriptingEngine.removeHotkeyFromGroup(hotkeyString, action, priority, groupName)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortHotkeysByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textMacrosManager.deleteHotkey(hotkeyString, action, groupName, priority)
+
+        if (removedHotkey)
+            mainViewModel.displaySystemMessage("Хоткей успешно удален.")
+        else
+            mainViewModel.displaySystemMessage("Хоткей не найден.")
+    }
+
+    fun printAllHotkeys() {
+        for ((groupName, hotkeyList) in scriptingEngine.getHotkeys()) {
+            if (hotkeyList.isEmpty()) continue
+            if (isGroupActive(groupName))
+                mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
+            else
+                mainViewModel.displayTaggedText("Группа: <color=yellow>$groupName</color>")
+
+            for (hotkey in hotkeyList.sortedBy { it.priority }) {
+                mainViewModel.displayTaggedText("Hotkey: {${hotkey.keyString}} {${hotkey.actionText}} {${hotkey.priority}} {$groupName}")
+            }
         }
     }
 }

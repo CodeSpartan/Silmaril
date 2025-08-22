@@ -5,13 +5,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import java.io.File
-import java.nio.file.Paths
-import java.net.HttpURLConnection
-import java.net.URI
 import java.time.Instant
-import java.time.format.DateTimeFormatter
-import java.time.ZoneId
-import java.io.FileOutputStream
 import kotlinx.serialization.Serializable
 import ru.adan.silmaril.misc.FloatWindowSettings
 import ru.adan.silmaril.misc.InstantSerializer
@@ -20,7 +14,6 @@ import ru.adan.silmaril.misc.WindowSettings
 import ru.adan.silmaril.misc.getProfileDirectory
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.module
-import ru.adan.silmaril.misc.unzipFile
 import java.awt.Dimension
 import java.awt.Point
 

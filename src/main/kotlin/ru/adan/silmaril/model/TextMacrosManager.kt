@@ -23,6 +23,7 @@ import kotlinx.serialization.decodeFromString
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.adan.silmaril.misc.getAliasesDirectory
+import ru.adan.silmaril.misc.getHotkeysDirectory
 import ru.adan.silmaril.misc.getTriggersDirectory
 import java.io.File
 import java.nio.file.Files
@@ -46,8 +47,15 @@ data class SimpleAliasData(
     val priority: Int,
 )
 
+@Serializable
+data class SimpleHotkeyData(
+    val hotkeyString: String,
+    val action: String,
+    val priority: Int,
+)
+
 @OptIn(FlowPreview::class)
-class TextTriggerManager() : KoinComponent {
+class TextMacrosManager() : KoinComponent {
 
     @OptIn(ExperimentalAtomicApi::class)
     var startedToInitialize = AtomicBoolean(false)
@@ -64,8 +72,12 @@ class TextTriggerManager() : KoinComponent {
     private val _textAliasesByGroup = MutableStateFlow<Map<String, List<SimpleAliasData>>>(emptyMap())
     val textAliasesByGroup: StateFlow<Map<String, List<SimpleAliasData>>> = _textAliasesByGroup.asStateFlow()
 
+    private val _hotkeysByGroup = MutableStateFlow<Map<String, List<SimpleHotkeyData>>>(emptyMap())
+    val hotkeysByGroup: StateFlow<Map<String, List<SimpleHotkeyData>>> = _hotkeysByGroup.asStateFlow()
+
     @OptIn(ExperimentalAtomicApi::class)
     public suspend fun initExplicit(callerProfile: Profile) {
+        // if the initial loading has happened before, because we're opening a new profile window
         if (hasInitialized.load()) {
             textTriggersByGroup.value.forEach { (groupName, triggers) ->
                 triggers.forEach { trig ->
@@ -84,6 +96,16 @@ class TextTriggerManager() : KoinComponent {
             val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
             callerProfile.scriptingEngine.sortAliasesByPriority()
             callerProfile.mainViewModel.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
+
+            hotkeysByGroup.value.forEach { (groupName, hotkeys) ->
+                hotkeys.forEach { hotkey ->
+                    callerProfile.addSingleHotkeyToWindow(hotkey.hotkeyString, hotkey.action, groupName, hotkey.priority)
+                }
+            }
+            val totalNumberOfHotkeys = hotkeysByGroup.value.values.sumOf { it.size }
+            callerProfile.scriptingEngine.sortHotkeysByPriority()
+            callerProfile.mainViewModel.displaySystemMessage("Триггеров загружено: $totalNumberOfHotkeys")
+
             return
         }
 
@@ -97,6 +119,7 @@ class TextTriggerManager() : KoinComponent {
         coroutineScope.launch {
             val initialTriggerData = loadTextTriggers()
             val initialAliasData = loadTextAliases()
+            val initialHotkeyData = loadHotkeys()
 
             // triggers
             initialTriggerData.forEach { (groupName, triggers) ->
@@ -120,6 +143,17 @@ class TextTriggerManager() : KoinComponent {
             val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
             profileManager.currentMainViewModel.value.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
 
+            // hotkeys
+            initialHotkeyData.forEach { (groupName, hotkeys) ->
+                hotkeys.forEach { hotkey ->
+                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleHotkeyToAll(hotkey.hotkeyString, hotkey.action, groupName, hotkey.priority)
+                }
+            }
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortHotkeysByPriority() }
+            _hotkeysByGroup.value = initialHotkeyData
+            val totalNumberOfHotkeys = hotkeysByGroup.value.values.sumOf { it.size }
+            profileManager.currentMainViewModel.value.displaySystemMessage("Хоткеев загружено: $totalNumberOfHotkeys")
+
 
             hasInitialized.store(true)
 
@@ -141,6 +175,17 @@ class TextTriggerManager() : KoinComponent {
                     .onEach {
                         logger.debug { "TextAliasManager: change detected, saving text aliases..." }
                         saveTextAliases()
+                    }
+                    .collect()
+            }
+
+            launch {
+                _hotkeysByGroup
+                    .drop(1)
+                    .debounce(500L) // Still debounce to batch rapid changes.
+                    .onEach {
+                        logger.debug { "HotkeysManager: change detected, saving hotkeys..." }
+                        saveHotkeys()
                     }
                     .collect()
             }
@@ -274,6 +319,70 @@ class TextTriggerManager() : KoinComponent {
                 mutableMap[groupName] = emptyList()
             } else {
                 mutableMap[groupName] = updatedAliases
+            }
+            mutableMap
+        }
+    }
+
+    private suspend fun loadHotkeys() : Map<String, List<SimpleHotkeyData>> {
+        return withContext(Dispatchers.IO) {
+            logger.debug { "Loading hotkeys from disk..." }
+            val hotkeysDir = File(getHotkeysDirectory())
+
+            val hotkeyFiles =
+                hotkeysDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) }
+                    ?: emptyArray()
+
+            if (hotkeyFiles.isEmpty()) return@withContext emptyMap()
+
+            hotkeyFiles.associate { hotkeyFile ->
+                val groupName = hotkeyFile.nameWithoutExtension
+                val yaml = hotkeyFile.readText()
+                val hotkeys = Yaml.default.decodeFromString<List<SimpleHotkeyData>>(string = yaml)
+                groupName to hotkeys
+            }
+        }
+    }
+
+    fun saveHotkeys() {
+        logger.debug { "Saving hotkeys to disk..." }
+        try {
+            for ((groupName, hotkeysDataList) in hotkeysByGroup.value) {
+                val file = Paths.get(getHotkeysDirectory(), "$groupName.yaml")
+                if (hotkeysDataList.isEmpty()) {
+                    Files.deleteIfExists(file)
+                } else {
+                    val yaml = Yaml.default.encodeToString<List<SimpleHotkeyData>>(value = hotkeysDataList)
+                    file.toFile().writeText(yaml)
+                }
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to save hotkeys" }
+        }
+    }
+
+    fun saveHotkey(hotkey: String, action: String, groupName: String, priority: Int) {
+        val newHotkeyData = SimpleHotkeyData(hotkey, action, priority)
+        _hotkeysByGroup.update { currentMap ->
+            val mutableMap = currentMap.toMutableMap()
+            val groupHotkeys = mutableMap.getOrPut(groupName) { emptyList() }.toMutableList()
+            groupHotkeys.add(newHotkeyData)
+            mutableMap[groupName] = groupHotkeys
+            mutableMap
+        }
+    }
+
+    fun deleteHotkey(hotkeyString: String, action: String, groupName: String, priority: Int) {
+        _hotkeysByGroup.update { currentMap ->
+            val mutableMap = currentMap.toMutableMap()
+            // Find the list of hotkeys for the given group. If it doesn't exist, do nothing.
+            val currentHotkeys = mutableMap[groupName] ?: return@update currentMap
+            val updatedHotkeys = currentHotkeys.filterNot {
+                it.hotkeyString == hotkeyString && it.action == action && it.priority == priority }
+            if (updatedHotkeys.isEmpty()) {
+                mutableMap[groupName] = emptyList()
+            } else {
+                mutableMap[groupName] = updatedHotkeys
             }
             mutableMap
         }

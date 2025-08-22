@@ -54,13 +54,13 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         _gameWindows.value += (windowName to newProfile)
     }
 
-    fun assignNewWindowsTemp(newMap: Map<String, Profile> ) {
+    fun assignNewWindowsTemp(newMap: Map<String, Profile>) {
         _gameWindows.value = newMap
     }
 
     init {
-        settingsManager.settings.value.gameWindows.forEach {
-            gameWindow -> addProfile(gameWindow)
+        settingsManager.settings.value.gameWindows.forEach { gameWindow ->
+            addProfile(gameWindow)
         }
         currentClient = mutableStateOf(gameWindows.value.values.first().client)
         currentMainViewModel = mutableStateOf(gameWindows.value.values.first().mainViewModel)
@@ -79,7 +79,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         currentMainViewModel.value.displaySystemMessage(msg)
     }
 
-    fun switchWindow(windowName: String) : Boolean {
+    fun switchWindow(windowName: String): Boolean {
         val newIndex = gameWindows.value.values.indexOfFirst { it.profileName == windowName }
         if (newIndex == -1) return false
         selectedTabIndex.value = newIndex
@@ -91,68 +91,16 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         return true
     }
 
+    fun getCurrentProfile() : Profile? {
+        return gameWindows.value.entries.firstOrNull { (key, value) -> key.equals(currentProfileName.value, ignoreCase = true) }?.value
+    }
+
     //@TODO: move this to a separate class
-    // @Return: true = consume the event
-    fun onHotkeyKey(onPreviewKeyEvent: KeyEvent) : Boolean {
-        if (onPreviewKeyEvent.type == KeyEventType.KeyDown) { // Ensures we only react once per press
-            if (onPreviewKeyEvent.isCtrlPressed && onPreviewKeyEvent.key == Key.S) {
-                logger.info {"Ctrl + S was pressed!"}
-                return true // Consume the event
-            } else {
-                return false // Do not consume the event
-            }
+    // Return true to consume the event
+    fun onHotkeyKey(onPreviewKeyEvent: KeyEvent): Boolean {
+        if (onPreviewKeyEvent.type == KeyEventType.KeyDown) {
+            return getCurrentProfile()?.scriptingEngine?.processHotkey(onPreviewKeyEvent) ?: false
         }
         return false
     }
-
-    /**
-    // A map to convert string representations to Key objects.
-    // You can expand this map with any other keys you need.
-    private val keyMap: Map<String, Key> = mapOf(
-    "A" to Key.A, "B" to Key.B, "C" to Key.C, "D" to Key.D, "E" to Key.E,
-    "F" to Key.F, "G" to Key.G, "H" to Key.H, "I" to Key.I, "J" to Key.J,
-    "K" to Key.K, "L" to Key.L, "M" to Key.M, "N" to Key.N, "O" to Key.O,
-    "P" to Key.P, "Q" to Key.Q, "R" to Key.R, "S" to Key.S, "T" to Key.T,
-    "U" to Key.U, "V" to Key.V, "W" to Key.W, "X" to Key.X, "Y" to Key.Y,
-    "Z" to Key.Z,
-    "F1" to Key.F1, "F2" to Key.F2, "F3" to Key.F3, "F4" to Key.F4,
-    "F5" to Key.F5, "F6" to Key.F6, "F7" to Key.F7, "F8" to Key.F8,
-    "F9" to Key.F9, "F10" to Key.F10, "F11" to Key.F11, "F12" to Key.F12,
-    "ENTER" to Key.Enter,
-    "BACKSPACE" to Key.Backspace,
-    "DELETE" to Key.Delete,
-    "TAB" to Key.Tab
-    // Add other keys as needed
-    )
-
-    /**
-     * Parses a string like "Ctrl+Shift+S" into a Hotkey object.
-    */
-    fun parseHotkey(configString: String): Hotkey? {
-    val parts = configString.uppercase().split('+').map { it.trim() }
-    if (parts.isEmpty()) return null
-
-    val keyName = parts.last()
-    val key = keyMap[keyName] ?: return null // Return null if the key is not in our map
-
-    val modifiers = parts.dropLast(1).toSet()
-
-    return Hotkey(
-    key = key,
-    isCtrlPressed = "CTRL" in modifiers,
-    isShiftPressed = "SHIFT" in modifiers,
-    isAltPressed = "ALT" in modifiers
-    )
-    }
-
-    /**
-     * Checks if a KeyEvent matches a defined Hotkey.
-    */
-    fun KeyEvent.matches(hotkey: Hotkey): Boolean {
-    return this.key == hotkey.key &&
-    this.isCtrlPressed == hotkey.isCtrlPressed &&
-    this.isShiftPressed == hotkey.isShiftPressed &&
-    this.isAltPressed == hotkey.isAltPressed
-    }
-     */
 }

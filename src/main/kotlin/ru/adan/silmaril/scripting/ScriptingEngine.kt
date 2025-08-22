@@ -1,9 +1,15 @@
 package ru.adan.silmaril.scripting
 
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.Variable
+import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
@@ -29,6 +35,8 @@ interface ScriptingEngine {
     fun addAliasToGroup(group: String, alias: Trigger)
     fun addAlias(alias: Trigger)
     fun removeAliasFromGroup(condition: String, action: String, priority: Int, group: String) : Boolean
+    fun addHotkeyToGroup(group: String, hotkey: Hotkey)
+    fun removeHotkeyFromGroup(keyString: String, actionText: String, priority: Int, group: String) : Boolean
     fun sendCommand(command: String)
     fun sendAllCommand(command: String)
     fun sendWindowCommand(window: String, command: String)
@@ -38,11 +46,14 @@ interface ScriptingEngine {
     fun echoCommand(message: String, color: AnsiColor, isBright: Boolean)
     fun sortTriggersByPriority()
     fun sortAliasesByPriority()
+    fun sortHotkeysByPriority()
     fun processLine(line: String)
     fun processAlias(line: String) : Pair<Boolean, String?>
+    fun processHotkey(keyEvent: KeyEvent) : Boolean
     fun loadScript(scriptFile: File) : Int
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun getAliases(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
+    fun getHotkeys(): MutableMap<String, CopyOnWriteArrayList<Hotkey>>
     fun switchWindowCommand(window: String) : Boolean
     fun loreCommand(loreName: String)
     fun commentCommand(comment: String): Boolean
@@ -65,6 +76,9 @@ open class ScriptingEngineImpl(
 
     private val aliases : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
     private var aliasesByPriority = listOf<Trigger>()
+
+    private val hotkeys : MutableMap<String, CopyOnWriteArrayList<Hotkey>> = mutableMapOf() // key is GroupName
+    private var hotkeysByPriority = listOf<Hotkey>()
 
     private var currentlyLoadingScript = ""
     private val regexContainsPercentPatterns = Regex("""%\d+""")
@@ -118,6 +132,21 @@ open class ScriptingEngineImpl(
         } == true
     }
 
+    override fun addHotkeyToGroup(group: String, hotkey: Hotkey) {
+        if (!hotkeys.containsKey(group)) {
+            hotkeys[group] = CopyOnWriteArrayList<Hotkey>()
+        }
+        hotkeys[group]!!.add(hotkey)
+    }
+
+    override fun removeHotkeyFromGroup(keyString: String, actionText: String, priority: Int, group: String) : Boolean {
+        return hotkeys[group]?.removeIf {
+            it.priority == priority
+                && it.actionText == actionText
+                && it.keyString == keyString
+        } == true
+    }
+
     override fun sendCommand(command: String) {
         mainViewModel.treatUserInput(command)
     }
@@ -166,6 +195,10 @@ open class ScriptingEngineImpl(
         aliasesByPriority = aliases.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
     }
 
+    override fun sortHotkeysByPriority() {
+        hotkeysByPriority = hotkeys.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
+    }
+
     /**
      * Checks a line of text from the MUD against all active triggers.
      */
@@ -204,6 +237,22 @@ open class ScriptingEngineImpl(
             }
         }
         return false to null
+    }
+
+    override fun processHotkey(keyEvent: KeyEvent): Boolean {
+        if (!Hotkey.isKeyValid(keyEvent)) return false
+
+        val foundHotkeys = hotkeysByPriority.filter { it.keyboardKey == keyEvent.key
+                && it.isAltPressed == keyEvent.isAltPressed
+                && it.isCtrlPressed == keyEvent.isCtrlPressed
+                && it.isShiftPressed == keyEvent.isShiftPressed
+        }
+
+        foundHotkeys.forEach { hotkey ->
+            mainViewModel.treatUserInput(hotkey.actionText)
+        }
+
+        return foundHotkeys.isNotEmpty()
     }
 
     /**
@@ -248,6 +297,8 @@ open class ScriptingEngineImpl(
     override fun getTriggers() = triggers
 
     override fun getAliases() = aliases
+
+    override fun getHotkeys() = hotkeys
 
     /** Private methods **/
 

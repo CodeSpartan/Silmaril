@@ -11,7 +11,7 @@ import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
-import ru.adan.silmaril.model.TextTriggerManager
+import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.scripting.ScriptingEngineImpl
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -20,7 +20,7 @@ val appModule = module {
     singleOf (::SettingsManager)
     singleOf (::MapModel)
     singleOf(::ProfileManager)
-    singleOf(::TextTriggerManager)
+    singleOf(::TextMacrosManager)
     singleOf(::LoreManager)
 
     factory { params ->
