@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
-import ru.adan.silmaril.mud_messages.TextMessageChunk
-import ru.adan.silmaril.mud_messages.ColorfulTextMessage
+import ru.adan.silmaril.misc.TextMessageChunk
+import ru.adan.silmaril.misc.ColorfulTextMessage
 
 // ViewModel that holds the list of strings and manages the TCP connection
 class MainViewModel(
@@ -174,7 +174,7 @@ class MainViewModel(
     }
 
     fun displayTaggedText(taggedText: String, brightWhiteAsDefault: Boolean = true) {
-        displayChunks(client.makeColoredChunksFromTaggedText(taggedText, brightWhiteAsDefault))
+        displayChunks(ColorfulTextMessage.makeColoredChunksFromTaggedText(taggedText, brightWhiteAsDefault))
     }
 
     // Clean up when needed

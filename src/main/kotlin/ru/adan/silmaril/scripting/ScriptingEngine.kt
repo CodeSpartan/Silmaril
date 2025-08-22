@@ -11,6 +11,7 @@ import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.model.LoreManager
+import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -56,6 +57,7 @@ interface ScriptingEngine {
     fun getHotkeys(): MutableMap<String, CopyOnWriteArrayList<Hotkey>>
     fun switchWindowCommand(window: String) : Boolean
     fun loreCommand(loreName: String)
+    fun outputCommand(msg: String)
     fun commentCommand(comment: String): Boolean
     fun isThisCurrentWindowCommand(): Boolean
 }
@@ -66,7 +68,8 @@ open class ScriptingEngineImpl(
     private val isGroupActive: (String) -> Boolean,
     private val settingsManager: SettingsManager,
     private val profileManager: ProfileManager,
-    private val loreManager: LoreManager
+    private val loreManager: LoreManager,
+    private val outputWindowModel: OutputWindowModel,
 ) : ScriptingEngine {
     override val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
@@ -164,6 +167,10 @@ open class ScriptingEngineImpl(
 
     override fun loreCommand(loreName: String) {
         loreManager.findLoreInFiles(loreName)
+    }
+
+    override fun outputCommand(msg: String) {
+        outputWindowModel.displayTaggedText(msg, false)
     }
 
     override fun commentCommand(comment: String): Boolean =

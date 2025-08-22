@@ -31,6 +31,7 @@ import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.model.LoreManager
+import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.view.GroupWindow
 import ru.adan.silmaril.view.MobsWindow
@@ -50,6 +51,7 @@ fun main() {
             val settings by settingsManager.settings.collectAsState()
             val profileManager: ProfileManager = koinInject()
             val textMacrosManager: TextMacrosManager = koinInject()
+            val outputWindowModel: OutputWindowModel = koinInject()
             val mapModel: MapModel = koinInject()
             val loreManager: LoreManager = koinInject()
 
@@ -70,7 +72,7 @@ fun main() {
             // Main Window
             Window(
                 onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager)
+                    cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
                     exitApplication()
                 },
                 onPreviewKeyEvent = profileManager::onHotkeyKey,
@@ -85,7 +87,7 @@ fun main() {
                     showMobsWindow = showMobsWindow,
                     showProfileDialog = showProfileDialog,
                     onExit = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
                         exitApplication()
                     }
                 )
@@ -124,7 +126,7 @@ fun main() {
                 // Additional output widget
                 FloatingWindow(showAdditionalOutputWindow, window, "AdditionalOutput")
                 {
-                    AdditionalOutputWindow(profileManager.currentMainViewModel.value)
+                    AdditionalOutputWindow(outputWindowModel, logger)
                 }
 
                 // Group widget
@@ -163,12 +165,14 @@ fun cleanupOnExit(
     settingsManager: SettingsManager,
     textMacrosManager: TextMacrosManager,
     loreManager: LoreManager,
+    outputWindowModel: OutputWindowModel,
 ) {
     textMacrosManager.cleanup()
     mapModel.cleanup()
     profileManager.cleanup()
     settingsManager.cleanup()
     loreManager.cleanup()
+    outputWindowModel.cleanup()
 }
 
 @Composable

@@ -8,6 +8,7 @@ import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MobsModel
 import ru.adan.silmaril.model.MudConnection
+import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
@@ -22,6 +23,7 @@ val appModule = module {
     singleOf(::ProfileManager)
     singleOf(::TextMacrosManager)
     singleOf(::LoreManager)
+    singleOf(::OutputWindowModel)
 
     factory { params ->
         Profile(
@@ -75,6 +77,7 @@ val appModule = module {
             settingsManager = get(),
             profileManager = get(),
             loreManager = get(),
+            outputWindowModel = get(),
         )
     }
 }

@@ -61,7 +61,7 @@ fun MainWindow(
     val currentFontFamily = settings.font
     val currentFontSize = settings.fontSize
     val currentColorStyleName = settings.colorStyle
-    val currentColorStyle = remember(currentColorStyleName) {StyleManager.getStyle(currentColorStyleName)}
+    val currentColorStyle = remember(currentColorStyleName) { StyleManager.getStyle(currentColorStyleName) }
 
     val customTextSelectionColors = remember(currentColorStyle) {
         TextSelectionColors(
@@ -169,8 +169,8 @@ fun MainWindow(
                     VerticalScrollbar(
                         modifier = Modifier
                             .padding(end = 4.dp).fillMaxHeight()
-                            .width(8.dp)      // Set a sensible width for the scrollbar
-                            .padding(end = 4.dp), // Add padding between the scrollbar and content
+                            .width(8.dp)    // width for the scrollbar
+                            .padding(end = 4.dp), // padding between the scrollbar and content
                         adapter = rememberScrollbarAdapter(listState),
                         style = ScrollbarStyle(
                             minimalHeight = 16.dp,

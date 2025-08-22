@@ -167,6 +167,7 @@ class Profile(
             "#sendWindow" -> parseSendWindowCommand(message)
             "#sendAll" -> parseSendAllCommand(message)
             "#window" -> parseWindowCommand(message)
+            "#output" -> parseOutputCommand(message)
             "#lore" -> parseLoreCommand(message)
             "#comment" -> parseCommentCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
@@ -722,6 +723,16 @@ class Profile(
         }
         val loreName = match.groupValues[1].trimEnd()
         scriptingEngine.loreCommand(loreName)
+    }
+
+    fun parseOutputCommand(message: String) {
+        val outputRegex = """\#output (.+)""".toRegex()
+        val match = outputRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #output - не смог распарсить. Правильный синтаксис: #output сообщение")
+            return
+        }
+        scriptingEngine.outputCommand(match.groupValues[1])
     }
 
     fun parseCommentCommand(message: String) {

@@ -177,3 +177,11 @@ fun formatMem(seconds: Int): String {
     val remainingSeconds = (seconds % 60).toString().padStart(2, '0')
     return "$minutes:$remainingSeconds"
 }
+
+// a wrapper to carry a stable, monotonic id
+data class OutputItem(val id: Long, val message: ColorfulTextMessage) {
+    companion object {
+        private var nextId = 0L
+        fun new(message: ColorfulTextMessage) = OutputItem(nextId++, message)
+    }
+}
