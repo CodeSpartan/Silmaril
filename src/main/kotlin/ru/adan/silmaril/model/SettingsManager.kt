@@ -229,12 +229,12 @@ class SettingsManager {
         {
             val json = profileFile.readText()
             val profileData : ProfileData = Json.decodeFromString(json)
-            (profileData.enabledTriggerGroups + "SESSION").forEach { groupName -> addGroup(groupName) }
-            return profileData.copy(enabledTriggerGroups = profileData.enabledTriggerGroups + "SESSION")
+            (profileData.enabledGroups + "SESSION").forEach { groupName -> addGroup(groupName) }
+            return profileData.copy(enabledGroups = profileData.enabledGroups + "SESSION")
         } else {
             val profileData = createProfile(profileName)
             addGroup("SESSION")
-            return profileData.copy(enabledTriggerGroups = profileData.enabledTriggerGroups + "SESSION")
+            return profileData.copy(enabledGroups = profileData.enabledGroups + "SESSION")
         }
     }
 

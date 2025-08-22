@@ -290,7 +290,7 @@ class Profile(
     }
 
     fun isGroupActive(groupName: String): Boolean {
-        return profileData.value.enabledTriggerGroups.contains(groupName.uppercase())
+        return profileData.value.enabledGroups.contains(groupName.uppercase())
     }
 
     fun parseGroupCommand(message: String) {
@@ -302,14 +302,14 @@ class Profile(
             val groupName = match.groupValues[2].uppercase()
             if (enable == "enable") {
                 _profileData.update { currentProfile ->
-                    val newGroups = currentProfile.enabledTriggerGroups + groupName
-                    currentProfile.copy(enabledTriggerGroups = newGroups)
+                    val newGroups = currentProfile.enabledGroups + groupName
+                    currentProfile.copy(enabledGroups = newGroups)
                 }
                 mainViewModel.displaySystemMessage("Группа $groupName включена.${if (!settingsManager.doesGroupExist(groupName)) " Предупреждение: такой группы нет." else ""}")
             } else if (enable == "disable") {
                 _profileData.update { currentProfile ->
-                    val newGroups = currentProfile.enabledTriggerGroups - groupName
-                    currentProfile.copy(enabledTriggerGroups = newGroups)
+                    val newGroups = currentProfile.enabledGroups - groupName
+                    currentProfile.copy(enabledGroups = newGroups)
                 }
                 mainViewModel.displaySystemMessage("Группа $groupName выключена.")
             }
@@ -329,10 +329,10 @@ class Profile(
 
     // a command that displays all groups
     fun printAllGroupsCommand() {
-        profileData.value.enabledTriggerGroups.forEach { groupName ->
+        profileData.value.enabledGroups.forEach { groupName ->
             mainViewModel.displayTaggedText("Группа $groupName <color=green>включена</color>.")
         }
-        val disabledGroups = settingsManager.groups.value.subtract(profileData.value.enabledTriggerGroups)
+        val disabledGroups = settingsManager.groups.value.subtract(profileData.value.enabledGroups)
         if (disabledGroups.isNotEmpty()) {
             mainViewModel.displaySystemMessage("-----------")
         }
@@ -446,7 +446,7 @@ class Profile(
 
         mainViewModel.displaySystemMessage("Триггер добавлен в группу {$groupName}.")
 
-        if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
+        if (!profileData.value.enabledGroups.contains(groupName)) {
             mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
         }
     }
@@ -640,7 +640,7 @@ class Profile(
 
         mainViewModel.displaySystemMessage("Алиас добавлен в группу {$groupName}.")
 
-        if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
+        if (!profileData.value.enabledGroups.contains(groupName)) {
             mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
         }
     }
@@ -796,7 +796,7 @@ class Profile(
 
         mainViewModel.displaySystemMessage("Хоткей добавлен в группу {$groupName}.")
 
-        if (!profileData.value.enabledTriggerGroups.contains(groupName)) {
+        if (!profileData.value.enabledGroups.contains(groupName)) {
             mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
         }
     }
