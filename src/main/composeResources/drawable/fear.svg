@@ -15,43 +15,35 @@
        id="linearGradient21">
       <stop
          style="stop-color:#f83a00;stop-opacity:1;"
-         offset="0"
+         offset="0.30338982"
          id="stop20" />
       <stop
          style="stop-color:#f0720d;stop-opacity:1;"
-         offset="1"
+         offset="0.65593219"
          id="stop21" />
     </linearGradient>
     <linearGradient
        id="linearGradient19">
       <stop
          style="stop-color:#fe8610;stop-opacity:1;"
-         offset="0.17627119"
+         offset="0.38813561"
          id="stop18" />
       <stop
          style="stop-color:#fad045;stop-opacity:1;"
-         offset="0.83050847"
+         offset="0.66101694"
          id="stop19" />
     </linearGradient>
     <linearGradient
        id="linearGradient15">
       <stop
          style="stop-color:#f83a00;stop-opacity:1;"
-         offset="0"
+         offset="0.29830509"
          id="stop15" />
       <stop
          style="stop-color:#f0720d;stop-opacity:1;"
-         offset="1"
+         offset="0.66271186"
          id="stop16" />
     </linearGradient>
-    <linearGradient
-       xlink:href="#linearGradient21"
-       id="linearGradient16"
-       x1="45.616528"
-       y1="9.1384706"
-       x2="45.616528"
-       y2="29.91153"
-       gradientUnits="userSpaceOnUse" />
     <linearGradient
        xlink:href="#linearGradient15"
        id="linearGradient17"
@@ -69,6 +61,14 @@
        x2="31.999998"
        y2="70.414993"
        gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       xlink:href="#linearGradient21"
+       id="linearGradient23"
+       gradientUnits="userSpaceOnUse"
+       x1="45.616528"
+       y1="9.1384706"
+       x2="45.616528"
+       y2="29.91153" />
   </defs>
   <path
      d="m 32,53.72 3.33,-5.31 3.34,4.22 4.33,-7.41 2.22,4.61 3.53,-6.32 3.22,4.84 L 62,27.11 53.39,36.57 51.5,31.84 45.67,39.43 43,35.55 38.5,42.97 35.58,36.98 32,43.38 28.42,36.98 25.5,42.97 21,35.55 18.33,39.43 12.5,31.84 10.61,36.57 2,27.11 l 10.03,21.24 3.22,-4.84 3.53,6.32 2.22,-4.61 4.33,7.41 3.34,-4.22 z"
@@ -81,5 +81,5 @@
   <path
      d="m 54.25,10.93 c 0,0 -6.95,9.08 -19.02,11.6 0,0 1.66,5.6 10.18,5.6 8.52,0 13.42,-9.91 8.84,-17.21 z"
      id="path3"
-     style="fill:url(#linearGradient16);fill-opacity:1" />
+     style="fill:url(#linearGradient23);fill-opacity:1" />
 </svg>
