@@ -126,8 +126,11 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
                     verticalArrangement = Arrangement.Bottom, // reverseLayout = true ?
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(outputMessages) { wrappedMessage ->
-                        val message = wrappedMessage.message
+                    items(
+                        count = outputMessages.size,
+                        key = { idx -> outputMessages[idx].id }
+                    ) { idx ->
+                        val message = outputMessages[idx].message
                         // Combine chunks into a single AnnotatedString
                         val annotatedText = buildAnnotatedString {
                             message.chunks.forEach { chunk ->

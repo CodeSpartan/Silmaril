@@ -45,6 +45,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import org.koin.compose.koinInject
+import ru.adan.silmaril.misc.OutputItem
 
 @Composable
 fun MainWindow(
@@ -55,7 +56,8 @@ fun MainWindow(
 ) {
     val settingsManager: SettingsManager = koinInject()
     // Observe messages from the ViewModel
-    val messages by mainViewModel.messages.collectAsState()
+    //val messages by mainViewModel.messages.collectAsState()
+    val messages = remember { mutableStateListOf<OutputItem>() }
     val settings by settingsManager.settings.collectAsState()
 
     val currentFontFamily = settings.font
@@ -79,6 +81,23 @@ fun MainWindow(
     suspend fun scrollDown() {
         if (messages.isNotEmpty()) {
             listState.scrollToItem(messages.size - 1)
+        }
+    }
+
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.messages.collect { msg ->
+            val item = OutputItem.new(msg) // wrap with a monotonically increasing id
+            messages += item
+
+            // Trim to cap (e.g., 100_000)
+            val cap = 50_000
+            if (messages.size > cap) {
+                val toDrop = messages.size - cap
+                // Efficient trim: drop from the front without per-item recompositions
+                messages.removeRange(0, toDrop)
+            }
+
+            scrollDown()
         }
     }
 
@@ -135,7 +154,11 @@ fun MainWindow(
                                 verticalArrangement = Arrangement.Bottom,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                items(messages) { message ->
+                                items(
+                                    count = messages.size,
+                                    key = { idx -> messages[idx].id}
+                                ) { idx ->
+                                    val message = messages[idx].message
                                     // Combine chunks into a single AnnotatedString
                                     val annotatedText = buildAnnotatedString {
                                         message.chunks.forEach { chunk ->

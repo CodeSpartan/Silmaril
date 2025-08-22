@@ -1,8 +1,10 @@
 package ru.adan.silmaril.viewmodel
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
@@ -20,13 +22,13 @@ class MainViewModel(
 ) {
 
     // Expose the list of messages as a StateFlow for UI to observe
-    private val _messages = MutableStateFlow<List<ColorfulTextMessage>>(emptyList())
-    val messages: StateFlow<List<ColorfulTextMessage>> get() = _messages
+    private val _messages = MutableSharedFlow<ColorfulTextMessage>()
+    val messages = _messages.asSharedFlow()
 
     val isEnteringPassword: StateFlow<Boolean> = client.isEchoOn
 
     // Coroutine scope tied to the lifecycle of the ViewModel
-    private val viewModelScope = CoroutineScope(Dispatchers.IO)
+    private val viewModelScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     fun initAndConnect() {
         viewModelScope.launch {
@@ -34,7 +36,7 @@ class MainViewModel(
             client.colorfulTextMessages.collect { message ->
                 //val message = dataToString(data)  // Convert the data (bytes) to String
                 // Append the received message to the list and expose it via StateFlow
-                _messages.value += message
+                _messages.emit(message)
             }
         }
         // Launch a coroutine for network I/O
@@ -50,7 +52,7 @@ class MainViewModel(
 
         if (playerCommands.size > 1) {
             if (!splitCommands) {
-                _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk("> $message", AnsiColor.Yellow)))
+                emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk("> $message", AnsiColor.Yellow))))
                 client.logGameplayTextSynchronously("> $message")
             }
             for (command in playerCommands) {
@@ -65,15 +67,15 @@ class MainViewModel(
             val withVariables = onInsertVariables(message)
             if (displayAsUserInput && displayFeedback) {
                 if (withVariables != message) {
-                    _messages.value += ColorfulTextMessage(arrayOf(
+                    emitMessage(ColorfulTextMessage(arrayOf(
                         TextMessageChunk(">> $message ",AnsiColor.Black, AnsiColor.Black, true),
                         TextMessageChunk("> $withVariables", AnsiColor.Yellow, AnsiColor.Black, true),
-                    ))
+                    )))
                     client.logGameplayTextSynchronously(">> $message > $withVariables")
                 } else {
-                    _messages.value += ColorfulTextMessage(arrayOf(
+                    emitMessage(ColorfulTextMessage(arrayOf(
                         TextMessageChunk(">> $withVariables", AnsiColor.Yellow, AnsiColor.Black, true),
-                    ))
+                    )))
                     client.logGameplayTextSynchronously(">> $withVariables")
                 }
             }
@@ -96,21 +98,21 @@ class MainViewModel(
 
             if (displayAsUserInput) {
                 if (isEnteringPassword.value) {
-                    _messages.value += ColorfulTextMessage(arrayOf(
+                    emitMessage(ColorfulTextMessage(arrayOf(
                         TextMessageChunk("> ********", AnsiColor.Yellow)
-                    ))
+                    )))
                     client.logGameplayTextSynchronously("> ********")
                 }
                 else if (wasMessageChanged) {
-                    _messages.value += ColorfulTextMessage(arrayOf(
+                    emitMessage(ColorfulTextMessage(arrayOf(
                         TextMessageChunk("> $message ", AnsiColor.Black, AnsiColor.Black, true),
                         TextMessageChunk("> $withVariables", AnsiColor.Yellow),
-                    ))
+                    )))
                     client.logGameplayTextSynchronously("> $message > $withVariables")
                 } else {
-                    _messages.value += ColorfulTextMessage(arrayOf(
+                    emitMessage(ColorfulTextMessage(arrayOf(
                         TextMessageChunk("> $withVariables", AnsiColor.Yellow),
-                    ))
+                    )))
                     client.logGameplayTextSynchronously("> $withVariables")
                 }
             }
@@ -120,9 +122,9 @@ class MainViewModel(
                 client.sendMessage(withVariables)
             }
             if (!client.isConnected) {
-                _messages.value += ColorfulTextMessage(arrayOf(
+                emitMessage(ColorfulTextMessage(arrayOf(
                     TextMessageChunk("Вы не подключены.", AnsiColor.Yellow, AnsiColor.Black, true),
-                ))
+                )))
             }
         }
     }
@@ -156,27 +158,33 @@ class MainViewModel(
 
     fun displayColoredMessage(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(message, color, AnsiColor.Black, isBright)))
+        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, color, AnsiColor.Black, isBright))))
     }
 
     fun displaySystemMessage(message: String) {
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.White, AnsiColor.Black, true)))
+        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.White, AnsiColor.Black, true))))
     }
 
     fun displayErrorMessage(message: String) {
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.Yellow, AnsiColor.Black, true)))
+        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.Yellow, AnsiColor.Black, true))))
     }
 
     fun displayChunks(chunks: Array<TextMessageChunk>) {
         val message = chunks.joinToString("") { it.text }
         onMessageReceived(message)
-        _messages.value += ColorfulTextMessage(chunks)
+        emitMessage(ColorfulTextMessage(chunks))
     }
 
     fun displayTaggedText(taggedText: String, brightWhiteAsDefault: Boolean = true) {
         displayChunks(ColorfulTextMessage.makeColoredChunksFromTaggedText(taggedText, brightWhiteAsDefault))
+    }
+
+    fun emitMessage(message: ColorfulTextMessage) {
+        viewModelScope.launch {
+            _messages.emit(message)
+        }
     }
 
     // Clean up when needed
