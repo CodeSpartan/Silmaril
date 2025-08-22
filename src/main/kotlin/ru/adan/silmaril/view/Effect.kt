@@ -160,8 +160,13 @@ data class CreatureEffect(
                 "иммуность к оглушению" -> Res.drawable.stun_immune
                 "торнадо" -> Res.drawable.tornado
                 "слабость" -> Res.drawable.weak
+                "болезнь" -> Res.drawable.disease
+                "проклятие защиты" -> Res.drawable.armor_curse
+                "страх" -> Res.drawable.fear
+                "восстановление" -> Res.drawable.fresh
+                "сила" -> Res.drawable.strength
 
-                // -> Res.drawable.shield2
+                //@TODO use Res.drawable.shield2 for something
                 else -> null
             }
 
