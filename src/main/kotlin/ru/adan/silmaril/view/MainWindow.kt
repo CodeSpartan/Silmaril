@@ -44,6 +44,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.OutputItem
 
@@ -55,8 +56,8 @@ fun MainWindow(
     windowId: Int,
 ) {
     val settingsManager: SettingsManager = koinInject()
-    // Observe messages from the ViewModel
-    //val messages by mainViewModel.messages.collectAsState()
+
+    // consider RingBuffer<OutputItem>(capacity = 100_000) if current setup doesn't work out
     val messages = remember { mutableStateListOf<OutputItem>() }
     val settings by settingsManager.settings.collectAsState()
 
@@ -110,13 +111,16 @@ fun MainWindow(
     var paddingLeft by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2, 0.dp)) }
     var paddingRight by remember { mutableStateOf(maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)) }
 
+    val density = LocalDensity.current.density
+
     //@TODO: can this be done in a modern way? Like in Main.kt
     owner.addComponentListener(object : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent?) {
             // owner size isn't real size, but oh well, this formula works
+
             // @TODO: what is that 2 - dpi? needs to be fixed
-            paddingLeft = maxOf((owner.width.dp - 680.dp) / 2, 0.dp)
-            paddingRight = maxOf((owner.width.dp - 680.dp) / 2 - 300.dp, 0.dp)
+            paddingLeft = maxOf(((owner.width - 680) / density).dp, 0.dp)
+            paddingRight = maxOf(((owner.width - 680) / density - 300).dp, 0.dp)
             runBlocking {
                 scrollDown()
             }
