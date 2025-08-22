@@ -60,8 +60,10 @@ class MainViewModel(
         }
 
         if (message.startsWith("#")) {
+            val displayFeedback = !message.startsWith("#output")
+
             val withVariables = onInsertVariables(message)
-            if (displayAsUserInput) {
+            if (displayAsUserInput && displayFeedback) {
                 if (withVariables != message) {
                     _messages.value += ColorfulTextMessage(arrayOf(
                         TextMessageChunk(">> $message ",AnsiColor.Black, AnsiColor.Black, true),

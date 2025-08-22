@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -112,74 +113,66 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
             .fillMaxSize()
             .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
     ) {
-        Column(modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Bottom,
-        ) {
-            Row (modifier = Modifier
-                //.padding(start=paddingLeft)
-                .weight(1f)
-            ){
-                CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
-                    SelectionContainer(
-                        // keeps the arrow when hovering text, stop the cursor from turning into a caret
-                        modifier = Modifier.pointerHoverIcon(PointerIcon.Default, overrideDescendants = true)
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f, true)
-                                .padding(end = 12.dp)
-                                .fillMaxHeight(),
-                            state = listState,
-                            verticalArrangement = Arrangement.Bottom,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            items(outputMessages) { wrappedMessage ->
-                                val message = wrappedMessage.message
-                                // Combine chunks into a single AnnotatedString
-                                val annotatedText = buildAnnotatedString {
-                                    message.chunks.forEach { chunk ->
-                                        withStyle(
-                                            style = SpanStyle(
-                                                color = currentColorStyle.getAnsiColor(
-                                                    chunk.fgColor,
-                                                    chunk.isBright
-                                                ),
-                                            )
-                                        ) {
-                                            append(chunk.text)
-                                        }
-                                    }
-                                    append("\r") // helps format the copied text, otherwise it has no newlines
+        CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
+            SelectionContainer(
+                // keeps the arrow when hovering text, stop the cursor from turning into a caret
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Default, overrideDescendants = true)
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .fillMaxHeight(),
+                    state = listState,
+                    verticalArrangement = Arrangement.Bottom, // reverseLayout = true ?
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    items(outputMessages) { wrappedMessage ->
+                        val message = wrappedMessage.message
+                        // Combine chunks into a single AnnotatedString
+                        val annotatedText = buildAnnotatedString {
+                            message.chunks.forEach { chunk ->
+                                withStyle(
+                                    style = SpanStyle(
+                                        color = currentColorStyle.getAnsiColor(
+                                            chunk.fgColor,
+                                            chunk.isBright
+                                        ),
+                                        //fontSize = (currentFontSize - 2).sp
+                                    )
+                                ) {
+                                    append(chunk.text)
                                 }
-
-                                Text(
-                                    text = annotatedText,
-                                    modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
-                                    fontSize = currentFontSize.sp,
-                                    fontFamily = FontManager.getFont(currentFontFamily)
-                                )
                             }
+                            append("\r") // helps format the copied text, otherwise it has no newlines
                         }
+
+                        Text(
+                            text = annotatedText,
+                            modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
+                            fontSize = currentFontSize.sp,
+                            fontFamily = FontManager.getFont(currentFontFamily)
+                        )
                     }
                 }
-
-                // Vertical scrollbar on the right side
-                VerticalScrollbar(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(8.dp)      // width for the scrollbar
-                        .padding(end = 4.dp), // padding between the scrollbar and content
-                    adapter = rememberScrollbarAdapter(listState),
-                    style = ScrollbarStyle(
-                        minimalHeight = 16.dp,
-                        thickness = 8.dp,
-                        shape = RoundedCornerShape(4.dp),
-                        hoverDurationMillis = 300,
-                        unhoverColor = Color.Gray,    // Color when not hovered
-                        hoverColor = Color.White      // Color when hovered
-                    )
-                )
             }
         }
+
+        // Vertical scrollbar on the right side
+        VerticalScrollbar(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .offset(x = (-4).dp)
+                .width(8.dp),      // width for the scrollbar
+            adapter = rememberScrollbarAdapter(listState),
+            style = ScrollbarStyle(
+                minimalHeight = 16.dp,
+                thickness = 8.dp,
+                shape = RoundedCornerShape(4.dp),
+                hoverDurationMillis = 300,
+                unhoverColor = Color.Gray,    // Color when not hovered
+                hoverColor = Color.White      // Color when hovered
+            )
+        )
     }
 }
