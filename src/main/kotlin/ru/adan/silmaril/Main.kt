@@ -1,5 +1,6 @@
 package ru.adan.silmaril
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.window.*
 import androidx.compose.runtime.*
@@ -30,12 +31,25 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.jetbrains.jewel.foundation.theme.JewelTheme
+import org.jetbrains.jewel.intui.standalone.theme.IntUiTheme
+import org.jetbrains.jewel.intui.standalone.theme.createDefaultTextStyle
+import org.jetbrains.jewel.intui.standalone.theme.createEditorTextStyle
+import org.jetbrains.jewel.intui.standalone.theme.darkThemeDefinition
+import org.jetbrains.jewel.intui.standalone.theme.default
+import org.jetbrains.jewel.intui.window.decoratedWindow
+import org.jetbrains.jewel.intui.window.styling.dark
+import org.jetbrains.jewel.ui.ComponentStyling
+import org.jetbrains.jewel.window.DecoratedWindow
+import org.jetbrains.jewel.window.TitleBar
+import org.jetbrains.jewel.window.styling.TitleBarStyle
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.view.GroupWindow
 import ru.adan.silmaril.view.MobsWindow
 
+@OptIn(ExperimentalLayoutApi::class)
 fun main() {
     startKoin {
         slf4jLogger(Level.DEBUG) // logback.xml actually limits this to INFO
@@ -43,6 +57,11 @@ fun main() {
     }
 
     val logger = KotlinLogging.logger {}
+
+    val textStyle = JewelTheme.createDefaultTextStyle()
+    val editorStyle = JewelTheme.createEditorTextStyle()
+    val themeDefinition =
+        JewelTheme.darkThemeDefinition(defaultTextStyle = textStyle, editorTextStyle = editorStyle)
 
     // it's a Composable
     application {
@@ -58,7 +77,8 @@ fun main() {
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
             val showAdditionalOutputWindow =
                 remember { mutableStateOf(settingsManager.getFloatingWindowState("AdditionalOutput").show) }
-            val showGroupWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("GroupWindow").show) }
+            val showGroupWindow =
+                remember { mutableStateOf(settingsManager.getFloatingWindowState("GroupWindow").show) }
             val showMobsWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MobsWindow").show) }
             val mainWindowState = rememberWindowState(
                 placement = settings.windowSettings.windowPlacement,
@@ -70,86 +90,115 @@ fun main() {
             val showProfileDialog = remember { mutableStateOf(false) }
 
             // Main Window
-            Window(
-                onCloseRequest = {
-                    cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
-                    exitApplication()
-                },
-                onPreviewKeyEvent = profileManager::onHotkeyKey,
-                state = mainWindowState,
-                title = "Silmaril",
-                icon = painterResource(Res.drawable.icon),
+
+//            Window(
+//                onCloseRequest = {
+//                    cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
+//                    exitApplication()
+//                },
+//                onPreviewKeyEvent = profileManager::onHotkeyKey,
+//                state = mainWindowState,
+//                title = "Silmaril",
+//                icon = painterResource(Res.drawable.icon),
+//            ) {
+
+            IntUiTheme(
+                theme = themeDefinition,
+                styling = ComponentStyling.default().decoratedWindow(
+                    titleBarStyle = TitleBarStyle.dark(),
+                ),
+                swingCompatMode = true, //@TODO try without
             ) {
-                AppMenuBar(
-                    showMapWindow = showMapWindow,
-                    showAdditionalOutputWindow = showAdditionalOutputWindow,
-                    showGroupWindow = showGroupWindow,
-                    showMobsWindow = showMobsWindow,
-                    showProfileDialog = showProfileDialog,
-                    onExit = {
+                DecoratedWindow(
+                    onCloseRequest = {
                         cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
                         exitApplication()
-                    }
-                )
-                window.minimumSize = Dimension(800, 600)
+                     },
+                    onPreviewKeyEvent = profileManager::onHotkeyKey,
+                    state = mainWindowState,
+                    title = "Silmaril",
+                    icon = painterResource(Res.drawable.icon),
+                    content = {
+                        TitleBarView()
+//                    AppMenuBar(
+//                        showMapWindow = showMapWindow,
+//                        showAdditionalOutputWindow = showAdditionalOutputWindow,
+//                        showGroupWindow = showGroupWindow,
+//                        showMobsWindow = showMobsWindow,
+//                        showProfileDialog = showProfileDialog,
+//                        onExit = {
+//                            cleanupOnExit(
+//                                mapModel,
+//                                profileManager,
+//                                settingsManager,
+//                                textMacrosManager,
+//                                loreManager,
+//                                outputWindowModel
+//                            )
+//                            exitApplication()
+//                        }
+//                    )
+                    window.minimumSize = Dimension(800, 600)
 
-                // watch for resize, move, fullscreen toggle and save into settings
-                SignUpToWindowEvents(mainWindowState)
+                    // watch for resize, move, fullscreen toggle and save into settings
+                    SignUpToWindowEvents(mainWindowState)
 
-                // Stability is achieved through keys in TabbedView for each tab
-                val tabs = profileManager.gameWindows.value.values.map { profile ->
-                    Tab(
-                        // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
-                        title = profile.profileName,
-                        content = { isFocused, thisTabId ->
-                            HoverManagerProvider(window) {
-                                MainWindow(profile.mainViewModel, window, isFocused, thisTabId)
+                    // Stability is achieved through keys in TabbedView for each tab
+                    val tabs = profileManager.gameWindows.value.values.map { profile ->
+                        Tab(
+                            // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
+                            title = profile.profileName,
+                            content = { isFocused, thisTabId ->
+                                HoverManagerProvider(window) {
+                                    MainWindow(profile.mainViewModel, window, isFocused, thisTabId)
+                                }
                             }
-                        }
+                        )
+                    }
+                    TabbedView(
+                        tabs = tabs,
+                        selectedTabIndex = profileManager.selectedTabIndex.value,
+                        onTabSelected = { profileManager.switchWindow(it) },
+                        onTabClose = { profileManager.selectedTabIndex.value = it }
                     )
-                }
-                TabbedView(
-                    tabs = tabs,
-                    selectedTabIndex = profileManager.selectedTabIndex.value,
-                    onTabSelected = { profileManager.switchWindow(it) },
-                    onTabClose = { profileManager.selectedTabIndex.value = it }
-                )
 
-                // Map widget
-                FloatingWindow(showMapWindow, window, "MapWindow")
-                {
-                    HoverManagerProvider(window) {
-                        MapWindow(profileManager.currentClient.value, logger)
+                    // Map widget
+                    FloatingWindow(showMapWindow, window, "MapWindow")
+                    {
+                        HoverManagerProvider(window) {
+                            MapWindow(profileManager.currentClient.value, logger)
+                        }
                     }
-                }
 
-                // Additional output widget
-                FloatingWindow(showAdditionalOutputWindow, window, "AdditionalOutput")
-                {
-                    AdditionalOutputWindow(outputWindowModel, logger)
-                }
-
-                // Group widget
-                FloatingWindow(showGroupWindow, window, "GroupWindow")
-                {
-                    HoverManagerProvider(window) {
-                        GroupWindow(profileManager.currentClient.value, logger)
+                    // Additional output widget
+                    FloatingWindow(showAdditionalOutputWindow, window, "AdditionalOutput")
+                    {
+                        AdditionalOutputWindow(outputWindowModel, logger)
                     }
-                }
 
-                // Mob widget
-                FloatingWindow(showMobsWindow, window, "MobsWindow")
-                {
-                    HoverManagerProvider(window) {
-                        MobsWindow(profileManager.currentClient.value, logger)
+                    // Group widget
+                    FloatingWindow(showGroupWindow, window, "GroupWindow")
+                    {
+                        HoverManagerProvider(window) {
+                            GroupWindow(profileManager.currentClient.value, logger)
+                        }
                     }
-                }
 
-                // Hidden by default, "Open new game window from profile" dialog
-                ProfileDialog(
-                    showProfileDialog, profileManager.gameWindows.value,
-                    onAddWindow = { windowName -> profileManager.addProfile(windowName) }
-                )
+                    // Mob widget
+                    FloatingWindow(showMobsWindow, window, "MobsWindow")
+                    {
+                        HoverManagerProvider(window) {
+                            MobsWindow(profileManager.currentClient.value, logger)
+                        }
+                    }
+
+                    // Hidden by default, "Open new game window from profile" dialog
+                    ProfileDialog(
+                        showProfileDialog, profileManager.gameWindows.value,
+                        onAddWindow = { windowName -> profileManager.addProfile(windowName) }
+                    )
+
+                },)
             }
 
             LaunchedEffect(Unit) { // launch only on first composition, when the program starts
