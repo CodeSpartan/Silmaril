@@ -1,10 +1,12 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
-    kotlin("jvm") version "2.1.21"
-    id("org.jetbrains.compose")
-    id("org.jetbrains.kotlin.plugin.compose")
-    kotlin("plugin.serialization") version "2.1.21"
+    kotlin("jvm") version libs.versions.kotlin
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+    //alias(libs.plugins.kotlinMultiplatform) // not needed, since I'm just using desktop
+    // alias(libs.plugins.composeHotReload) // don't need it, since I don't use hotreload. maybe later?
+    alias(libs.plugins.kotlinSerialization) // xml, yaml, json
     // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
     id("com.github.ben-manes.versions") version "0.52.0"
     id("com.google.devtools.ksp") version "2.1.21-2.0.2"
@@ -13,20 +15,9 @@ plugins {
 group = "ru.adan"
 version = "1.0-SNAPSHOT"
 
-repositories {
-    mavenCentral()
-    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    google()
-}
-
 dependencies {
-    // Note, if you develop a library, you should use compose.desktop.common.
-    // compose.desktop.currentOs should be used in launcher-sourceSet
-    // (in a separate module for demo project and in testMain).
-    // With compose.desktop.common you will also lose @Preview functionality
-    implementation(compose.desktop.currentOs)
     // Add the kotlinx-coroutines-swing dependency for enabling Dispatchers.Main on Compose Desktop
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2")
+    implementation(libs.kotlinx.coroutinesSwing)
     // json
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     // jackson xml
@@ -34,14 +25,19 @@ dependencies {
     // this allows us to load fonts from the composeResources folder and load them in a new way
     implementation(compose.components.resources)
     // For Kotlin Scripting
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:2.1.21")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:2.1.21")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-common:2.1.21")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:2.1.21")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:${libs.versions.kotlin.get()}")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:${libs.versions.kotlin.get()}")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-common:${libs.versions.kotlin.get()}")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
     // JSR
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:2.1.21")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:2.1.21")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jsr223:2.1.21")
+    /**
+     * The Kotlin team has announced changes/deprecations around scripting for K2,
+     * including plans to drop JSR-223 and some related artifacts after Kotlin 2.3.
+     * Do we even need them??
+     */
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:${libs.versions.kotlin.get()}")
+    //implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
+    //implementation("org.jetbrains.kotlin:kotlin-scripting-jsr223:${libs.versions.kotlin.get()}")
     // for icons
     implementation("org.jetbrains.compose.material:material-desktop:1.8.2")
     implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
@@ -71,6 +67,28 @@ dependencies {
     implementation("com.charleskorn.kaml:kaml:0.85.0")
     // helps XML with serialization somehow
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.2")
+
+    /** jewel imports */
+    implementation(compose.desktop.currentOs) {
+        exclude(group = "org.jetbrains.compose.material")
+    }
+    // See https://github.com/JetBrains/Jewel/releases for the release notes
+    implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.29.0-252.24604")
+    // For custom decorated windows
+    implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.29.0-252.24604")
+    // Jewel Icons
+    implementation("com.jetbrains.intellij.platform:icons:252.23892.530")
+    /** end of jewel imports */
+
+    // already brought in by currentOs
+    //implementation(compose.runtime)
+    //implementation(compose.foundation)
+    //implementation(compose.material3)
+    //implementation(compose.ui)
+    implementation(compose.components.uiToolingPreview) // @TODO: previews don't currently work
+    // I don't use only if you use ViewModel/lifecycle APIs in Desktop, we use Koin koin-compose-viewmodel
+    //implementation(libs.androidx.lifecycle.viewmodelCompose)
+    //implementation(libs.androidx.lifecycle.runtimeCompose)
 }
 
 compose.desktop {
