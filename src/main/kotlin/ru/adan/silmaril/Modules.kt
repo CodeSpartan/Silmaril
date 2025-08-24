@@ -29,7 +29,8 @@ val appModule = module {
         Profile(
             profileName = params.get(),
             settingsManager = get(),
-            mapModel = get()
+            mapModel = get(),
+            outputWindowModel = get(),
         )
     }
 
@@ -77,7 +78,6 @@ val appModule = module {
             settingsManager = get(),
             profileManager = get(),
             loreManager = get(),
-            outputWindowModel = get(),
         )
     }
 }

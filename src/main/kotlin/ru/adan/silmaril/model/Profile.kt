@@ -31,11 +31,13 @@ import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
+import ru.adan.silmaril.scripting.out
 
 class Profile(
     val profileName: String,
     private val settingsManager: SettingsManager,
     private val mapModel: MapModel,
+    private val outputWindowModel: OutputWindowModel,
 ) : KoinComponent {
     val client: MudConnection by lazy {
         get {
@@ -169,6 +171,7 @@ class Profile(
             "#sendAll" -> parseSendAllCommand(message)
             "#window" -> parseWindowCommand(message)
             "#output" -> parseOutputCommand(message)
+            "#out" -> parseOutputCommand(message)
             "#lore" -> parseLoreCommand(message)
             "#comment" -> parseCommentCommand(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
@@ -732,13 +735,13 @@ class Profile(
     }
 
     fun parseOutputCommand(message: String) {
-        val outputRegex = """\#output (.+)""".toRegex()
+        val outputRegex = """\#out(?:put)? (.+)""".toRegex()
         val match = outputRegex.find(message)
         if (match == null) {
             mainViewModel.displayErrorMessage("Ошибка #output - не смог распарсить. Правильный синтаксис: #output сообщение")
             return
         }
-        scriptingEngine.outputCommand(match.groupValues[1])
+        outputWindowModel.displayTaggedText(match.groupValues[1], false)
     }
 
     fun parseCommentCommand(message: String) {

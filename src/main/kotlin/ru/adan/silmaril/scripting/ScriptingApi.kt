@@ -86,5 +86,17 @@ fun ScriptingEngine.window(windowName: String) {
 }
 
 fun ScriptingEngine.isCurrentWindow(): Boolean {
-    return isCurrentWindowCommand()
+    return getProfileManager().currentProfileName.value.equals(profileName, ignoreCase = true)
 }
+
+fun ScriptingEngine.out(message: String) {
+    send("#output $message")
+}
+
+fun ScriptingEngine.getProfileName() = profileName
+
+fun ScriptingEngine.getCurrentProfile() = getProfileManager().getCurrentProfile()
+
+fun ScriptingEngine.getThisProfile() = getProfileManager().getProfileByName(profileName)
+
+fun ScriptingEngine.formattedTime() = "<color=dark-grey><size=small>\$time </size></color>"

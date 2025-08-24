@@ -100,6 +100,10 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         return gameWindows.value.entries.firstOrNull { (key, value) -> key.equals(currentProfileName.value, ignoreCase = true) }?.value
     }
 
+    fun getProfileByName(name: String) : Profile? {
+        return gameWindows.value.entries.firstOrNull { (key, value) -> key.equals(name, ignoreCase = true) }?.value
+    }
+
     //@TODO: move this to a separate class
     // Return true to consume the event
     fun onHotkeyKey(onPreviewKeyEvent: KeyEvent): Boolean {

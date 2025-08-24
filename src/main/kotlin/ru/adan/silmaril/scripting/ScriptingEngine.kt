@@ -57,9 +57,8 @@ interface ScriptingEngine {
     fun getHotkeys(): MutableMap<String, CopyOnWriteArrayList<Hotkey>>
     fun switchWindowCommand(window: String) : Boolean
     fun loreCommand(loreName: String)
-    fun outputCommand(msg: String)
     fun commentCommand(comment: String): Boolean
-    fun isCurrentWindowCommand(): Boolean
+    fun getProfileManager(): ProfileManager
 }
 
 open class ScriptingEngineImpl(
@@ -69,7 +68,6 @@ open class ScriptingEngineImpl(
     private val settingsManager: SettingsManager,
     private val profileManager: ProfileManager,
     private val loreManager: LoreManager,
-    private val outputWindowModel: OutputWindowModel,
 ) : ScriptingEngine {
     override val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
@@ -169,15 +167,12 @@ open class ScriptingEngineImpl(
         loreManager.findLoreInFiles(loreName)
     }
 
-    override fun outputCommand(msg: String) {
-        outputWindowModel.displayTaggedText(msg, false)
-    }
-
     override fun commentCommand(comment: String): Boolean =
         loreManager.commentLastLore(comment)
 
-    override fun isCurrentWindowCommand(): Boolean =
-        profileManager.currentProfileName.value.equals(profileName, ignoreCase = true)
+    override fun getProfileManager(): ProfileManager {
+        return profileManager
+    }
 
     override fun getVarCommand(varName: String): Variable? =
         profileManager.gameWindows.value[profileName]?.getVariable(varName)
