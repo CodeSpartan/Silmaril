@@ -102,7 +102,7 @@ fun main() {
 
                         TitleBarView(showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
 
-                        window.minimumSize = Dimension(800, 600)
+                        window.minimumSize = remember { Dimension(800, 600) }
 
                         // watch for resize, move, fullscreen toggle and save into settings
                         SignUpToWindowEvents(mainWindowState)

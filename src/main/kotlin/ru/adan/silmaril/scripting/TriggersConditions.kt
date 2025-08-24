@@ -63,8 +63,8 @@ class Trigger(
                 // Key is the 1-based group index (1, 2, 3...).
                 // Value is the captured string.
                 val matchMap = matchResult.groupValues
-                    .drop(1) // Drop the full match at index 0
-                    .mapIndexed { index, value -> (index + 1) to value }
+                    .drop(0) // Don't drop the full match at index 0
+                    .mapIndexed { index, value -> (index) to value }
                     .toMap()
 
                 action(matchMap)
@@ -80,7 +80,7 @@ class Trigger(
             val condition = RegexCondition(textCondition)
             return Trigger(condition, TriggerAction(originalCommand = textAction, lambda ={ matchResult ->
                 var commandToSend = textAction
-                val capturedGroups = matchResult.groupValues.drop(1) // Drop full match
+                val capturedGroups = matchResult.groupValues.drop(0) // Don't drop full match
 
                 // Replace %0, %1, etc., with the captured group values
                 capturedGroups.forEachIndexed { index, value ->
