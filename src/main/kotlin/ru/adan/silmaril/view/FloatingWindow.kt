@@ -27,6 +27,7 @@ import java.awt.event.ComponentEvent
 @Composable
 fun FloatingWindow(
     show: MutableState<Boolean>,
+    visible: MutableState<Boolean>,
     owner: ComposeWindow, // owner is necessary for correct focus behavior
     windowName: String,
     content: @Composable () -> Unit
@@ -34,6 +35,7 @@ fun FloatingWindow(
     val settingsManager: SettingsManager = koinInject()
     if (show.value) {
         DialogWindow(
+            visible = !visible.value,
             create = {
                 ComposeDialog(owner = owner).apply { // Set the owner as the window
                     val windowInitialState = settingsManager.getFloatingWindowState(windowName)

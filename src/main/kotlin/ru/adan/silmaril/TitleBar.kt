@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,12 +53,13 @@ import org.jetbrains.jewel.window.TitleBar
 import org.jetbrains.jewel.window.newFullscreenControls
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.icon
+import ru.adan.silmaril.view.AppMenuBar
 import kotlin.math.max
 
 @OptIn(ExperimentalFoundationApi::class)
 @ExperimentalLayoutApi
 @Composable
-internal fun DecoratedWindowScope.TitleBarView() {
+internal fun DecoratedWindowScope.TitleBarView(showTitleMenu: MutableState<Boolean>) {
 
     TitleBar(Modifier.newFullscreenControls(), gradientStartColor = Color(0xff9619b3)) {
         Row(Modifier.align(Alignment.Start)) {
@@ -66,6 +70,13 @@ internal fun DecoratedWindowScope.TitleBarView() {
                         selected = true,
                         onClick = { println("selectable 1") },
                     ) {
+                        showTitleMenu.value = true
+                        DisposableEffect(Unit) {
+                            onDispose {
+                                showTitleMenu.value = false
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.height(30.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),

@@ -74,6 +74,8 @@ fun main() {
             val mapModel: MapModel = koinInject()
             val loreManager: LoreManager = koinInject()
 
+            val showTitleMenu: MutableState<Boolean> = remember { mutableStateOf(false) }
+
             val showMapWindow = remember { mutableStateOf(settingsManager.getFloatingWindowState("MapWindow").show) }
             val showAdditionalOutputWindow =
                 remember { mutableStateOf(settingsManager.getFloatingWindowState("AdditionalOutput").show) }
@@ -119,7 +121,7 @@ fun main() {
                     title = "Silmaril",
                     icon = painterResource(Res.drawable.icon),
                     content = {
-                        TitleBarView()
+                        TitleBarView(showTitleMenu)
 //                    AppMenuBar(
 //                        showMapWindow = showMapWindow,
 //                        showAdditionalOutputWindow = showAdditionalOutputWindow,
@@ -163,7 +165,7 @@ fun main() {
                     )
 
                     // Map widget
-                    FloatingWindow(showMapWindow, window, "MapWindow")
+                    FloatingWindow(showMapWindow, showTitleMenu, window, "MapWindow")
                     {
                         HoverManagerProvider(window) {
                             MapWindow(profileManager.currentClient.value, logger)
@@ -171,13 +173,13 @@ fun main() {
                     }
 
                     // Additional output widget
-                    FloatingWindow(showAdditionalOutputWindow, window, "AdditionalOutput")
+                    FloatingWindow(showAdditionalOutputWindow, showTitleMenu, window, "AdditionalOutput")
                     {
                         AdditionalOutputWindow(outputWindowModel, logger)
                     }
 
                     // Group widget
-                    FloatingWindow(showGroupWindow, window, "GroupWindow")
+                    FloatingWindow(showGroupWindow, showTitleMenu, window, "GroupWindow")
                     {
                         HoverManagerProvider(window) {
                             GroupWindow(profileManager.currentClient.value, logger)
@@ -185,7 +187,7 @@ fun main() {
                     }
 
                     // Mob widget
-                    FloatingWindow(showMobsWindow, window, "MobsWindow")
+                    FloatingWindow(showMobsWindow, showTitleMenu, window, "MobsWindow")
                     {
                         HoverManagerProvider(window) {
                             MobsWindow(profileManager.currentClient.value, logger)
