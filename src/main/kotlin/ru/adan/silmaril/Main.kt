@@ -116,7 +116,7 @@ fun main() {
 
                         //val selectedTabIndex = remember { mutableIntStateOf(0) }
 
-                        TitleBarView(showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
+                        TitleBarView(window, showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
 //                    AppMenuBar(
 //                        showMapWindow = showMapWindow,
 //                        showAdditionalOutputWindow = showAdditionalOutputWindow,
