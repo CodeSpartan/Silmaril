@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.jewel.foundation.theme.JewelTheme
+import org.jetbrains.jewel.intui.core.theme.IntUiDarkTheme
+import org.jetbrains.jewel.intui.standalone.styling.Default
 import org.jetbrains.jewel.intui.standalone.theme.createDefaultTextStyle
 import org.jetbrains.jewel.intui.standalone.theme.createEditorTextStyle
 import java.awt.Desktop
@@ -41,6 +43,7 @@ import org.jetbrains.jewel.ui.component.TabStrip
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.separator
+import org.jetbrains.jewel.ui.component.styling.TabColors
 import org.jetbrains.jewel.ui.component.styling.TabStyle
 import org.jetbrains.jewel.ui.icon.IconKey
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
@@ -289,7 +292,12 @@ private fun DefaultTabShowcase() {
             }
         }
 
-    TabStripWithAddButton(tabs = tabs, style = JewelTheme.defaultTabStyle) {
+    val purpleTabStyle = remember {
+        TabStyle.Default.dark(
+            colors = TabColors.Default.dark(underlineSelected = IntUiDarkTheme.colors.purple(6))
+        )
+    }
+    TabStripWithAddButton(tabs = tabs, style = purpleTabStyle) {
         val insertionIndex = (selectedTabIndex + 1).coerceIn(0..tabIds.size)
         val nextTabId = maxId + 1
 

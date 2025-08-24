@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import ru.adan.silmaril.model.SettingsManager
 import java.awt.Dimension
-import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.*
@@ -28,20 +27,16 @@ import ru.adan.silmaril.view.small_dialogs.ProfileDialog
 import org.koin.core.context.startKoin
 import org.koin.logger.slf4jLogger
 import ru.adan.silmaril.model.ProfileManager
-import ru.adan.silmaril.view.AppMenuBar
 import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.intui.standalone.theme.IntUiTheme
-import org.jetbrains.jewel.intui.standalone.theme.createDefaultTextStyle
-import org.jetbrains.jewel.intui.standalone.theme.createEditorTextStyle
 import org.jetbrains.jewel.intui.standalone.theme.darkThemeDefinition
 import org.jetbrains.jewel.intui.standalone.theme.default
 import org.jetbrains.jewel.intui.window.decoratedWindow
 import org.jetbrains.jewel.intui.window.styling.dark
 import org.jetbrains.jewel.ui.ComponentStyling
 import org.jetbrains.jewel.window.DecoratedWindow
-import org.jetbrains.jewel.window.TitleBar
 import org.jetbrains.jewel.window.styling.TitleBarStyle
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.OutputWindowModel
@@ -58,10 +53,7 @@ fun main() {
 
     val logger = KotlinLogging.logger {}
 
-    val textStyle = JewelTheme.createDefaultTextStyle()
-    val editorStyle = JewelTheme.createEditorTextStyle()
-    val themeDefinition =
-        JewelTheme.darkThemeDefinition(defaultTextStyle = textStyle, editorTextStyle = editorStyle)
+    val themeDefinition = JewelTheme.darkThemeDefinition()
 
     // it's a Composable
     application {
