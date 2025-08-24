@@ -32,3 +32,9 @@ enum class UiColor {
     Stamina,
     WaitTime,
 }
+
+enum class TextSize {
+    Small,
+    Normal,
+    Large,
+}

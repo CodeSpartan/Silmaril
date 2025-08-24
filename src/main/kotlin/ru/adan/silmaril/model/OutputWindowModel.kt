@@ -9,8 +9,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.ColorfulTextMessage
-import ru.adan.silmaril.misc.TextMessageChunk
-import kotlin.collections.plus
 
 class OutputWindowModel {
 

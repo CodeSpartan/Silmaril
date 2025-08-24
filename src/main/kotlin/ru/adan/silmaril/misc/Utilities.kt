@@ -5,6 +5,8 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.zip.ZipInputStream
 
 fun unzipFile(zipFilePath: String, destDirectory: String) {
@@ -184,4 +186,14 @@ data class OutputItem(val id: Long, val message: ColorfulTextMessage) {
         private var nextId = 0L
         fun new(message: ColorfulTextMessage) = OutputItem(nextId++, message)
     }
+}
+
+fun currentTime() : String {
+    val currentTime = LocalTime.now()
+    // Define the desired format
+    // HH: 24-hour format (00-23)
+    // mm: minutes with leading zero (00-59)
+    // ss: seconds with leading zero (00-59)
+    val formatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+    return currentTime.format(formatter)
 }

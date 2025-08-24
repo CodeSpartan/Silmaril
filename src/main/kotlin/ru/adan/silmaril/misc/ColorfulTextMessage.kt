@@ -18,56 +18,124 @@ data class ColorfulTextMessage(
 
     companion object {
         /**
-         * Parses a string with color tags and passes the resulting chunks to displayChunks.
-         * Example: "This is <color=bright-yellow>important</color>!"
+         * Parses a string with nested <color=...>...</color> and <size=...>...</size> tags
+         * into TextMessageChunk[].
+         *
+         * Examples:
+         * - "Normal <color=bright-yellow>bright yellow <size=large>BIG</size> still yellow</color> back."
+         * - "Mix <size=small>tiny <color=dark-green>tiny green</color> tiny</size> normal."
          */
-        fun makeColoredChunksFromTaggedText(taggedText: String, brightWhiteAsDefault: Boolean) : Array<TextMessageChunk> {
+        fun makeColoredChunksFromTaggedText(
+            taggedText: String,
+            brightWhiteAsDefault: Boolean
+        ): Array<TextMessageChunk> {
             val chunks = mutableListOf<TextMessageChunk>()
-            // Regex to find color tags and capture brightness, color, and text
-            val regex = """<color=(?:(bright|dark)-)?(\w+)>(.+?)<\/color>""".toRegex()
-            var lastIndex = 0
 
-            regex.findAll(taggedText).forEach { matchResult ->
-                // 1. Add the plain text before the current tag
-                val beforeText = taggedText.substring(lastIndex, matchResult.range.first)
-                if (beforeText.isNotEmpty()) {
-                    // Using default values
-                    chunks.add(TextMessageChunk(
-                        beforeText,
-                        if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None,
-                        AnsiColor.None,
-                        brightWhiteAsDefault))
+            val defaultFg = if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None
+            val defaultBright = brightWhiteAsDefault
+            val defaultBg = AnsiColor.None
+
+            data class Style(val fg: AnsiColor, val bright: Boolean, val size: TextSize)
+
+            // Current (effective) style
+            var current = Style(
+                fg = defaultFg,
+                bright = defaultBright,
+                size = TextSize.Normal
+            )
+
+            // Regex to recognize tags at the current position (case-insensitive)
+            val openColor = """<color=(?:(bright|dark)-)?(\w+)>""".toRegex(RegexOption.IGNORE_CASE)
+            val openSize  = """<size=(\w+)>""".toRegex(RegexOption.IGNORE_CASE)
+            val closeTag  = """</(color|size)>""".toRegex(RegexOption.IGNORE_CASE)
+
+            // Stack holds previous style + which tag type opened it
+            val stack = ArrayDeque<Pair<Style, String>>() // tag type: "color" | "size"
+
+            val sb = StringBuilder()
+            var i = 0
+
+            fun flush() {
+                if (sb.isNotEmpty()) {
+                    chunks.add(
+                        TextMessageChunk(
+                            text = sb.toString(),
+                            fgColor = current.fg,
+                            bgColor = defaultBg,
+                            isBright = current.bright,
+                            textSize = current.size
+                        )
+                    )
+                    sb.clear()
+                }
+            }
+
+            while (i < taggedText.length) {
+                val c = taggedText[i]
+                if (c == '<') {
+                    val close = closeTag.find(taggedText, i)?.takeIf { it.range.first == i }
+                    val openC = openColor.find(taggedText, i)?.takeIf { it.range.first == i }
+                    val openS = openSize.find(taggedText, i)?.takeIf { it.range.first == i }
+
+                    if (close != null || openC != null || openS != null) {
+                        // We are at a tag boundary: first flush accumulated text
+                        flush()
+
+                        when {
+                            openC != null -> {
+                                // Opening color tag
+                                stack.addLast(current to "color")
+                                val brightness = openC.groups[1]?.value
+                                val colorName = openC.groups[2]?.value
+                                val isBright = !"dark".equals(brightness, ignoreCase = true) // default bright if omitted
+                                val color = enumValueOfIgnoreCase(colorName, defaultFg)
+                                current = current.copy(fg = color, bright = isBright)
+                                i = openC.range.last + 1
+                                continue
+                            }
+                            openS != null -> {
+                                // Opening size tag
+                                stack.addLast(current to "size")
+                                val sizeName = openS.groups[1]?.value
+                                val size = enumValueOfIgnoreCase(sizeName, TextSize.Normal)
+                                current = current.copy(size = size)
+                                i = openS.range.last + 1
+                                continue
+                            }
+                            else -> {
+                                // Closing tag
+                                val tagType = close!!.groups[1]!!.value.lowercase()
+                                if (stack.isNotEmpty() && stack.last().second == tagType) {
+                                    val (prev, _) = stack.removeLast()
+                                    current = prev
+                                    i = close.range.last + 1
+                                    continue
+                                } else {
+                                    // Mismatched closer: treat '<' literally and move forward
+                                    sb.append('<')
+                                    i += 1
+                                    continue
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // 2. Extract captured groups from the matched tag
-                val brightnessSpecifier = matchResult.groups[1]?.value
-                val colorName = matchResult.groups[2]?.value
-                val content = matchResult.groups[3]?.value ?: ""
-
-                // 3. Determine brightness. It's bright unless "dark" is specified.
-                val isBright = !"dark".equals(brightnessSpecifier, ignoreCase = true)
-
-                // 4. Find the AnsiColor, defaulting to White if the name is invalid
-                val color = enumValueOfIgnoreCase(colorName, if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None)
-
-                // 5. Add the colored chunk
-                chunks.add(TextMessageChunk(content, color, AnsiColor.None, isBright))
-
-                // 6. Update our position in the string
-                lastIndex = matchResult.range.last + 1
+                // Not a tag start: accumulate text
+                sb.append(c)
+                i += 1
             }
 
-            // 7. Add any remaining plain text after the last tag
-            val remainingText = taggedText.substring(lastIndex)
-            if (remainingText.isNotEmpty()) {
-                chunks.add(TextMessageChunk(remainingText,
-                    if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None,
-                    AnsiColor.None,
-                    brightWhiteAsDefault))
-            }
+            // Flush any trailing text
+            flush()
 
-            // 8. Call the original function with the assembled chunks
             return chunks.toTypedArray()
+        }
+
+        // Case-insensitive enum lookup with fallback default
+        private inline fun <reified T : Enum<T>> enumValueOfIgnoreCase(name: String?, default: T): T {
+            if (name == null) return default
+            return enumValues<T>().firstOrNull { it.name.equals(name, ignoreCase = true) } ?: default
         }
     }
 }
@@ -76,5 +144,6 @@ data class TextMessageChunk (
     var text : String,
     var fgColor : AnsiColor,
     var bgColor : AnsiColor = AnsiColor.Black,
-    var isBright : Boolean = false
+    var isBright : Boolean = false,
+    var textSize : TextSize = TextSize.Normal,
 )

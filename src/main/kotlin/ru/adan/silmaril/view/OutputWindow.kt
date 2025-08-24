@@ -48,6 +48,7 @@ import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.OutputItem
+import ru.adan.silmaril.misc.TextSize
 import ru.adan.silmaril.visual_styles.StyleManager
 import ru.adan.silmaril.misc.UiColor
 import ru.adan.silmaril.model.OutputWindowModel
@@ -140,7 +141,12 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
                                             chunk.fgColor,
                                             chunk.isBright
                                         ),
-                                        //fontSize = (currentFontSize - 2).sp
+                                        fontSize = when (chunk.textSize) {
+                                            TextSize.Small -> (currentFontSize - 4).sp
+                                            TextSize.Normal -> currentFontSize.sp
+                                            TextSize.Large -> (currentFontSize + 4).sp
+                                        }
+                                        // You can add other styles like fontWeight here if needed
                                     )
                                 ) {
                                     append(chunk.text)

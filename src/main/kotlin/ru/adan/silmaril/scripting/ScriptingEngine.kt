@@ -59,7 +59,7 @@ interface ScriptingEngine {
     fun loreCommand(loreName: String)
     fun outputCommand(msg: String)
     fun commentCommand(comment: String): Boolean
-    fun isThisCurrentWindowCommand(): Boolean
+    fun isCurrentWindowCommand(): Boolean
 }
 
 open class ScriptingEngineImpl(
@@ -176,7 +176,7 @@ open class ScriptingEngineImpl(
     override fun commentCommand(comment: String): Boolean =
         loreManager.commentLastLore(comment)
 
-    override fun isThisCurrentWindowCommand(): Boolean =
+    override fun isCurrentWindowCommand(): Boolean =
         profileManager.currentProfileName.value.equals(profileName, ignoreCase = true)
 
     override fun getVarCommand(varName: String): Variable? =

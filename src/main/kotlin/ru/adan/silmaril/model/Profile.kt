@@ -27,6 +27,7 @@ import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.Hotkey
+import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
@@ -175,7 +176,12 @@ class Profile(
     }
 
     fun onInsertVariables(message: String) : String {
-        return message.replace(insertVarRegex) { profileData.value.variables[it.value.drop(1)]?.toString() ?: it.value }
+        return message.replace(insertVarRegex) { matchResult ->
+            when (matchResult.value) {
+                "\$time" -> currentTime()
+                else -> profileData.value.variables[matchResult.value.drop(1)]?.toString() ?: matchResult.value
+            }
+        }
     }
 
     fun parseVarCommand(message: String) {
