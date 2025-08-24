@@ -55,20 +55,33 @@ import org.jetbrains.jewel.window.newFullscreenControls
 import org.koin.compose.koinInject
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.icon
+import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.capitalized
+import ru.adan.silmaril.model.ConnectionState
 import ru.adan.silmaril.model.ProfileManager
+import ru.adan.silmaril.model.SettingsManager
+import ru.adan.silmaril.visual_styles.StyleManager
 import kotlin.math.max
 
 @OptIn(ExperimentalFoundationApi::class)
 @ExperimentalLayoutApi
 @Composable
 internal fun DecoratedWindowScope.TitleBarView(
-    showTitleMenu: MutableState<Boolean>,
+    showMapWindow: MutableState<Boolean>,
+    showAdditionalOutputWindow: MutableState<Boolean>,
+    showGroupWindow: MutableState<Boolean>,
+    showMobsWindow: MutableState<Boolean>,
     showProfileDialog: MutableState<Boolean>,
+    showTitleMenu: MutableState<Boolean>,
     selectedTabIndex: MutableState<Int>,
+    onExit: () -> Unit
 ) {
     val density = LocalDensity.current
+    val settingsManager: SettingsManager = koinInject()
     val profileManager: ProfileManager = koinInject()
+    val settings by settingsManager.settings.collectAsState()
+    val currentWindowConnectionState by profileManager.currentClient.value.connectionState.collectAsState()
+
     val gameWindows by profileManager.gameWindows.collectAsState()
     val titleBarWidth = remember { mutableStateOf(500)}
 
@@ -84,80 +97,151 @@ internal fun DecoratedWindowScope.TitleBarView(
                 Dropdown(
                     Modifier.height(30.dp),
                     menuContent = {
-                        selectableItem(
-                            selected = true,
-                            onClick = { println("selectable 1") },
-                        ) {
-                            showTitleMenu.value = true
-                            DisposableEffect(Unit) {
-                                onDispose {
-                                    showTitleMenu.value = false
-                                }
-                            }
 
-                            Row(
-                                modifier = Modifier.height(30.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Image(painterResource(Res.drawable.icon), null)
-                                Text("Title selectable 1")
+                        passiveItem {
+                            Row (Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                // @TODO remove it from here later
+                                /** A bit ugly to hide this in the first composable, but we need to hide the dialogs (map, monsters, etc)
+                                 * because they're AWT heavyweights and their Z-index is higher than the menu, so the menu needs to hide them
+                                 */
+                                showTitleMenu.value = true
+                                DisposableEffect(Unit) {
+                                    onDispose {
+                                        showTitleMenu.value = false
+                                    }
+                                }
+                                Text(
+                                    text = profileManager.currentProfileName.value.capitalized(),
+                                    color = Color(0xff6f737a),
+                                )
+                            }
+                        }
+                        selectableItem(
+                            selected = false,
+                            iconKey = if (settings.autoReconnect) AllIconsKeys.Actions.Checked else null,
+                            onClick = { settingsManager.toggleAutoReconnect() },
+                        ) {
+                            Text("Переподключение")
+                        }
+
+                        separator()
+
+                        passiveItem {
+                            Row (Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                Text(
+                                    text = "Окна",
+                                    color = Color(0xff6f737a),
+                                )
                             }
                         }
 
                         selectableItem(
-                            selected = true,
-                            onClick = { println("selectable 2") },
+                            selected = false,
+                            iconKey = if (showMapWindow.value) AllIconsKeys.Actions.Checked else null,
+                            onClick = { showMapWindow.value = !showMapWindow.value },
                         ) {
-                            Row(
-                                modifier = Modifier.height(30.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Image(painterResource(Res.drawable.icon), null)
-                                Text("Title selectable 2")
+                            Text("Карта")
+                        }
+
+                        selectableItem(
+                            selected = false,
+                            iconKey = if (showGroupWindow.value) AllIconsKeys.Actions.Checked else null,
+                            onClick = { showGroupWindow.value = !showGroupWindow.value },
+                        ) {
+                            Text("Окно группы")
+                        }
+
+                        selectableItem(
+                            selected = false,
+                            iconKey = if (showMobsWindow.value) AllIconsKeys.Actions.Checked else null,
+                            onClick = { showMobsWindow.value = !showMobsWindow.value },
+                        ) {
+                            Text("Окно монстров")
+                        }
+
+                        selectableItem(
+                            selected = false,
+                            iconKey = if (showAdditionalOutputWindow.value) AllIconsKeys.Actions.Checked else null,
+                            onClick = { showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value },
+                        ) {
+                            Text("Окно вывода")
+                        }
+
+                        separator()
+
+                        passiveItem {
+                            Row (Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                Text(
+                                    text = "Вид",
+                                    color = Color(0xff6f737a),
+                                )
                             }
                         }
 
                         submenu(
                             true,
-                            null,
+                            AllIconsKeys.FileTypes.Font,
                             submenu = {
-                                selectableItem(
-                                    selected = true,
-                                    onClick = { println("Submenu selectable 1") },
-                                ) {
-                                    Row(
-                                        modifier = Modifier.height(30.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Image(painterResource(Res.drawable.icon), null)
-                                        Text("Submenu Title selectable 1")
+                                FontManager.fontFamilies.keys.filter { it != "RobotoClassic" && it != "SourceCodePro" }
+                                    .forEach { fontName ->
+                                        selectableItem(
+                                            selected = false,
+                                            iconKey = if (settings.font == fontName) AllIconsKeys.Actions.Checked else null,
+                                            onClick = { settingsManager.updateFont(fontName) },
+                                        ) {
+                                            Text(fontName)
+                                        }
                                     }
-                                }
-
-                                separator()
-
-                                selectableItem(
-                                    selected = true,
-                                    onClick = { println("Submenu selectable 2") },
-                                ) {
-                                    Row(
-                                        modifier = Modifier.height(30.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Image(painterResource(Res.drawable.icon), null)
-                                        Text("Submenu Title selectable 2")
-                                    }
-                                }
                             },
                             content = {
-                                Text("Submenu items")
+                                Text("Шрифт")
                             }
                         )
 
+                        submenu(
+                            true,
+                            AllIconsKeys.MeetNewUi.LightTheme,
+                            submenu = {
+                                StyleManager.styles.keys.forEach { styleName ->
+                                        selectableItem(
+                                            selected = false,
+                                            iconKey = if (settings.colorStyle == styleName) AllIconsKeys.Actions.Checked else null,
+                                            onClick = { settingsManager.updateColorStyle(styleName) },
+                                        ) {
+                                            Text(styleName)
+                                        }
+                                }
+                            },
+                            content = {
+                                Text("Цветовая тема")
+                            }
+                        )
+
+                        separator()
+
+                        selectableItem(
+                            selected = false,
+                            iconKey = AllIconsKeys.CodeWithMe.CwmAccess,
+                            onClick = { showProfileDialog.value = true },
+                        ) {
+                            Text("Добавить игровое окно")
+                        }
+
+                        selectableItem(
+                            selected = false,
+                            enabled = currentWindowConnectionState != ConnectionState.CONNECTED && currentWindowConnectionState != ConnectionState.CONNECTING,
+                            iconKey = AllIconsKeys.CodeWithMe.CwmEnableCall,
+                            onClick = { profileManager.currentClient.value.connect() },
+                        ) {
+                            Text("Подключиться")
+                        }
+                        selectableItem(
+                            selected = false,
+                            iconKey = AllIconsKeys.Vcs.Abort,
+                            onClick = { onExit() },
+                        ) {
+                            Text("Выход")
+                        }
                     },
                 ) {
                     Row(
@@ -168,7 +252,6 @@ internal fun DecoratedWindowScope.TitleBarView(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            //Icon(MainViewModel.currentView.iconKey, null, hint = Size(20))
                             Image(painterResource(Res.drawable.icon), null)
                             Text("Silmaril")
                         }
@@ -179,7 +262,6 @@ internal fun DecoratedWindowScope.TitleBarView(
             Row(
                 Modifier
                     .align(Alignment.Center)
-                    //.background(Color.Black)
                     .padding(start = 103.dp)
                     // When CustomTabContent width is 80, the tab's actual size is 120. The Plus button is additional 40.
                     .width((gameWindows.size * 120 + 40).dp),
@@ -189,7 +271,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                     // 103 is menu button, 40 is "add window" button
                     Modifier.width((gameWindows.size * 120).coerceAtMost(titleBarWidth.value - 103 - 40).dp)
                 ) {
-                    TabsPanel(selectedTabIndex)
+                    TitleBarTabsPanel(selectedTabIndex)
                 }
 
                 Tooltip({ Text("Добавить окно") }) {
@@ -207,7 +289,7 @@ internal fun DecoratedWindowScope.TitleBarView(
 }
 
 @Composable
-private fun TabsPanel(selectedTabIndex: MutableState<Int>) {
+private fun TitleBarTabsPanel(selectedTabIndex: MutableState<Int>) {
     val profileManager: ProfileManager = koinInject()
     val gameWindows by profileManager.gameWindows.collectAsState()
 

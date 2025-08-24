@@ -1,4 +1,4 @@
-package ru.adan.silmaril.view
+package ru.adan.silmaril.view.hovertooltips
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

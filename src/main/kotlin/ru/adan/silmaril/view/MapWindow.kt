@@ -35,14 +35,14 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.Dp
 import io.github.oshai.kotlinlogging.KLogger
-import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
-import org.koin.dsl.koinApplication
+import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
+import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
 
 
 @Composable

@@ -287,9 +287,9 @@ class SettingsManager {
         return _groups.value.contains(groupInCaps)
     }
 
-    fun toggleAutoReconnect(newValue: Boolean) {
+    fun toggleAutoReconnect() {
         _settings.update { currentState ->
-            currentState.copy(autoReconnect = newValue)
+            currentState.copy(autoReconnect = !currentState.autoReconnect)
         }
         saveSettings()
     }

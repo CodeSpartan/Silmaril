@@ -18,7 +18,7 @@ import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.icon
 import ru.adan.silmaril.view.AdditionalOutputWindow
 import ru.adan.silmaril.view.FloatingWindow
-import ru.adan.silmaril.view.HoverManagerProvider
+import ru.adan.silmaril.view.hovertooltips.HoverManagerProvider
 import ru.adan.silmaril.view.MainWindow
 import ru.adan.silmaril.view.MapWindow
 import ru.adan.silmaril.view.Tab
@@ -100,7 +100,19 @@ fun main() {
                     icon = painterResource(Res.drawable.icon),
                     content = {
 
-                        TitleBarView(showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
+                        TitleBarView(
+                            showMapWindow = showMapWindow,
+                            showAdditionalOutputWindow = showAdditionalOutputWindow,
+                            showGroupWindow = showGroupWindow,
+                            showMobsWindow = showMobsWindow,
+                            showProfileDialog = showProfileDialog,
+                            showTitleMenu = showTitleMenu,
+                            selectedTabIndex = profileManager.selectedTabIndex,
+                            onExit = {
+                                cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
+                                exitApplication()
+                            },
+                        )
 
                         window.minimumSize = remember { Dimension(800, 600) }
 

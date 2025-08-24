@@ -46,6 +46,8 @@ import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.misc.formatMem
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.mud_messages.Position
+import ru.adan.silmaril.view.hovertooltips.EffectTooltip
+import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import java.util.Objects
 import kotlin.math.roundToInt
 

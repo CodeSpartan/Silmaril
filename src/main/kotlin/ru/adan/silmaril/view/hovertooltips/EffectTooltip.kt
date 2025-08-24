@@ -1,4 +1,4 @@
-package ru.adan.silmaril.view
+package ru.adan.silmaril.view.hovertooltips
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import ru.adan.silmaril.misc.UiColor
 import ru.adan.silmaril.misc.capitalized
+import ru.adan.silmaril.view.CreatureEffect
 import ru.adan.silmaril.visual_styles.ColorStyle
 
 @Composable
