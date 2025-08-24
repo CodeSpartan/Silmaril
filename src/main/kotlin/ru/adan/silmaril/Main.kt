@@ -113,7 +113,10 @@ fun main() {
                     title = "Silmaril",
                     icon = painterResource(Res.drawable.icon),
                     content = {
-                        TitleBarView(showTitleMenu)
+
+                        //val selectedTabIndex = remember { mutableIntStateOf(0) }
+
+                        TitleBarView(showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
 //                    AppMenuBar(
 //                        showMapWindow = showMapWindow,
 //                        showAdditionalOutputWindow = showAdditionalOutputWindow,
@@ -132,65 +135,63 @@ fun main() {
 //                            exitApplication()
 //                        }
 //                    )
-                    window.minimumSize = Dimension(800, 600)
+                        window.minimumSize = Dimension(800, 600)
 
-                    // watch for resize, move, fullscreen toggle and save into settings
-                    SignUpToWindowEvents(mainWindowState)
+                        // watch for resize, move, fullscreen toggle and save into settings
+                        SignUpToWindowEvents(mainWindowState)
 
-                    // Stability is achieved through keys in TabbedView for each tab
-                    val tabs = profileManager.gameWindows.value.values.map { profile ->
-                        Tab(
-                            // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
-                            title = profile.profileName,
-                            content = { isFocused, thisTabId ->
-                                HoverManagerProvider(window) {
-                                    MainWindow(profile.mainViewModel, window, isFocused, thisTabId)
+                        // Stability is achieved through keys in TabbedView for each tab
+                        val tabs = profileManager.gameWindows.value.values.map { profile ->
+                            Tab(
+                                // TabbedView will provide isFocused and thisTabId to Tabs when it composes them
+                                title = profile.profileName,
+                                content = { isFocused, thisTabId ->
+                                    HoverManagerProvider(window) {
+                                        MainWindow(profile.mainViewModel, window, isFocused, thisTabId)
+                                    }
                                 }
-                            }
+                            )
+                        }
+                        TabbedView(
+                            tabs = tabs,
+                            selectedTabIndex = profileManager.selectedTabIndex.value,
                         )
-                    }
-                    TabbedView(
-                        tabs = tabs,
-                        selectedTabIndex = profileManager.selectedTabIndex.value,
-                        onTabSelected = { profileManager.switchWindow(it) },
-                        onTabClose = { profileManager.selectedTabIndex.value = it }
-                    )
 
-                    // Map widget
-                    FloatingWindow(showMapWindow, showTitleMenu, window, "MapWindow")
-                    {
-                        HoverManagerProvider(window) {
-                            MapWindow(profileManager.currentClient.value, logger)
+                        // Map widget
+                        FloatingWindow(showMapWindow, showTitleMenu, window, "MapWindow")
+                        {
+                            HoverManagerProvider(window) {
+                                MapWindow(profileManager.currentClient.value, logger)
+                            }
                         }
-                    }
 
-                    // Additional output widget
-                    FloatingWindow(showAdditionalOutputWindow, showTitleMenu, window, "AdditionalOutput")
-                    {
-                        AdditionalOutputWindow(outputWindowModel, logger)
-                    }
-
-                    // Group widget
-                    FloatingWindow(showGroupWindow, showTitleMenu, window, "GroupWindow")
-                    {
-                        HoverManagerProvider(window) {
-                            GroupWindow(profileManager.currentClient.value, logger)
+                        // Additional output widget
+                        FloatingWindow(showAdditionalOutputWindow, showTitleMenu, window, "AdditionalOutput")
+                        {
+                            AdditionalOutputWindow(outputWindowModel, logger)
                         }
-                    }
 
-                    // Mob widget
-                    FloatingWindow(showMobsWindow, showTitleMenu, window, "MobsWindow")
-                    {
-                        HoverManagerProvider(window) {
-                            MobsWindow(profileManager.currentClient.value, logger)
+                        // Group widget
+                        FloatingWindow(showGroupWindow, showTitleMenu, window, "GroupWindow")
+                        {
+                            HoverManagerProvider(window) {
+                                GroupWindow(profileManager.currentClient.value, logger)
+                            }
                         }
-                    }
 
-                    // Hidden by default, "Open new game window from profile" dialog
-                    ProfileDialog(
-                        showProfileDialog, profileManager.gameWindows.value,
-                        onAddWindow = { windowName -> profileManager.addProfile(windowName) }
-                    )
+                        // Mob widget
+                        FloatingWindow(showMobsWindow, showTitleMenu, window, "MobsWindow")
+                        {
+                            HoverManagerProvider(window) {
+                                MobsWindow(profileManager.currentClient.value, logger)
+                            }
+                        }
+
+                        // Hidden by default, "Open new game window from profile" dialog
+                        ProfileDialog(
+                            showProfileDialog, profileManager.gameWindows.value,
+                            onAddWindow = { windowName -> profileManager.addProfile(windowName) }
+                        )
 
                 },)
             }

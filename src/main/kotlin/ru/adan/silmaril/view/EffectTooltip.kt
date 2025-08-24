@@ -28,7 +28,7 @@ import ru.adan.silmaril.visual_styles.ColorStyle
 fun EffectTooltip(effect: CreatureEffect, fontFamily: FontFamily, style: ColorStyle) {
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(5.dp))
+            .clip(RoundedCornerShape(4.dp))
             .background(Color.Transparent)
     ) {
         Column (modifier = Modifier

@@ -13,30 +13,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.intui.core.theme.IntUiDarkTheme
 import org.jetbrains.jewel.intui.standalone.styling.Default
-import org.jetbrains.jewel.intui.standalone.theme.createDefaultTextStyle
-import org.jetbrains.jewel.intui.standalone.theme.createEditorTextStyle
 import java.awt.Desktop
 import java.net.URI
 import org.jetbrains.jewel.ui.component.Dropdown
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.IconButton
-import org.jetbrains.jewel.ui.component.ListComboBox
-import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.SimpleTabContent
 import org.jetbrains.jewel.ui.component.TabData
 import org.jetbrains.jewel.ui.component.TabStrip
@@ -45,24 +39,28 @@ import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.separator
 import org.jetbrains.jewel.ui.component.styling.TabColors
 import org.jetbrains.jewel.ui.component.styling.TabStyle
-import org.jetbrains.jewel.ui.icon.IconKey
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
-import org.jetbrains.jewel.ui.painter.hints.Size
 import org.jetbrains.jewel.ui.painter.hints.Stateful
 import org.jetbrains.jewel.ui.painter.rememberResourcePainterProvider
 import org.jetbrains.jewel.ui.theme.defaultTabStyle
 import org.jetbrains.jewel.window.DecoratedWindowScope
 import org.jetbrains.jewel.window.TitleBar
 import org.jetbrains.jewel.window.newFullscreenControls
+import org.koin.compose.koinInject
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.icon
-import ru.adan.silmaril.view.AppMenuBar
+import ru.adan.silmaril.misc.capitalized
+import ru.adan.silmaril.model.ProfileManager
 import kotlin.math.max
 
 @OptIn(ExperimentalFoundationApi::class)
 @ExperimentalLayoutApi
 @Composable
-internal fun DecoratedWindowScope.TitleBarView(showTitleMenu: MutableState<Boolean>) {
+internal fun DecoratedWindowScope.TitleBarView(
+    showTitleMenu: MutableState<Boolean>,
+    showProfileDialog: MutableState<Boolean>,
+    selectedTabIndex: MutableState<Int>,
+    ) {
 
     TitleBar(Modifier.newFullscreenControls(), gradientStartColor = Color(0xff9619b3)) {
         Row(Modifier.align(Alignment.Start)) {
@@ -223,13 +221,13 @@ internal fun DecoratedWindowScope.TitleBarView(showTitleMenu: MutableState<Boole
 //        }
 
         Row(Modifier.align(Alignment.CenterHorizontally).width(500.dp)) {
-            DefaultTabShowcase()
+            TabsPanel(selectedTabIndex)
         }
 
         Row(Modifier.align(Alignment.End)) {
             Tooltip({ Text("Добавить окно") }) {
                 IconButton(
-                    onClick = { println("add button") },
+                    onClick = { showProfileDialog.value = true },
                     modifier = Modifier.size(JewelTheme.defaultTabStyle.metrics.tabHeight)
                 ) {
                     Icon(key = AllIconsKeys.General.Add, contentDescription = "Добавить окно")
@@ -264,59 +262,41 @@ internal fun DecoratedWindowScope.TitleBarView(showTitleMenu: MutableState<Boole
 }
 
 @Composable
-private fun DefaultTabShowcase() {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-
-    var tabIds by remember { mutableStateOf((1..3).toList()) }
-    val maxId = remember(tabIds) { tabIds.maxOrNull() ?: 0 }
-
-    val tabs =
-        remember(tabIds, selectedTabIndex) {
-            tabIds.mapIndexed { index, id ->
-                TabData.Default(
-                    selected = index == selectedTabIndex,
-                    content = { tabState ->
-                        val iconProvider = rememberResourcePainterProvider(AllIconsKeys.Actions.ChangeView)
-                        val icon by iconProvider.getPainter(Stateful(tabState))
-                        SimpleTabContent(label = "Default Tab $id", state = tabState, icon = icon)
-                    },
-                    onClose = {
-                        tabIds = tabIds.toMutableList().apply { removeAt(index) }
-                        if (selectedTabIndex >= index) {
-                            val maxPossibleIndex = max(0, tabIds.lastIndex)
-                            selectedTabIndex = (selectedTabIndex - 1).coerceIn(0..maxPossibleIndex)
-                        }
-                    },
-                    onClick = { selectedTabIndex = index },
-                )
-            }
-        }
+private fun TabsPanel(selectedTabIndex: MutableState<Int>) {
+    val profileManager: ProfileManager = koinInject()
+    val windows by profileManager.gameWindows.collectAsState()
 
     val purpleTabStyle = remember {
         TabStyle.Default.dark(
             colors = TabColors.Default.dark(underlineSelected = IntUiDarkTheme.colors.purple(6))
         )
     }
-    TabStripWithAddButton(tabs = tabs, style = purpleTabStyle) {
-        val insertionIndex = (selectedTabIndex + 1).coerceIn(0..tabIds.size)
-        val nextTabId = maxId + 1
 
-        tabIds = tabIds.toMutableList().apply { add(insertionIndex, nextTabId) }
-        selectedTabIndex = insertionIndex
+    val tabs = remember(windows.size, selectedTabIndex.value) {
+        windows.values.mapIndexed { index, profile ->
+            TabData.Default(
+                selected = index == selectedTabIndex.value,
+                content = { tabState ->
+                    val iconProvider = rememberResourcePainterProvider(AllIconsKeys.Actions.ChangeView)
+                    val icon by iconProvider.getPainter(Stateful(tabState))
+                    SimpleTabContent(label = profile.profileName.capitalized(), state = tabState, icon = icon)
+                },
+                onClose = {
+                    profileManager.removeWindow(profile.profileName)
+                    if (selectedTabIndex.value >= index) {
+                        val maxPossibleIndex = max(0, windows.size - 1)
+                        val idToSelect = (selectedTabIndex.value - 1).coerceIn(0..maxPossibleIndex)
+                        profileManager.switchWindow(idToSelect)
+                    }
+                },
+                onClick = {
+                    profileManager.switchWindow(profile.profileName)
+                },
+            )
+        }
     }
-}
 
-@Composable
-private fun TabStripWithAddButton(tabs: List<TabData>, style: TabStyle, onAddClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        TabStrip(
-            tabs = tabs,
-            style = style,
-            //modifier = Modifier.weight(0.1f)
-        )
-
-//        IconButton(onClick = onAddClick, modifier = Modifier.size(style.metrics.tabHeight)) {
-//            Icon(key = AllIconsKeys.General.Add, contentDescription = "Добавить окно")
-//        }
+        TabStrip(tabs = tabs, style = purpleTabStyle)
     }
 }

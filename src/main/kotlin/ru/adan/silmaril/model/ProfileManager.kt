@@ -54,8 +54,9 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         _gameWindows.value += (windowName to newProfile)
     }
 
-    fun assignNewWindowsTemp(newMap: Map<String, Profile>) {
-        _gameWindows.value = newMap
+    fun removeWindow(windowName: String) {
+        gameWindows.value[windowName]?.onCloseWindow()
+        _gameWindows.value = gameWindows.value.filterKeys { it != windowName }.toMap()
     }
 
     init {
@@ -77,6 +78,10 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
 
     fun displaySystemMessage(msg: String) {
         currentMainViewModel.value.displaySystemMessage(msg)
+    }
+
+    fun switchWindow(index: Int) {
+        switchWindow(gameWindows.value.values.toList()[index].profileName)
     }
 
     fun switchWindow(windowName: String): Boolean {
