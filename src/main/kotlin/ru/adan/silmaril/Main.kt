@@ -80,21 +80,7 @@ fun main() {
                 size = settings.windowSettings.windowSize
             )
 
-            //var selectedTabIndex by remember { mutableStateOf(0) }
             val showProfileDialog = remember { mutableStateOf(false) }
-
-            // Main Window
-
-//            Window(
-//                onCloseRequest = {
-//                    cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
-//                    exitApplication()
-//                },
-//                onPreviewKeyEvent = profileManager::onHotkeyKey,
-//                state = mainWindowState,
-//                title = "Silmaril",
-//                icon = painterResource(Res.drawable.icon),
-//            ) {
 
             IntUiTheme(
                 theme = themeDefinition,
@@ -114,27 +100,8 @@ fun main() {
                     icon = painterResource(Res.drawable.icon),
                     content = {
 
-                        //val selectedTabIndex = remember { mutableIntStateOf(0) }
+                        TitleBarView(showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
 
-                        TitleBarView(window, showTitleMenu, showProfileDialog,profileManager.selectedTabIndex)
-//                    AppMenuBar(
-//                        showMapWindow = showMapWindow,
-//                        showAdditionalOutputWindow = showAdditionalOutputWindow,
-//                        showGroupWindow = showGroupWindow,
-//                        showMobsWindow = showMobsWindow,
-//                        showProfileDialog = showProfileDialog,
-//                        onExit = {
-//                            cleanupOnExit(
-//                                mapModel,
-//                                profileManager,
-//                                settingsManager,
-//                                textMacrosManager,
-//                                loreManager,
-//                                outputWindowModel
-//                            )
-//                            exitApplication()
-//                        }
-//                    )
                         window.minimumSize = Dimension(800, 600)
 
                         // watch for resize, move, fullscreen toggle and save into settings

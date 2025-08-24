@@ -3,7 +3,6 @@ package ru.adan.silmaril
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -13,18 +12,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,7 +35,6 @@ import org.jetbrains.jewel.intui.standalone.styling.Default
 import org.jetbrains.jewel.ui.component.Dropdown
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.IconButton
-import org.jetbrains.jewel.ui.component.SimpleTabContent
 import org.jetbrains.jewel.ui.component.TabContentScope
 import org.jetbrains.jewel.ui.component.TabData
 import org.jetbrains.jewel.ui.component.TabState
@@ -64,19 +63,23 @@ import kotlin.math.max
 @ExperimentalLayoutApi
 @Composable
 internal fun DecoratedWindowScope.TitleBarView(
-    mainWindow: ComposeWindow,
     showTitleMenu: MutableState<Boolean>,
     showProfileDialog: MutableState<Boolean>,
     selectedTabIndex: MutableState<Int>,
 ) {
+    val density = LocalDensity.current
     val profileManager: ProfileManager = koinInject()
-    val windows by profileManager.gameWindows.collectAsState()
+    val gameWindows by profileManager.gameWindows.collectAsState()
+    val titleBarWidth = remember { mutableStateOf(500)}
 
     TitleBar(Modifier.newFullscreenControls(), gradientStartColor = Color(0xff9619b3)) {
 
         // 71 is magic number. Normally, the TitleBar wouldn't give us more space than the title bar, but
         // due to some JBR bug, it does. Upon update, this value may change.
-        Box(Modifier.fillMaxWidth().padding(start = 71.dp, end = 71.dp)) {
+        Box (Modifier.fillMaxWidth().padding(start = 71.dp, end = 71.dp).onGloballyPositioned { coords ->
+            titleBarWidth.value = (coords.size.width / density.density).toInt()
+            // also gives position, window bounds, etc.
+        }) {
             Row(Modifier.align(Alignment.CenterStart)) {
                 Dropdown(
                     Modifier.height(30.dp),
@@ -179,12 +182,12 @@ internal fun DecoratedWindowScope.TitleBarView(
                     //.background(Color.Black)
                     .padding(start = 103.dp)
                     // When CustomTabContent width is 80, the tab's actual size is 120. The Plus button is additional 40.
-                    .width((windows.size * 120 + 40).dp),
+                    .width((gameWindows.size * 120 + 40).dp),
             ) {
                 Row(
                     // Tab size is 120 when CustomTabContent is 80
-                    // 103 is menu button, 40 is "add window" button, 171 is magic number for win11
-                    Modifier.width((windows.size * 120).coerceAtMost(mainWindow.width - 103 - 40 - 171).dp)
+                    // 103 is menu button, 40 is "add window" button
+                    Modifier.width((gameWindows.size * 120).coerceAtMost(titleBarWidth.value - 103 - 40).dp)
                 ) {
                     TabsPanel(selectedTabIndex)
                 }
@@ -206,7 +209,7 @@ internal fun DecoratedWindowScope.TitleBarView(
 @Composable
 private fun TabsPanel(selectedTabIndex: MutableState<Int>) {
     val profileManager: ProfileManager = koinInject()
-    val windows by profileManager.gameWindows.collectAsState()
+    val gameWindows by profileManager.gameWindows.collectAsState()
 
     val purpleTabStyle = remember {
         TabStyle.Default.dark(
@@ -214,8 +217,8 @@ private fun TabsPanel(selectedTabIndex: MutableState<Int>) {
         )
     }
 
-    val tabs = remember(windows.size, selectedTabIndex.value) {
-        windows.values.mapIndexed { index, profile ->
+    val tabs = remember(gameWindows.size, selectedTabIndex.value) {
+        gameWindows.values.mapIndexed { index, profile ->
             TabData.Default(
                 selected = index == selectedTabIndex.value,
                 content = { tabState ->
@@ -238,7 +241,7 @@ private fun TabsPanel(selectedTabIndex: MutableState<Int>) {
                 onClose = {
                     profileManager.removeWindow(profile.profileName)
                     if (selectedTabIndex.value >= index) {
-                        val maxPossibleIndex = max(0, windows.size - 1)
+                        val maxPossibleIndex = max(0, gameWindows.size - 1)
                         val idToSelect = (selectedTabIndex.value - 1).coerceIn(0..maxPossibleIndex)
                         profileManager.switchWindow(idToSelect)
                     }
