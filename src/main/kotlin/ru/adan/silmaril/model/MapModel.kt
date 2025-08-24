@@ -8,10 +8,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 import ru.adan.silmaril.misc.AesDecryptor
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.unzipFile
@@ -28,7 +33,10 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.iterator
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.absoluteValue
+import kotlin.math.min
+import kotlin.random.Random
 
 class MapModel(private val settingsManager: SettingsManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
@@ -57,10 +65,10 @@ class MapModel(private val settingsManager: SettingsManager) {
     }
 
     suspend fun initMaps(profileManager: ProfileManager) {
-        mapModelScope.launch(Dispatchers.IO) {
+        mapModelScope.launch(SupervisorJob() + Dispatchers.IO) {
             logger.info { "Проверяю карты..." }
             profileManager.displaySystemMessage("Проверяю карты...")
-            val mapsUpdated: Boolean = updateMaps()
+            val mapsUpdated: Boolean = updateMapsUntilSuccess()
             profileManager.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
             profileManager.displaySystemMessage("Загружаю карты...")
             val msg = loadAllMaps(_areMapsReady)
@@ -72,65 +80,95 @@ class MapModel(private val settingsManager: SettingsManager) {
         mapModelScope.cancel()
     }
 
-    // Returns true if update happened
-    suspend fun updateMaps() : Boolean {
+    suspend fun updateMapsUntilSuccess(
+        initialDelayMs: Long = 1_000,    // 1s
+        maxDelayMs: Long = 60_000,       // 60s
+        backoffMultiplier: Double = 2.0,
+        jitterRatio: Double = 0.2        // ±20% jitter - to avoid hammering the server
+    ): Boolean {
+        var delayMs = initialDelayMs
+
+        while (currentCoroutineContext().isActive) {
+            try {
+                return updateMapsOnce() // returns true if downloaded, false if 304 not modified
+            } catch (e: CancellationException) {
+                throw e // always propagate cancellation
+            } catch (e: IOException) {
+                // Transient network issue (e.g., ConnectException, timeouts, etc.) — retry
+                logger.warn(e) { "updateMaps failed; retrying in ${delayMs}ms..." }
+                val jitter = 1.0 + Random.nextDouble(-jitterRatio, jitterRatio)
+                delay((delayMs * jitter).toLong().coerceAtLeast(250)) // avoid 0 or negative
+                delayMs = min((delayMs * backoffMultiplier).toLong(), maxDelayMs)
+            } catch (e: Throwable) {
+                // Non-IO error – don’t retry; surface it
+                logger.error(e) { "updateMaps failed with non-retriable error." }
+                throw e
+            }
+        }
+
+        // Reached if the coroutine was cancelled
+        return false
+    }
+
+    private suspend fun updateMapsOnce(): Boolean = withContext(Dispatchers.IO) {
         val url: String = settingsManager.settings.value.mapsUrl
         val lastChecked: Instant = settingsManager.settings.value.lastMapsUpdateDate
-        val urlConnection: HttpURLConnection = URI(url).toURL().openConnection() as HttpURLConnection
 
-        // Format the Instant to the HTTP Date format (RFC 1123)
-        val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
-        val dateInUtc = lastChecked.atZone(ZoneId.of("UTC"))
-        val formattedDate = formatter.format(dateInUtc)
-
-        // Set the HTTP header for If-Modified-Since
-        urlConnection.setRequestProperty("If-Modified-Since", formattedDate)
+        val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            useCaches = false
+            connectTimeout = 5_000
+            readTimeout = 5_000
+            ifModifiedSince = lastChecked.toEpochMilli()
+        }
 
         try {
-            urlConnection.connect()
+            connection.connect()
 
-            when (val responseCode = urlConnection.responseCode) {
+            when (val code = connection.responseCode) {
                 HttpURLConnection.HTTP_OK -> {
-                    logger.info { "Maps have been modified since the given date." }
+                    logger.info { "Maps have been modified since the given date. Downloading…" }
 
                     val destinationFile = File(Paths.get(getProgramDirectory(), "maps.zip").toString())
-
-                    // Download the file
-                    urlConnection.inputStream.use { input ->
+                    connection.inputStream.use { input ->
                         FileOutputStream(destinationFile).use { output ->
                             input.copyTo(output)
                         }
                     }
-                    settingsManager.updateLastMapsUpdateDate(Instant.ofEpochMilli(urlConnection.lastModified))
 
-                    // delete old .xml files (in case some area ceases to exist, so we don't keep loading it into memory)
+                    settingsManager.updateLastMapsUpdateDate(
+                        Instant.ofEpochMilli(connection.lastModified)
+                    )
+
+                    // Clean old XMLs
                     val oldFilesDir = File(Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString())
                     if (oldFilesDir.exists()) {
-                        val xmlFiles = oldFilesDir.listFiles { file -> file.isFile && file.extension == "xml" }
-                        xmlFiles?.forEach { file -> file.delete()  }
+                        oldFilesDir.listFiles { f -> f.isFile && f.extension == "xml" }
+                            ?.forEach { it.delete() }
                     }
 
-                    val unzippedMapsDirectory : String = Paths.get(getProgramDirectory(), "maps").toString()
+                    // Unzip
+                    val unzippedMapsDirectory = Paths.get(getProgramDirectory(), "maps").toString()
                     val mapsDir = File(unzippedMapsDirectory)
-                    if (!mapsDir.exists()) {
-                        mapsDir.mkdir()
-                    }
-                    unzipFile(Paths.get(getProgramDirectory(), "maps.zip").toString(), unzippedMapsDirectory)
+                    if (!mapsDir.exists()) mapsDir.mkdir()
+                    unzipFile(destinationFile.absolutePath, unzippedMapsDirectory)
                     destinationFile.delete()
 
-                    return true
+                    true
                 }
                 HttpURLConnection.HTTP_NOT_MODIFIED -> {
                     logger.info { "Maps have not been modified since the given date." }
-                    return false
+                    false
                 }
                 else -> {
-                    logger.info { "Maps received unexpected response code: $responseCode" }
-                    return false
+                    logger.warn { "Maps received unexpected response code: $code" }
+                    // Treat unexpected codes as non-retriable unless you want to retry 5xx:
+                    if (code in 500..599) throw IOException("Server error $code")
+                    false
                 }
             }
         } finally {
-            urlConnection.disconnect()
+            connection.disconnect()
         }
     }
 
