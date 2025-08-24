@@ -62,6 +62,11 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.visual_styles.StyleManager
 import kotlin.math.max
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import java.awt.Robot
+import java.awt.event.KeyEvent
 
 @OptIn(ExperimentalFoundationApi::class)
 @ExperimentalLayoutApi
@@ -336,7 +341,7 @@ private fun TitleBarTabsPanel(selectedTabIndex: MutableState<Int>) {
     }
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        TabStrip(tabs = tabs, style = purpleTabStyle)
+        TabStrip(tabs = tabs, style = purpleTabStyle, modifier = Modifier.verticalScrollToHorizontal())
     }
 }
 
@@ -372,5 +377,44 @@ fun TabContentScope.CustomTabContentCentered(
             icon()
         }
         label()
+    }
+}
+
+// hacky function to scroll toolbars horizontally with vertical scrolls of the mouse wheel
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+fun Modifier.verticalScrollToHorizontal(): Modifier = this.onPointerEvent(PointerEventType.Scroll) { event ->
+    val change = event.changes.firstOrNull()
+    if (change != null) {
+        val scrollDelta = change.scrollDelta
+
+        // If we detect vertical scroll (y != 0) and no horizontal scroll (x == 0)
+        if (scrollDelta.y != 0f && scrollDelta.x == 0f) {
+            try {
+                // Use Robot to simulate Shift + Wheel
+                val robot = Robot()
+
+                // Press Shift
+                robot.keyPress(KeyEvent.VK_SHIFT)
+
+                // Wait a bit for the key to be properly registered
+                Thread.sleep(10)
+
+                // Simulate mouse scroll
+                // Note: scrollDelta.y is negative for scroll up, positive for scroll down
+                // MouseWheelEvent uses the inverse convention
+                val scrollAmount = if (scrollDelta.y > 0) 1 else -1
+                robot.mouseWheel(scrollAmount)
+
+                // Release Shift
+                Thread.sleep(10)
+                robot.keyRelease(KeyEvent.VK_SHIFT)
+
+                // Consume the original event to avoid double scroll
+                change.consume()
+            } catch (e: Exception) {
+                // In case of error (for example on certain platforms where Robot is not available)
+                e.printStackTrace()
+            }
+        }
     }
 }
