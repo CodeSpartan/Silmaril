@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,7 +66,12 @@ import kotlin.math.max
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import java.awt.KeyboardFocusManager
+import java.awt.MouseInfo
 import java.awt.Robot
+import java.awt.Window
 import java.awt.event.KeyEvent
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -187,6 +193,10 @@ internal fun DecoratedWindowScope.TitleBarView(
                             true,
                             AllIconsKeys.FileTypes.Font,
                             submenu = {
+                                passiveItem {
+                                    // Tweak margins after a bit of testing
+                                    SubmenuGuard(safeTopMarginPx = 228, safeBottomMarginPx = 252, menuWidth = 200)
+                                }
                                 FontManager.fontFamilies.keys.filter { it != "RobotoClassic" && it != "SourceCodePro" }
                                     .forEach { fontName ->
                                         selectableItem(
@@ -207,6 +217,10 @@ internal fun DecoratedWindowScope.TitleBarView(
                             true,
                             AllIconsKeys.MeetNewUi.LightTheme,
                             submenu = {
+                                passiveItem {
+                                    // Tweak margins after a bit of testing
+                                    SubmenuGuard(safeTopMarginPx = 253, safeBottomMarginPx = 279, menuWidth = 200)
+                                }
                                 StyleManager.styles.keys.forEach { styleName ->
                                         selectableItem(
                                             selected = false,
@@ -391,10 +405,10 @@ fun Modifier.verticalScrollToHorizontal(): Modifier = this.onPointerEvent(Pointe
         if (scrollDelta.y != 0f && scrollDelta.x == 0f) {
             try {
                 // Use Robot to simulate Shift + Wheel
-                val robot = Robot()
+                //val robot = Robot()
 
                 // Press Shift
-                robot.keyPress(KeyEvent.VK_SHIFT)
+                RobotHolder.robot.keyPress(KeyEvent.VK_SHIFT)
 
                 // Wait a bit for the key to be properly registered
                 Thread.sleep(10)
@@ -403,11 +417,11 @@ fun Modifier.verticalScrollToHorizontal(): Modifier = this.onPointerEvent(Pointe
                 // Note: scrollDelta.y is negative for scroll up, positive for scroll down
                 // MouseWheelEvent uses the inverse convention
                 val scrollAmount = if (scrollDelta.y > 0) 1 else -1
-                robot.mouseWheel(scrollAmount)
+                RobotHolder.robot.mouseWheel(scrollAmount)
 
                 // Release Shift
                 Thread.sleep(10)
-                robot.keyRelease(KeyEvent.VK_SHIFT)
+                RobotHolder.robot.keyRelease(KeyEvent.VK_SHIFT)
 
                 // Consume the original event to avoid double scroll
                 change.consume()
@@ -418,3 +432,86 @@ fun Modifier.verticalScrollToHorizontal(): Modifier = this.onPointerEvent(Pointe
         }
     }
 }
+
+// hack to fix jewel's bug with sticky submenu refusing to lose focus when we hover back to the original dropdown menu
+// it looks for cursor and if it's to the left of the submenu, and not inside a safezone (the menu element calling the submenu),
+// then we simulate a left arrow key
+@Composable
+fun SubmenuGuard(
+    safeTopMarginPx: Int = 30,
+    safeBottomMarginPx: Int = 30,
+    menuWidth: Int = 200,
+    pollIntervalMs: Long = 24L
+) {
+    // One Robot per composition
+    //val robot = remember { Robot() }
+
+    LaunchedEffect(Unit) {
+        var lastWindow: Window? = null
+        var leftSentForWindow: Window? = null
+
+        while (isActive) {
+            val active = KeyboardFocusManager.getCurrentKeyboardFocusManager().activeWindow as? Window
+            if (active != null && active.isShowing) {
+                if (active !== lastWindow) {
+                    // New popup window (likely a new submenu) -> allow one Left send for it
+                    lastWindow = active
+                    leftSentForWindow = null
+                }
+
+                val mouse = MouseInfo.getPointerInfo()?.location
+                if (mouse != null) {
+                    val loc = active.locationOnScreen
+                    val w = active.width
+                    val h = active.height
+
+                    val leftEdge = loc.x + menuWidth
+                    val top = loc.y
+                    val bottom = loc.y + h
+
+                    val safeTop = top + safeTopMarginPx
+                    val safeBottom = top + safeBottomMarginPx
+
+                    val isLeftOfSubmenu = mouse.x < leftEdge
+                    val inVerticalSafeBand = mouse.y in safeTop..safeBottom
+
+                    // If pointer is to the left AND outside the vertical safe band,
+                    // we consider this an intentional move toward a different parent item.
+                    if (isLeftOfSubmenu && !inVerticalSafeBand && leftSentForWindow !== active) {
+                        try {
+                            RobotHolder.robot.keyPress(KeyEvent.VK_LEFT)
+                            RobotHolder.robot.keyRelease(KeyEvent.VK_LEFT)
+                            leftSentForWindow = active
+                        } catch (_: Throwable) {
+                            // ignore (permissions, Wayland, etc.)
+                        }
+                    }
+//                    else {
+//                        if (!isLeftOfSubmenu) {
+//                            println("mouse.x: ${mouse.x} >= loc.x: ${loc.x}")
+//                        }
+//                        if (inVerticalSafeBand) {
+//                            println("mouse.y: ${mouse.y} not outside top: ${safeTop}, bottom: ${safeBottom}. Window top: ${top}")
+//                        }
+//                        if (!(leftSentForWindow !== active))
+//                        println("leftSentForWindow isn't different from active")
+//                    }
+
+                    // If pointer comes back to the right or into safe band, allow another send later.
+                    if (!isLeftOfSubmenu || inVerticalSafeBand) {
+                        leftSentForWindow = null
+                    }
+                }
+            } else {
+                // No active window (or not showing) -> reset
+                lastWindow = null
+                leftSentForWindow = null
+            }
+
+            delay(pollIntervalMs)
+        }
+    }
+}
+
+// App-wide singleton (one Robot for the whole process)
+object RobotHolder { val robot: Robot by lazy { Robot() } }
