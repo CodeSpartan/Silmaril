@@ -336,4 +336,9 @@ class RoomDataManager() : KoinComponent {
 
     fun isRoomVisited(zoneId: Int, roomId: Int): Boolean =
         visitedRooms[zoneId]?.contains(roomId) == true
+
+    fun getRoomComment(roomId: Int): String? =
+        roomComments[roomId]
+
+    fun hasComment(roomId: Int): Boolean = roomComments.containsKey(roomId)
 }

@@ -11,17 +11,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.UiColor
 import ru.adan.silmaril.model.MapModel
+import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.visual_styles.ColorStyle
 import ru.adan.silmaril.xml_schemas.Room
 import ru.adan.silmaril.xml_schemas.Zone
 
 @Composable
 fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorStyle) {
+    val roomDataManager: RoomDataManager = koinInject()
+    val robotoFont = remember { FontManager.getFont("RobotoClassic") }
+    val roomComment = roomDataManager.getRoomComment(room.id)
+
     Column(modifier = Modifier
         .padding(all = 0.dp)
         //.shadow(elevation = 8.dp, shape = RoundedCornerShape(5.dp)) // flickers with white background, try in later versions
@@ -32,7 +41,6 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
             .background(style.getUiColor(UiColor.HoverBackground))
             .padding(14.dp)
         ) {
-            val robotoFont = remember { FontManager.getFont("RobotoClassic") }
             Text(
                 room.name,
                 color = Color.White,
@@ -51,6 +59,25 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
                 thickness = 1.dp,
                 color = style.getUiColor(UiColor.HoverSeparator)
             )
+
+            if (roomComment != null) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(style = SpanStyle(color = Color.White, fontFamily = robotoFont)) {
+                            append("Запись: ")
+                        }
+                        withStyle(style = SpanStyle(color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light)) {
+                            append(roomComment)
+                        }
+                    }
+                )
+
+                Divider(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp),
+                    thickness = 1.dp,
+                    color = style.getUiColor(UiColor.HoverSeparator)
+                )
+            }
 
             Row {
                 Text("ID комнаты: ", color = Color.White, fontFamily = robotoFont)
