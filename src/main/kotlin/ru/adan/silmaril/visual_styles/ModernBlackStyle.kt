@@ -59,10 +59,12 @@ class ModernBlackColorStyle : ColorStyle() {
     override fun getUiColorList(color: UiColor): List<Color> {
         return when (color) {
             UiColor.MapRoomUnvisited -> listOf(
-                Color(0xFF383838), // Start color
-                Color(0xFF383838), // Start color
-                Color(0xFF2c2c2c), // Middle color
-                Color(0xff333333), // End color
+//                Color(0xFF383838), // Start color
+//                Color(0xFF383838), // Start color
+//                Color(0xFF2c2c2c), // Middle color
+//                Color(0xff333333), // End color
+                Color(0xff333333),
+                Color(0xff333333),
             )
             UiColor.MapRoomVisited -> listOf(
                 Color(0xff525252), // Start color

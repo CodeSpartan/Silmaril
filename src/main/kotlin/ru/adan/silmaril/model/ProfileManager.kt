@@ -16,9 +16,11 @@ import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.viewmodel.MainViewModel
+import ru.adan.silmaril.viewmodel.MapViewModel
 
 class ProfileManager(private val settingsManager: SettingsManager) : KoinComponent {
     var currentClient: MutableState<MudConnection>
+    var currentMapViewModel: MutableState<MapViewModel>
     var currentMainViewModel: MutableState<MainViewModel>
     var currentGroupModel: MutableState<GroupModel>
     var currentMobsModel: MutableState<MobsModel>
@@ -65,6 +67,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         }
         currentClient = mutableStateOf(gameWindows.value.values.first().client)
         currentMainViewModel = mutableStateOf(gameWindows.value.values.first().mainViewModel)
+        currentMapViewModel = mutableStateOf(gameWindows.value.values.first().mapViewModel)
         currentGroupModel = mutableStateOf(gameWindows.value.values.first().groupModel)
         currentMobsModel = mutableStateOf(gameWindows.value.values.first().mobsModel)
         currentProfileName = mutableStateOf(gameWindows.value.values.first().profileName.capitalized())
@@ -90,6 +93,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         selectedTabIndex.value = newIndex
         currentClient.value = gameWindows.value[windowName]!!.client
         currentMainViewModel.value = gameWindows.value[windowName]!!.mainViewModel
+        currentMapViewModel.value = gameWindows.value[windowName]!!.mapViewModel
         currentProfileName.value = windowName.capitalized()
         currentGroupModel.value = gameWindows.value[windowName]!!.groupModel
         currentMobsModel.value = gameWindows.value[windowName]!!.mobsModel

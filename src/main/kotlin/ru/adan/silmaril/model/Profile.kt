@@ -32,6 +32,7 @@ import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
 import ru.adan.silmaril.scripting.out
+import ru.adan.silmaril.viewmodel.MapViewModel
 
 class Profile(
     val profileName: String,
@@ -57,6 +58,14 @@ class Profile(
                 ::onInsertVariables,
                 { msg: String -> scriptingEngine.processAlias(msg) },
                 { msg: String -> scriptingEngine.processLine(msg) }
+            )
+        }
+    }
+
+    val mapViewModel : MapViewModel by lazy {
+        get {
+            parametersOf(
+                client
             )
         }
     }
@@ -137,6 +146,7 @@ class Profile(
     fun cleanup() {
         scopeDefault.cancel()
         mainViewModel.cleanup()
+        mapViewModel.cleanup()
         groupModel.cleanup()
         mobsModel.cleanup()
     }

@@ -17,6 +17,7 @@ import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.scripting.ScriptingEngineImpl
 import ru.adan.silmaril.viewmodel.MainViewModel
+import ru.adan.silmaril.viewmodel.MapViewModel
 
 val appModule = module {
     singleOf (::SettingsManager)
@@ -55,6 +56,13 @@ val appModule = module {
             onProcessAliases = params[3],
             onMessageReceived = params[4],
             settingsManager = get()
+        )
+    }
+
+    factory { params ->
+        MapViewModel(
+            client = params[0],
+            settingsManager = get(),
         )
     }
 

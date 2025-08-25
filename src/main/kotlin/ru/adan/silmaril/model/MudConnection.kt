@@ -67,15 +67,15 @@ class MudConnection(
 
 
     // Flow to emit received text messages to whoever is listening (MainViewModel in this case)
-    private val _colorfulTextMessages = MutableSharedFlow<ColorfulTextMessage>()
+    private val _colorfulTextMessages = MutableSharedFlow<ColorfulTextMessage>(replay = 1)
     val colorfulTextMessages = _colorfulTextMessages.asSharedFlow()  // Expose flow to MainViewModel
 
     // Flow to emit received text messages as simple strings (for GroupModel)
-    private val _unformattedTextMessages = MutableSharedFlow<String>()
+    private val _unformattedTextMessages = MutableSharedFlow<String>(replay = 1)
     val unformattedTextMessages = _unformattedTextMessages.asSharedFlow()
 
-    private val _currentRoomMessages = MutableStateFlow(CurrentRoomMessage.EMPTY)
-    val currentRoomMessages: StateFlow<CurrentRoomMessage> get() = _currentRoomMessages
+    private val _currentRoomMessages = MutableSharedFlow<CurrentRoomMessage>(replay = 1)
+    val currentRoomMessages = _currentRoomMessages.asSharedFlow()
 
     private val _lastGroupMessage = MutableStateFlow(listOf<Creature>())
     val lastGroupMessage: StateFlow<List<Creature>> get() = _lastGroupMessage
@@ -779,7 +779,7 @@ class MudConnection(
                 // 11 is ProtocolVersion, it's always 1, we don't care
                 12 -> GroupStatusMessage.fromXml(msg)?.let { _lastGroupMessage.value = it.allCreatures }
                 13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it.allCreatures }
-                14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.value = it }
+                14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
             }
             logger.debug { "- Custom message: $_customMessageType" }
             logger.debug { msg }

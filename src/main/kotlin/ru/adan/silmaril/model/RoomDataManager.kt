@@ -29,6 +29,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import ru.adan.silmaril.misc.getSilmarilMapDataDirectory
+import java.util.concurrent.ConcurrentHashMap
 
 class RoomDataManager() : KoinComponent {
     val logger = KotlinLogging.logger {}
@@ -36,10 +37,10 @@ class RoomDataManager() : KoinComponent {
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // In-memory state
-    val visitedRooms: MutableMap<Int, MutableSet<Int>> = mutableMapOf()
-    val customColors: MutableMap<Int, RoomColor> = mutableMapOf()
-    val roomComments: MutableMap<Int, String> = mutableMapOf()
-    val roomIcons: MutableMap<Int, RoomIcon> = mutableMapOf()
+    val visitedRooms: ConcurrentHashMap<Int, MutableSet<Int>> = ConcurrentHashMap()
+    val customColors: ConcurrentHashMap<Int, RoomColor> = ConcurrentHashMap()
+    val roomComments: ConcurrentHashMap<Int, String> = ConcurrentHashMap()
+    val roomIcons: ConcurrentHashMap<Int, RoomIcon> = ConcurrentHashMap()
 
     private val xml = XmlMapper()
         .registerKotlinModule()
@@ -143,69 +144,53 @@ class RoomDataManager() : KoinComponent {
 
     // Mark a room as visited during gameplay.
     fun visitRoom(zoneId: Int, roomId: Int) {
-        coroutineScope.launch {
-            dataMutex.withLock {
-                val set = visitedRooms.getOrPut(zoneId) { mutableSetOf() }
-                if (set.add(roomId)) {
-                    scheduleDebouncedSave()
-                }
-            }
+        val set = visitedRooms.computeIfAbsent(zoneId) { ConcurrentHashMap.newKeySet<Int>() }
+        if (set.add(roomId)) {
+            scheduleDebouncedSave()
         }
     }
 
     // Set or clear a custom color. Pass RoomColor.Default or null to clear.
-    fun setCustomColor(roomId: Int, color: RoomColor?) {
-        coroutineScope.launch {
-            dataMutex.withLock {
-                val shouldRemove = (color == null || color == RoomColor.Default)
-                val changed = if (shouldRemove) {
-                    customColors.remove(roomId) != null
-                } else {
-                    customColors[roomId] != color
-                }
-                if (!shouldRemove && changed) {
-                    customColors[roomId] = color!!
-                }
-                if (changed) scheduleDebouncedSave()
-            }
+    fun setCustomColor(roomId: Int, color: RoomColor) {
+        val shouldRemove = color == RoomColor.Default
+        val changed = if (shouldRemove) {
+            customColors.remove(roomId) != null
+        } else {
+            customColors[roomId] != color
         }
+        if (!shouldRemove && changed) {
+            customColors[roomId] = color
+        }
+        if (changed) scheduleDebouncedSave()
     }
 
     // Set or clear a comment. Empty or blank string clears.
     fun setRoomComment(roomId: Int, comment: String?) {
-        coroutineScope.launch {
-            dataMutex.withLock {
-                val normalized = comment?.trim().orEmpty()
-                val shouldRemove = normalized.isEmpty()
-                val changed = if (shouldRemove) {
-                    roomComments.remove(roomId) != null
-                } else {
-                    roomComments[roomId] != normalized
-                }
-                if (!shouldRemove && changed) {
-                    roomComments[roomId] = normalized
-                }
-                if (changed) scheduleDebouncedSave()
-            }
+        val normalized = comment?.trim().orEmpty()
+        val shouldRemove = normalized.isEmpty()
+        val changed = if (shouldRemove) {
+            roomComments.remove(roomId) != null
+        } else {
+            roomComments[roomId] != normalized
         }
+        if (!shouldRemove && changed) {
+            roomComments[roomId] = normalized
+        }
+        if (changed) scheduleDebouncedSave()
     }
 
     // Set or clear an icon. Pass RoomIcon.None or null to clear.
     fun setRoomIcon(roomId: Int, icon: RoomIcon?) {
-        coroutineScope.launch {
-            dataMutex.withLock {
-                val shouldRemove = (icon == null || icon == RoomIcon.None)
-                val changed = if (shouldRemove) {
-                    roomIcons.remove(roomId) != null
-                } else {
-                    roomIcons[roomId] != icon
-                }
-                if (!shouldRemove && changed) {
-                    roomIcons[roomId] = icon!!
-                }
-                if (changed) scheduleDebouncedSave()
-            }
+        val shouldRemove = (icon == null || icon == RoomIcon.None)
+        val changed = if (shouldRemove) {
+            roomIcons.remove(roomId) != null
+        } else {
+            roomIcons[roomId] != icon
         }
+        if (!shouldRemove && changed) {
+            roomIcons[roomId] = icon!!
+        }
+        if (changed) scheduleDebouncedSave()
     }
 
     // ---- YAML persistence (KAML) ----
@@ -233,8 +218,6 @@ class RoomDataManager() : KoinComponent {
     private val roomIconsSer =
         MapSerializer(Int.serializer(), RoomIcon.serializer())
 
-    private val dataMutex = Mutex()
-
     // Debounce state
     private var saveJob: Job? = null
     private val saveDebounceMs = 600L
@@ -252,57 +235,49 @@ class RoomDataManager() : KoinComponent {
     // It merges the YAML data into the in-memory maps.
     suspend fun loadSilmarilYaml() = withContext(Dispatchers.IO) {
         profileManager.displaySystemMessage("Загружаю посещенные клетки...")
-        dataMutex.withLock {
-            val dir = File(getSilmarilMapDataDirectory())
 
-            var addedZones = 0
-            var addedRooms = 0
+        val dir = File(getSilmarilMapDataDirectory())
 
-            // visitedRooms
-            loadYamlFile(dir, visitedRoomsFileName) { text ->
-                val parsed = yaml.decodeFromString(visitedRoomsSer, text)
-                for ((zoneId, rooms) in parsed) {
-                    val set = visitedRooms.getOrPut(zoneId) { mutableSetOf() }
-                    val before = set.size
-                    set.addAll(rooms)
-                    if (set.size > before) {
-                        addedRooms += (set.size - before)
-                    }
-                    addedZones++
+        var addedZones = 0
+        var addedRooms = 0
+
+        // visitedRooms
+        loadYamlFile(dir, visitedRoomsFileName) { text ->
+            val parsed = yaml.decodeFromString(visitedRoomsSer, text)
+            for ((zoneId, rooms) in parsed) {
+                val set = visitedRooms.getOrPut(zoneId) { mutableSetOf() }
+                val before = set.size
+                set.addAll(rooms)
+                if (set.size > before) {
+                    addedRooms += (set.size - before)
                 }
-                logger.info { "Loaded visitedRooms: zones=$addedZones, newRooms=$addedRooms" }
+                addedZones++
             }
-
-            // customColors
-            loadYamlFile(dir, customColorsFileName) { text ->
-                val parsed = yaml.decodeFromString(customColorsSer, text)
-                customColors.putAll(parsed)
-                logger.info { "Loaded customColors: ${parsed.size} entries" }
-            }
-
-            // roomComments
-            loadYamlFile(dir, roomCommentsFileName) { text ->
-                val parsed = yaml.decodeFromString(roomCommentsSer, text)
-                roomComments.putAll(parsed.filterValues { it.isNotBlank() })
-                logger.info { "Loaded roomComments: ${parsed.size} entries" }
-            }
-
-            // roomIcons
-            loadYamlFile(dir, roomIconsFileName) { text ->
-                val parsed = yaml.decodeFromString(roomIconsSer, text)
-                roomIcons.putAll(parsed)
-                logger.info { "Loaded roomIcons: ${parsed.size} entries" }
-            }
-
-            profileManager.displaySystemMessage("Посещенные зоны: $addedZones, клетки: $addedRooms, комменты: ${roomComments.keys.size}")
+            logger.info { "Loaded visitedRooms: zones=$addedZones, newRooms=$addedRooms" }
         }
-    }
 
-    // Persist all four YAML files immediately (no debounce).
-    suspend fun saveAllYamlNow() = withContext(Dispatchers.IO) {
-        dataMutex.withLock {
-            saveAllYamlInternal()
+        // customColors
+        loadYamlFile(dir, customColorsFileName) { text ->
+            val parsed = yaml.decodeFromString(customColorsSer, text)
+            customColors.putAll(parsed)
+            logger.info { "Loaded customColors: ${parsed.size} entries" }
         }
+
+        // roomComments
+        loadYamlFile(dir, roomCommentsFileName) { text ->
+            val parsed = yaml.decodeFromString(roomCommentsSer, text)
+            roomComments.putAll(parsed.filterValues { it.isNotBlank() })
+            logger.info { "Loaded roomComments: ${parsed.size} entries" }
+        }
+
+        // roomIcons
+        loadYamlFile(dir, roomIconsFileName) { text ->
+            val parsed = yaml.decodeFromString(roomIconsSer, text)
+            roomIcons.putAll(parsed)
+            logger.info { "Loaded roomIcons: ${parsed.size} entries" }
+        }
+
+        profileManager.displaySystemMessage("Посещенные зоны: $addedZones, клетки: $addedRooms, комменты: ${roomComments.keys.size}")
     }
 
     private fun saveAllYamlInternal() {
@@ -354,4 +329,7 @@ class RoomDataManager() : KoinComponent {
             }
         }
     }
+
+    fun isRoomVisited(zoneId: Int, roomId: Int): Boolean =
+        visitedRooms[zoneId]?.contains(roomId) == true
 }

@@ -41,12 +41,14 @@ import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
+import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
+import ru.adan.silmaril.viewmodel.MapViewModel
 
 
 @Composable
-fun MapWindow(client: MudConnection, logger: KLogger) {
+fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
     val mapModel: MapModel = koinInject()
     val settingsManager: SettingsManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
@@ -70,8 +72,8 @@ fun MapWindow(client: MudConnection, logger: KLogger) {
     var tooltipOffset by remember { mutableStateOf(Offset.Zero) }
     val dpi = LocalDensity.current.density
 
-    LaunchedEffect(client) {
-        client.currentRoomMessages.collect { roomMessage ->
+    LaunchedEffect(mapViewModel) {
+        mapViewModel.currentRoom.collect { roomMessage ->
             // Update the state with the new message to trigger recomposition
             if (roomMessage.zoneId != lastZone) {
                 logger.debug { "Entered zone: ${roomMessage.zoneId}" }
@@ -173,6 +175,7 @@ fun RoomsCanvas(
     val settings = settingsManager.settings.collectAsState()
     val dpi = LocalDensity.current.density
     val coroutineScope = rememberCoroutineScope()
+    val roomDataManager: RoomDataManager = koinInject()
     val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
 
     BoxWithConstraints(modifier = modifier) {
@@ -420,9 +423,13 @@ fun RoomsCanvas(
                 val roomSize = Size(scaledRoomSize, scaledRoomSize)
                 val roomCornerRadius = CornerRadius(cornerRadiusValue, cornerRadiusValue)
 
+                val zoneId = zoneState.value?.id ?: -1
+                val isRoomVisited = roomDataManager.isRoomVisited(zoneId, roomId)
                 // start->end: from top-right corner to bottom-left corner
                 val roomBrush = Brush.linearGradient(
-                    colors = currentColorStyle.getUiColorList(UiColor.MapRoomVisited),
+                    colors = currentColorStyle.getUiColorList(
+                        if (isRoomVisited) UiColor.MapRoomVisited else UiColor.MapRoomUnvisited
+                    ),
                     start = Offset(x = roomTopLeft.x + roomSize.width, y = roomTopLeft.y),
                     end = Offset(x = roomTopLeft.x, y = roomTopLeft.y + roomSize.height)
                 )
