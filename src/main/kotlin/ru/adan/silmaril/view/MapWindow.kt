@@ -440,7 +440,7 @@ fun RoomsCanvas(
                     size = roomSize,
                     cornerRadius = roomCornerRadius,
                     style = Fill,
-                    brush = roomBrush, // Use the brush here
+                    brush = roomBrush,
                 )
 
                 // if the player is in the roomId, draw a stroke over it

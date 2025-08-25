@@ -109,8 +109,8 @@ class RoomDataManager() : KoinComponent {
                         }
 
                         visitedRoomsAdded += addedVisited
-                        coloredRoomsAdded += addedComments
-                        iconsOnRoomsAdded += iconsOnRoomsAdded
+                        coloredRoomsAdded += addedColors
+                        iconsOnRoomsAdded += addedIcons
                         commentedRoomsAdded += addedComments
 
                         logger.info {
@@ -220,7 +220,7 @@ class RoomDataManager() : KoinComponent {
 
     // Debounce state
     private var saveJob: Job? = null
-    private val saveDebounceMs = 600L
+    private val saveDebounceMs = 5000L
 
     private fun scheduleDebouncedSave() {
         saveJob?.cancel()
@@ -283,22 +283,22 @@ class RoomDataManager() : KoinComponent {
     private fun saveAllYamlInternal() {
         val dir = File(getSilmarilMapDataDirectory()).apply { mkdirs() }
 
-        // Prepare strings outside writeAtomic to minimize lock duration
         val visitedStr = yaml.encodeToString(
             visitedRoomsSer,
-            // Convert values to plain Set<Int> (defensive copy)
-            visitedRooms.mapValues { (_, v) -> v.toSet() }
+            visitedRooms.mapValues { (_, v) -> v.toSet() } // defensive copy
         )
         val colorsStr = yaml.encodeToString(customColorsSer, customColors.toMap())
         val commentsStr = yaml.encodeToString(roomCommentsSer, roomComments.toMap())
         val iconsStr = yaml.encodeToString(roomIconsSer, roomIcons.toMap())
 
-        writeAtomic(File(dir, visitedRoomsFileName), visitedStr)
-        writeAtomic(File(dir, customColorsFileName), colorsStr)
-        writeAtomic(File(dir, roomCommentsFileName), commentsStr)
-        writeAtomic(File(dir, roomIconsFileName), iconsStr)
+        val savedVisited = writeIfChangedAtomic(File(dir, visitedRoomsFileName), visitedStr)
+        val savedColors = writeIfChangedAtomic(File(dir, customColorsFileName), colorsStr)
+        val savedComments = writeIfChangedAtomic(File(dir, roomCommentsFileName), commentsStr)
+        val savedIcons = writeIfChangedAtomic(File(dir, roomIconsFileName), iconsStr)
 
-        logger.info { "Saved YAML to ${dir.absolutePath}" }
+        logger.info {
+            "Saved YAML to ${dir.absolutePath} (visited=$savedVisited, colors=$savedColors, comments=$savedComments, icons=$savedIcons)"
+        }
     }
 
     private fun loadYamlFile(dir: File, name: String, block: (String) -> Unit) {
@@ -312,22 +312,26 @@ class RoomDataManager() : KoinComponent {
         }
     }
 
-    private fun writeAtomic(target: File, content: String) {
-        val tmp = File(target.parentFile, ".${target.name}.tmp")
-        tmp.writeText(content)
+    private fun writeIfChangedAtomic(target: File, content: String): Boolean {
+        // Skip write if content identical
         if (target.exists()) {
-            // Replace atomically where possible
-            if (!tmp.renameTo(target)) {
-                // Fallback: copy then delete
-                tmp.copyTo(target, overwrite = true)
-                tmp.delete()
-            }
-        } else {
-            if (!tmp.renameTo(target)) {
-                tmp.copyTo(target, overwrite = true)
-                tmp.delete()
+            try {
+                val existing = target.readText()
+                if (existing == content) return false
+            } catch (t: Throwable) {
+                // If we can't read for comparison, proceed to rewrite
+                logger.warn(t) { "Couldn't read ${target.absolutePath} to compare; will rewrite" }
             }
         }
+
+        val tmp = File(target.parentFile, ".${target.name}.tmp")
+        tmp.writeText(content)
+
+        if (!tmp.renameTo(target)) {
+            tmp.copyTo(target, overwrite = true)
+            tmp.delete()
+        }
+        return true
     }
 
     fun isRoomVisited(zoneId: Int, roomId: Int): Boolean =
