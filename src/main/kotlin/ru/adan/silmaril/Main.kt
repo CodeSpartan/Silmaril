@@ -40,6 +40,7 @@ import org.jetbrains.jewel.window.DecoratedWindow
 import org.jetbrains.jewel.window.styling.TitleBarStyle
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.OutputWindowModel
+import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.view.GroupWindow
 import ru.adan.silmaril.view.MobsWindow
@@ -65,6 +66,7 @@ fun main() {
             val outputWindowModel: OutputWindowModel = koinInject()
             val mapModel: MapModel = koinInject()
             val loreManager: LoreManager = koinInject()
+            val roomDataManager: RoomDataManager = koinInject()
 
             val showTitleMenu: MutableState<Boolean> = remember { mutableStateOf(false) }
 
@@ -91,7 +93,7 @@ fun main() {
             ) {
                 DecoratedWindow(
                     onCloseRequest = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel, roomDataManager)
                         exitApplication()
                      },
                     onPreviewKeyEvent = profileManager::onHotkeyKey,
@@ -109,7 +111,7 @@ fun main() {
                             showTitleMenu = showTitleMenu,
                             selectedTabIndex = profileManager.selectedTabIndex,
                             onExit = {
-                                cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel)
+                                cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel, roomDataManager)
                                 exitApplication()
                             },
                         )
@@ -189,6 +191,7 @@ fun cleanupOnExit(
     textMacrosManager: TextMacrosManager,
     loreManager: LoreManager,
     outputWindowModel: OutputWindowModel,
+    roomDataManager: RoomDataManager,
 ) {
     textMacrosManager.cleanup()
     mapModel.cleanup()
@@ -196,6 +199,7 @@ fun cleanupOnExit(
     settingsManager.cleanup()
     loreManager.cleanup()
     outputWindowModel.cleanup()
+    roomDataManager.cleanup()
 }
 
 @Composable

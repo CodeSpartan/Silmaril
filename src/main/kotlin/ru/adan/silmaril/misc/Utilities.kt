@@ -62,6 +62,19 @@ fun getProgramDirectory(): String {
     return programPath
 }
 
+fun getAdanMapDataDirectory(): String {
+    val userHome = System.getProperty("user.home")
+    return Paths.get(userHome, "Documents", "Adan client", "Maps", "ZoneVisits").toString()
+}
+
+fun getSilmarilMapDataDirectory(): String {
+    val path = Paths.get(getProgramDirectory(), "maps").toString()
+    val dir = File(path)
+    if (!dir.exists())
+        dir.mkdirs()
+    return path
+}
+
 fun getProfileDirectory(): String {
     val path = Paths.get(getProgramDirectory(), "profiles").toString()
     val dir = File(path)

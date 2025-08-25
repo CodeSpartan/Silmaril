@@ -69,6 +69,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import ru.adan.silmaril.model.RoomDataManager
 import java.awt.KeyboardFocusManager
 import java.awt.MouseInfo
 import java.awt.Robot
@@ -90,6 +91,7 @@ internal fun DecoratedWindowScope.TitleBarView(
 ) {
     val density = LocalDensity.current
     val settingsManager: SettingsManager = koinInject()
+    val roomDataManager : RoomDataManager = koinInject()
     val profileManager: ProfileManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
     val currentWindowConnectionState by profileManager.currentClient.value.connectionState.collectAsState()
@@ -245,6 +247,16 @@ internal fun DecoratedWindowScope.TitleBarView(
                             onClick = { showProfileDialog.value = true },
                         ) {
                             Text("Добавить игровое окно")
+                        }
+
+                        selectableItem(
+                            selected = false,
+                            iconKey = AllIconsKeys.Gutter.ReadAccess,
+                            onClick = {
+                                roomDataManager.loadAdanRoomData()
+                            },
+                        ) {
+                            Text("Импортировать карты из AMC")
                         }
 
                         selectableItem(

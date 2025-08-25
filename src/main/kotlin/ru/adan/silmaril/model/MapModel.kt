@@ -38,7 +38,7 @@ import kotlin.math.absoluteValue
 import kotlin.math.min
 import kotlin.random.Random
 
-class MapModel(private val settingsManager: SettingsManager) {
+class MapModel(private val settingsManager: SettingsManager, private val roomDataManager: RoomDataManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
     private val roomToZone = mutableMapOf<Int, Zone>()
 
@@ -71,8 +71,11 @@ class MapModel(private val settingsManager: SettingsManager) {
             val mapsUpdated: Boolean = updateMapsUntilSuccess()
             profileManager.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
             profileManager.displaySystemMessage("Загружаю карты...")
-            val msg = loadAllMaps(_areMapsReady)
+            val msg = loadAllMaps()
             profileManager.displaySystemMessage(msg)
+            roomDataManager.loadSilmarilYaml()
+            profileManager.displaySystemMessage("Карты готовы")
+            _areMapsReady.value = true
         }
     }
 
@@ -173,7 +176,7 @@ class MapModel(private val settingsManager: SettingsManager) {
     }
 
     // Called from a coroutine after new maps have been downloaded and unzipped (or didn't need an update)
-    suspend fun loadAllMaps(modelReady: MutableStateFlow<Boolean>) : String {
+    suspend fun loadAllMaps(/*modelReady: MutableStateFlow<Boolean>*/) : String {
         val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
         val xmlMapper = XmlMapper()
 
@@ -202,7 +205,7 @@ class MapModel(private val settingsManager: SettingsManager) {
             roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
         }
 
-        modelReady.value = true
+        //modelReady.value = true
 
         return mapsLoadedMsg
     }

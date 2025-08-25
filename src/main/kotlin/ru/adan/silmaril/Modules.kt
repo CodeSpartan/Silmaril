@@ -11,6 +11,7 @@ import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.Profile
 import ru.adan.silmaril.model.ProfileManager
+import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.scripting.ScriptingEngine
@@ -24,6 +25,7 @@ val appModule = module {
     singleOf(::TextMacrosManager)
     singleOf(::LoreManager)
     singleOf(::OutputWindowModel)
+    singleOf(::RoomDataManager)
 
     factory { params ->
         Profile(
