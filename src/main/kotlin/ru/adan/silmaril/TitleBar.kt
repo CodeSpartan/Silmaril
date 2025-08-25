@@ -152,7 +152,10 @@ internal fun DecoratedWindowScope.TitleBarView(
                         selectableItem(
                             selected = false,
                             iconKey = if (showMapWindow.value) AllIconsKeys.Actions.Checked else null,
-                            onClick = { showMapWindow.value = !showMapWindow.value },
+                            onClick = {
+                                showMapWindow.value = !showMapWindow.value
+                                settingsManager.updateFloatingWindowState("MapWindow", showMapWindow.value)
+                            },
                         ) {
                             Text("Карта")
                         }
@@ -160,7 +163,10 @@ internal fun DecoratedWindowScope.TitleBarView(
                         selectableItem(
                             selected = false,
                             iconKey = if (showGroupWindow.value) AllIconsKeys.Actions.Checked else null,
-                            onClick = { showGroupWindow.value = !showGroupWindow.value },
+                            onClick = {
+                                showGroupWindow.value = !showGroupWindow.value
+                                settingsManager.updateFloatingWindowState("GroupWindow", showGroupWindow.value)
+                            },
                         ) {
                             Text("Окно группы")
                         }
@@ -168,7 +174,10 @@ internal fun DecoratedWindowScope.TitleBarView(
                         selectableItem(
                             selected = false,
                             iconKey = if (showMobsWindow.value) AllIconsKeys.Actions.Checked else null,
-                            onClick = { showMobsWindow.value = !showMobsWindow.value },
+                            onClick = {
+                                showMobsWindow.value = !showMobsWindow.value
+                                settingsManager.updateFloatingWindowState("MobsWindow", showMobsWindow.value)
+                            },
                         ) {
                             Text("Окно монстров")
                         }
@@ -176,7 +185,10 @@ internal fun DecoratedWindowScope.TitleBarView(
                         selectableItem(
                             selected = false,
                             iconKey = if (showAdditionalOutputWindow.value) AllIconsKeys.Actions.Checked else null,
-                            onClick = { showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value },
+                            onClick = {
+                                showAdditionalOutputWindow.value = !showAdditionalOutputWindow.value
+                                settingsManager.updateFloatingWindowState("AdditionalOutput", showAdditionalOutputWindow.value)
+                            },
                         ) {
                             Text("Окно вывода")
                         }

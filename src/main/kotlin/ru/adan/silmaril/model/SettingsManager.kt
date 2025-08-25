@@ -252,23 +252,6 @@ class SettingsManager {
         profileFile.writeText(json)
     }
 
-    // temp method to toggle font
-    fun toggleFont() {
-        if (settings.value.font == "FiraMono")
-            updateFont("RobotoMono")
-        else
-            updateFont("FiraMono")
-    }
-
-    fun toggleColorStyle() {
-        updateColorStyle (when (settings.value.colorStyle) {
-            "ClassicBlack" -> "ModernBlack"
-            "ModernBlack" -> "ModernDarkRed"
-            "ModernDarkRed" -> "ClassicBlack"
-            else -> "ClassicBlack"
-        })
-    }
-
     fun addGroup(newGroupName: String) {
         val groupInCaps = newGroupName.uppercase()
         if (!_groups.value.contains(groupInCaps)) {
