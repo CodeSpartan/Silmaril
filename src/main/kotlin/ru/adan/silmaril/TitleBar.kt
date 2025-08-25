@@ -111,17 +111,17 @@ internal fun DecoratedWindowScope.TitleBarView(
                     menuContent = {
 
                         passiveItem {
-                            Row (Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                // @TODO remove it from here later
-                                /** A bit ugly to hide this in the first composable, but we need to hide the dialogs (map, monsters, etc)
-                                 * because they're AWT heavyweights and their Z-index is higher than the menu, so the menu needs to hide them
-                                 */
-                                showTitleMenu.value = true
-                                DisposableEffect(Unit) {
-                                    onDispose {
-                                        showTitleMenu.value = false
-                                    }
+                            // @TODO remove it from here later
+                            /** A bit ugly to hide this in the first composable, but we need to hide the dialogs (map, monsters, etc)
+                             * because they're AWT heavyweights and their Z-index is higher than the menu, so the menu needs to hide them
+                             */
+                            showTitleMenu.value = true
+                            DisposableEffect(Unit) {
+                                onDispose {
+                                    showTitleMenu.value = false
                                 }
+                            }
+                            Row (Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                                 Text(
                                     text = profileManager.currentProfileName.value.capitalized(),
                                     color = Color(0xff6f737a),

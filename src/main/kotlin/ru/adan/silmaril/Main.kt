@@ -87,7 +87,7 @@ fun main() {
                 styling = ComponentStyling.default().decoratedWindow(
                     titleBarStyle = TitleBarStyle.dark(),
                 ),
-                swingCompatMode = true, //@TODO try without
+                swingCompatMode = true,
             ) {
                 DecoratedWindow(
                     onCloseRequest = {
