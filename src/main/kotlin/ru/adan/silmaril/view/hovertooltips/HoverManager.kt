@@ -70,11 +70,15 @@ fun FloatingTooltipContainer(
         ) {
             // Because often .pack() won't work correctly after a recomposition (bug?), we force it through a hack
             LaunchedEffect(uniqueKey.value) {
-                delay(1)
-                val dialogWindow = window as JDialog
-                dialogWindow.setSize(dialogWindow.width, dialogWindow.height-1)
-                delay(1)
-                dialogWindow.pack()
+                // this threw an exception once, let's just catch it and do nothing
+                try {
+                    delay(1)
+                    val dialogWindow = window as JDialog
+                    dialogWindow.setSize(dialogWindow.width, dialogWindow.height - 1)
+                    delay(1)
+                    dialogWindow.pack()
+                }
+                finally {}
             }
             Column(
                 Modifier

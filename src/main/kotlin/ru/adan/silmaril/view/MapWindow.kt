@@ -460,6 +460,7 @@ fun RoomsCanvas(
                         with(commentPainter) {
                             draw(
                                 size = commentDesiredSize * scaleLogical * dpi,
+                                // @TODO: get color from visual style
                                 colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
                             )
                         }

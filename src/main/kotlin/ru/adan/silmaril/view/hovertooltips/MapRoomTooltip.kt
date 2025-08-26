@@ -55,7 +55,7 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
                 modifier = Modifier.padding(bottom = 10.dp)
             )
             Divider(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                 thickness = 1.dp,
                 color = style.getUiColor(UiColor.HoverSeparator)
             )
@@ -73,13 +73,13 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
                 )
 
                 Divider(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
                     thickness = 1.dp,
                     color = style.getUiColor(UiColor.HoverSeparator)
                 )
             }
 
-            Row {
+            Row (modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                 Text("ID комнаты: ", color = Color.White, fontFamily = robotoFont)
                 Text("${room.id}", color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light)
             }
