@@ -176,7 +176,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
     }
 
     // Called from a coroutine after new maps have been downloaded and unzipped (or didn't need an update)
-    suspend fun loadAllMaps(/*modelReady: MutableStateFlow<Boolean>*/) : String {
+    suspend fun loadAllMaps() : String {
         val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults").toString()
         val xmlMapper = XmlMapper()
 
@@ -204,8 +204,6 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
         zonesMap.forEach { zone ->
             roomToZone.putAll(zone.value.roomsList.associate { it.id to zone.value })
         }
-
-        //modelReady.value = true
 
         return mapsLoadedMsg
     }

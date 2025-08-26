@@ -69,6 +69,10 @@ open class ScriptingEngineImpl(
     private val profileManager: ProfileManager,
     private val loreManager: LoreManager,
 ) : ScriptingEngine {
+    companion object {
+        val jvmHost by lazy { BasicJvmScriptingHost() }
+    }
+
     override val logger = KotlinLogging.logger {}
     // @TODO: let triggers add/remove triggers. Currently that would throw an error, since they're matched against in the for loop.
     // CopyOnWrite is a thread-safe list
@@ -270,7 +274,7 @@ open class ScriptingEngineImpl(
         settingsManager.addGroup(currentlyLoadingScript)
 
         try {
-            val host = BasicJvmScriptingHost()
+            val host = jvmHost
             val compilationConfig = MudScriptDefinition
             val evaluationConfig = ScriptEvaluationConfiguration {
                 constructorArgs(this@ScriptingEngineImpl)

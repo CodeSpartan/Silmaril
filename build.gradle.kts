@@ -1,10 +1,13 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
+kotlin {
+    jvmToolchain(21)
+}
+
 plugins {
     kotlin("jvm") version libs.versions.kotlin
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    //alias(libs.plugins.kotlinMultiplatform) // not needed, since I'm just using desktop
     // alias(libs.plugins.composeHotReload) // don't need it, since I don't use hotreload. maybe later?
     alias(libs.plugins.kotlinSerialization) // xml, yaml, json
     // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
@@ -25,19 +28,15 @@ dependencies {
     // this allows us to load fonts from the composeResources folder and load them in a new way
     implementation(compose.components.resources)
     // For Kotlin Scripting
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:${libs.versions.kotlin.get()}")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:${libs.versions.kotlin.get()}")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-common:${libs.versions.kotlin.get()}")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
-    // JSR
     /**
      * The Kotlin team has announced changes/deprecations around scripting for K2,
      * including plans to drop JSR-223 and some related artifacts after Kotlin 2.3.
      * Do we even need them??
      */
     implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:${libs.versions.kotlin.get()}")
-    //implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
-    //implementation("org.jetbrains.kotlin:kotlin-scripting-jsr223:${libs.versions.kotlin.get()}")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:${libs.versions.kotlin.get()}")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-common:${libs.versions.kotlin.get()}")
+    implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
     // for icons
     implementation("org.jetbrains.compose.material:material-desktop:1.8.2")
     implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
@@ -50,7 +49,8 @@ dependencies {
     // The Koin compiler that KSP will use
     ksp("io.insert-koin:koin-ksp-compiler:2.1.0")
     // Koin for Ktor
-    implementation("io.insert-koin:koin-ktor")
+    // not needed?
+    // implementation("io.insert-koin:koin-ktor")
     // SLF4J Logger for Koin
     implementation("io.insert-koin:koin-logger-slf4j")
     // SLF4J Backend (Logback)
@@ -91,12 +91,32 @@ dependencies {
     //implementation(libs.androidx.lifecycle.runtimeCompose)
 }
 
+/**
+ * Reminder to self: to test a release build in IDE, runDistributable
+ * To build MSI, uncomment targetFoamts with MSI
+ * To build a portable release, uncomment targetFormats with AppImage
+ * To debug an issue in release, uncomment console = true
+  */
 compose.desktop {
     application {
         mainClass = "ru.adan.silmaril.MainKt"
+        // uncomment and set path to JBR, in case your system's default is different
+        //javaHome = "C:/Users/MUserName>/.jdks/jbr-21.0.8"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+
+            modules(
+                "java.naming", // necessary for logback
+                "jdk.unsupported", // for DSL scripts
+            )
+
+//            windows {
+//                console = true // adds --win-console for jpackage
+//            }
+
+            //targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.AppImage)
+
             packageName = "Silmaril"
             packageVersion = "1.0.0"
             macOS {
@@ -107,6 +127,14 @@ compose.desktop {
             }
             linux {
                 iconFile.set(project.file("icons/icon_256.png"))
+            }
+        }
+
+        buildTypes {
+            release {
+                proguard {
+                    isEnabled.set(false)
+                }
             }
         }
     }
