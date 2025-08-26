@@ -31,13 +31,17 @@ import androidx.compose.animation.core.VectorConverter
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
 import io.github.oshai.kotlinlogging.KLogger
+import org.jetbrains.jewel.ui.icon.IconKey
+import org.jetbrains.jewel.ui.icons.AllIconsKeys
+import org.jetbrains.jewel.ui.painter.rememberResourcePainterProvider
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.model.MapModel
-import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
@@ -177,6 +181,13 @@ fun RoomsCanvas(
     val coroutineScope = rememberCoroutineScope()
     val roomDataManager: RoomDataManager = koinInject()
     val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
+
+    // Info icon: display it on top of rooms that have comments
+    val key: IconKey = remember { AllIconsKeys.General.Inline_edit }
+    val path = remember(key, true) { key.path(true) }
+    val painterProvider = rememberResourcePainterProvider(path, key.iconClass)
+    val commentPainter by painterProvider.getPainter()
+    val commentDesiredSize = remember { Size(40f, 40f) }
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }
@@ -442,6 +453,18 @@ fun RoomsCanvas(
                     style = Fill,
                     brush = roomBrush,
                 )
+
+                // Draw "has a note" icon if there's a note
+                if (roomDataManager.hasComment(roomId)) {
+                    translate(left = roomTopLeft.x, top = roomTopLeft.y) {
+                        with(commentPainter) {
+                            draw(
+                                size = commentDesiredSize * scaleLogical * dpi,
+                                colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
+                            )
+                        }
+                    }
+                }
 
                 // if the player is in the roomId, draw a stroke over it
                 if (roomId == centerOnRoomId) {
