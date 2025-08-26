@@ -101,18 +101,24 @@ compose.desktop {
     application {
         mainClass = "ru.adan.silmaril.MainKt"
         // uncomment and set path to JBR, in case your system's default is different
-        //javaHome = "C:/Users/MUserName>/.jdks/jbr-21.0.8"
+        //javaHome = "C:/Users/<UserName>/.jdks/jbr-21.0.8"
+
+        jvmArgs += listOf(
+//            "-XX:NativeMemoryTracking=detail",
+//            "-Xlog:gc*:stdout:time,level,tags",
+//            "-Xlog:class+unload=info",
+        )
 
         nativeDistributions {
 
             modules(
                 "java.naming", // necessary for logback
                 "jdk.unsupported", // for DSL scripts
+//                "jdk.attach",
+//                "jdk.management",
             )
 
-//            windows {
-//                console = true // adds --win-console for jpackage
-//            }
+//            windows { console = true } // adds --win-console for jpackage
 
             //targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             targetFormats(TargetFormat.AppImage)
