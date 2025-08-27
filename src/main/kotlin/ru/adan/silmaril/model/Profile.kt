@@ -690,8 +690,7 @@ class Profile(
             mainViewModel.displayErrorMessage("Ошибка #echo - не смог распарсить. Правильный синтаксис: #echo текст")
             return
         }
-        val echoText = match.groupValues[1]
-        mainViewModel.displayColoredMessage(echoText)
+        mainViewModel.displayTaggedText(match.groupValues[1], false)
     }
 
     fun parseSendWindowCommand(message: String) {

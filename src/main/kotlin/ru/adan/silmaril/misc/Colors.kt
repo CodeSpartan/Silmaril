@@ -5,11 +5,11 @@ import androidx.compose.ui.graphics.Color
 fun ansiColorToTextColor(ansiColor: AnsiColor, isBright: Boolean): Color {
     return if (isBright) {
         when (ansiColor) {
-            AnsiColor.Black -> Color(96, 96, 96) // this is [OOC] channel
+            AnsiColor.Black -> Color(96, 96, 96) // grey ray in the "prismatic rays" spell + OOC channel
             AnsiColor.Red -> Color(255, 0, 0)
             AnsiColor.Green -> Color(0, 255, 0)
             AnsiColor.Yellow -> Color(255, 255, 0)
-            AnsiColor.Blue -> Color(0, 0, 255)
+            AnsiColor.Blue -> Color(0, 0, 255) // blue ray in the "prismatic rays" spell
             AnsiColor.Magenta -> Color(255, 0, 255)
             AnsiColor.Cyan -> Color(0, 255, 255)
             AnsiColor.White -> Color(255, 255, 255)
