@@ -155,9 +155,10 @@ fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
                     color = Color.White,
                     modifier = Modifier.padding(6.dp, 4.dp, 6.dp, 1.dp)
                 )
+
                 // Zone name
                 Text(
-                    text = curZoneState.value?.name ?: "",
+                    text = curZoneState.value?.fullName ?: "",
                     fontFamily = robotoFont,
                     color = Color.White,
                     modifier = Modifier.padding(6.dp, 2.dp, 6.dp, 4.dp)

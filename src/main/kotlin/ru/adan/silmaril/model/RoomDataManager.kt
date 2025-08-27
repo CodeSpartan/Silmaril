@@ -14,8 +14,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -29,7 +27,11 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import ru.adan.silmaril.misc.getSilmarilMapDataDirectory
+import ru.adan.silmaril.xml_schemas.Zone
 import java.util.concurrent.ConcurrentHashMap
+import ru.adan.silmaril.generated.resources.Res
+import ru.adan.silmaril.xml_schemas.ZoneType
+import ru.adan.silmaril.xml_schemas.ZonesYaml
 
 class RoomDataManager() : KoinComponent {
     val logger = KotlinLogging.logger {}
@@ -233,7 +235,7 @@ class RoomDataManager() : KoinComponent {
 
     // Call this at startup
     // It merges the YAML data into the in-memory maps.
-    suspend fun loadSilmarilYaml() = withContext(Dispatchers.IO) {
+    suspend fun loadVisitedRoomsYaml() = withContext(Dispatchers.IO) {
         profileManager.displaySystemMessage("Загружаю посещенные клетки...")
 
         val dir = File(getSilmarilMapDataDirectory())
@@ -278,6 +280,26 @@ class RoomDataManager() : KoinComponent {
         }
 
         profileManager.displaySystemMessage("Посещенные зоны: $addedZones, клетки: $addedRooms, комменты: ${roomComments.keys.size}")
+    }
+
+    // Load whether zones are solo or group oriented, plus what levels they're intended for
+    // Merges into existing in-memory data
+    suspend fun loadAdditionalInfoYaml(zonesMap: HashMap<Int, Zone>) = withContext(Dispatchers.IO) {
+        //zonesMap
+        val bytes = Res.readBytes("files/zones_info.yaml")
+        val yaml = bytes.decodeToString()
+        val zonesInfo = Yaml.default.decodeFromString(ZonesYaml.serializer(), yaml)
+        zonesInfo.zones.forEach { zoneInfo ->
+            val zoneInMemory = zonesMap[zoneInfo.id]
+            if (zoneInMemory != null) {
+                if (zoneInMemory.minLevel == 0 && zoneInMemory.maxLevel == 0) {
+                    zoneInMemory.minLevel = zoneInfo.levelRange.first
+                    zoneInMemory.maxLevel = zoneInfo.levelRange.last
+                    logger.debug { "Adjusting levels of zone ${zoneInMemory.name} (${zoneInMemory.id}). Correct levels: ${zoneInfo.levelRange}"}
+                }
+                zoneInMemory.solo = zoneInfo.type == ZoneType.SOLO
+            }
+        }
     }
 
     private fun saveAllYamlInternal() {

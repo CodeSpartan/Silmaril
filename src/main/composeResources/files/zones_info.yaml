@@ -1,0 +1,626 @@
+zones:
+  - id: 8
+    name: МАД Школа
+    level_range: [1, 3]
+    type: solo
+    authors: Мандос Омлин
+  - id: 21
+    name: Поваленное дерево
+    level_range: [2, 6]
+    type: solo
+    authors: Касситоp
+  - id: 23
+    name: Свалка в мордорском лагере
+    level_range: [2, 6]
+    type: solo
+    authors: Арэдель
+  - id: 24
+    name: Свалка в Минас-Моргуле
+    level_range: [2, 6]
+    type: solo
+    authors: Торонил
+  - id: 28
+    name: Строения в Норгорде
+    level_range: [8, 12]
+    type: solo
+    authors: Мириам
+  - id: 40
+    name: Светлый лес
+    level_range: [6, 9]
+    type: solo
+    authors: Линдир
+  - id: 41
+    name: Равнины близ Минас-Тирита
+    level_range: [5, 8]
+    type: solo
+    authors: Линдир
+  - id: 42
+    name: Кладбище
+    level_range: [6, 8]
+    type: solo
+    authors: Линдир
+  - id: 43
+    name: Склеп
+    level_range: [23, 27]
+    type: groups
+    authors: Линдир
+  - id: 44
+    name: Пещеры Троллей
+    level_range: [24, 29]
+    type: groups
+    authors: Линдир
+  - id: 45
+    name: Лагерь гоблинов
+    level_range: [12, 18]
+    type: solo
+    authors: Линдир
+  - id: 47
+    name: Горный перевал
+    level_range: [24, 27]
+    type: groups
+    authors: Линдир Глаурунг
+  - id: 50
+    name: Темный путь
+    level_range: [16, 20]
+    type: solo
+    authors: Мелькор
+  - id: 54
+    name: Деревня
+    level_range: [12, 15]
+    type: solo
+    authors: Мелькор
+  - id: 56
+    name: Болото
+    level_range: [10, 15]
+    type: solo
+    authors: Мелькор
+  - id: 57
+    name: Храм Саурона
+    level_range: [22, 26]
+    type: groups
+    authors: Мелькор
+  - id: 59
+    name: Трактир "Пропасть"
+    level_range: [12, 16]
+    type: solo
+    authors: Мелькор
+  - id: 60
+    name: Деpево в Минас-Тирите
+    level_range: [2, 6]
+    type: solo
+    authors: Касситоp
+  - id: 61
+    name: Долина Изенгарда
+    level_range: [24, 27]
+    type: groups
+    authors: Касситоp Мандос Омлин
+  - id: 62
+    name: Изенгард
+    level_range: [28, 30]
+    type: groups
+    authors: Омлин
+  - id: 65
+    name: Лес Фириен
+    level_range: [15, 20]
+    type: solo
+    authors: Кейт Мандос
+  - id: 66
+    name: Мельница Тэда
+    level_range: [5, 8]
+    type: solo
+    authors: Толбург
+  - id: 73
+    name: Смиалы Кролов
+    level_range: [19, 22]
+    type: solo
+    authors: Дашива
+  - id: 74
+    name: Цирк
+    level_range: [15, 20]
+    type: solo
+    authors: Дашива
+  - id: 77
+    name: Пасека и болотце
+    level_range: [10, 15]
+    type: solo
+    authors: Тилли
+  - id: 100
+    name: Андуин
+    level_range: [5, 8]
+    type: solo
+    authors: Шандор
+  - id: 101
+    name: Высохшая пустошь
+    level_range: [5, 8]
+    type: solo
+    authors: Неизвестен
+  - id: 104
+    name: Дорога, соединяющая Минас-Тирит и Эдорас
+    level_range: [5, 8]
+    type: solo
+    authors: Неизвестен
+  - id: 105
+    name: Равнина Горгорот
+    level_range: [5, 8]
+    type: solo
+    authors: Неизвестен
+  - id: 106
+    name: Окрестности Долгого озера
+    level_range: [5, 8]
+    type: solo
+    authors: Неизвестен
+  - id: 108
+    name: Дикий лес
+    level_range: [7, 11]
+    type: solo
+    authors: Игнат
+  - id: 109
+    name: Дорога через разрушенный Осгилиат
+    level_range: [6, 10]
+    type: solo
+    authors: Туор
+  - id: 111
+    name: Горная крепость
+    level_range: [26, 30]
+    type: groups
+    authors: Стохе
+  - id: 117
+    name: Трубочные поля
+    level_range: [7, 10]
+    type: solo
+    authors: Мириам
+  - id: 129
+    name: Песчанная коса
+    level_range: [12, 15]
+    type: solo
+    authors: Шандор
+  - id: 130
+    name: Форт
+    level_range: [16, 19]
+    type: solo
+    authors: Шандор
+  - id: 131
+    name: Фрегат
+    level_range: [12, 15]
+    type: solo
+    authors: Шандор
+  - id: 132
+    name: Портовый город
+    level_range: [15, 20]
+    type: solo
+    authors: Шандор
+  - id: 133
+    name: Бастион
+    level_range: [16, 20]
+    type: solo
+    authors: Шандор
+  - id: 134
+    name: Горная тропа
+    level_range: [12, 15]
+    type: solo
+    authors: Шандор
+  - id: 136
+    name: Маяк
+    level_range: [21, 25]
+    type: groups
+    authors: Эпик
+  - id: 155
+    name: Заброшенное стойбище
+    level_range: [9, 14]
+    type: solo
+    authors: Чандсу Молман
+  - id: 160
+    name: Лесные дебри
+    level_range: [16, 20]
+    type: solo
+    authors: Алан
+  - id: 161
+    name: Деревня Варваров
+    level_range: [16, 23]
+    type: solo
+    authors: Алан
+  - id: 178
+    name: Заброшенная шахта-1
+    level_range: [8, 11]
+    type: solo
+    authors: Берилл
+  - id: 179
+    name: Заброшенная шахта-2
+    level_range: [23, 26]
+    type: groups
+    authors: Фарли
+  - id: 183
+    name: Канализация
+    level_range: [6, 9]
+    type: solo
+    authors: Меф
+  - id: 193
+    name: Лагерь орков
+    level_range: [25, 28]
+    type: groups
+    authors: Арэдель Белег
+  - id: 196
+    name: Могильники
+    level_range: [24, 28]
+    type: groups
+    authors: Марк Глаурунг
+  - id: 201
+    name: Логово драконицы
+    level_range: [28, 30]
+    type: groups
+    authors: Марго
+  - id: 210
+    name: Потерянный Город
+    level_range: [25, 28]
+    type: groups
+    authors: Марго
+  - id: 211
+    name: Лориен
+    level_range: [27, 29]
+    type: groups
+    authors: Марк
+  - id: 212
+    name: Белые Холмы
+    level_range: [23, 26]
+    type: groups
+    authors: Марк
+  - id: 220
+    name: Библиотека
+    level_range: [19, 23]
+    type: solo
+    authors: Ариен
+  - id: 221
+    name: Пещеры Трандуила
+    level_range: [25, 27]
+    type: groups
+    authors: Ариен Линдир
+  - id: 223
+    name: Берег озера
+    level_range: [8, 11]
+    type: solo
+    authors: Ариен
+  - id: 224
+    name: Усадьба хоббита
+    level_range: [2, 5]
+    type: solo
+    authors: Ариен
+  - id: 226
+    name: Деревенский Колодец
+    level_range: [7, 10]
+    type: solo
+    authors: Шандор
+  - id: 230
+    name: Дом отшельника
+    level_range: [24, 27]
+    type: groups
+    authors: Раста (Wlas)
+  - id: 232
+    name: Подземелья замка
+    level_range: [22, 26]
+    type: groups
+    authors: Дррагор
+  - id: 236
+    name: Гранитная башня
+    level_range: [15, 19]
+    type: solo
+    authors: Сабо Уинен
+  - id: 271
+    name: Ферма
+    level_range: [10, 14]
+    type: solo
+    authors: Злодей
+  - id: 272
+    name: Поместье барона
+    level_range: [14, 18]
+    type: solo
+    authors: Стохе Мандос
+  - id: 273
+    name: Леса Форноста
+    level_range: [23, 26]
+    type: groups
+    authors: Гайорон
+  - id: 274
+    name: Горный Каньон
+    level_range: [24, 27]
+    type: groups
+    authors: Глаурунг
+  - id: 299
+    name: Мордорская тюрьма
+    level_range: [23, 27]
+    type: groups
+    authors: Collumb
+  - id: 301
+    name: Древняя деревня
+    level_range: [18, 21]
+    type: groups
+    authors: Эльдор Сквиз
+  - id: 309
+    name: Подвал гостиницы
+    level_range: [4, 11]
+    type: solo
+    authors: Шэнн
+  - id: 310
+    name: Лесное озеро
+    level_range: [7, 11]
+    type: solo
+    authors: Кристан
+  - id: 312
+    name: Берлога
+    level_range: [9, 14]
+    type: groups
+    authors: Нубб
+  - id: 313
+    name: Термитник
+    level_range: [12, 16]
+    type: solo
+    authors: Кристан
+  - id: 319
+    name: Дорога в южном Лебеннине
+    level_range: [5, 8]
+    type: solo
+    authors: Неизвестен
+  - id: 320
+    name: Лагерь бродяжников
+    level_range: [18, 22]
+    type: solo
+    authors: Готмог
+  - id: 327
+    name: Лагерь новобранцев
+    level_range: [23, 26]
+    type: solo
+    authors: Толерин
+  - id: 333
+    name: Побережье
+    level_range: [21, 24]
+    type: solo
+    authors: Стохе
+  - id: 338
+    name: Хутор земледельцев
+    level_range: [21, 24]
+    type: groups
+    authors: Алатар
+  - id: 339
+    name: Обочина дороги
+    level_range: [17, 21]
+    type: groups
+    authors: Алатар
+  - id: 340
+    name: Стойбище
+    level_range: [19, 23]
+    type: solo
+    authors: Лостен
+  - id: 342
+    name: Начало Южной Дороги
+    level_range: [19, 22]
+    type: solo
+    authors: Готмог
+  - id: 347
+    name: Укролье
+    level_range: [13, 17]
+    type: solo
+    authors: Туор
+  - id: 348
+    name: Лесной чертог
+    level_range: [17, 23]
+    type: solo
+    authors: Туор
+  - id: 360
+    name: Охотничий лес
+    level_range: [3, 7]
+    type: solo
+    authors: Несар
+  - id: 365
+    name: Друадан
+    level_range: [23, 26]
+    type: groups
+    authors: Глаурунг
+  - id: 366
+    name: Предгорья Белых гор
+    level_range: [18, 22]
+    type: solo
+    authors: Финве
+  - id: 370
+    name: Логово Шелоб
+    level_range: [27, 30]
+    type: groups
+    authors: Мелиан
+  - id: 372
+    name: Деревенский колодец
+    level_range: [9, 12]
+    type: solo
+    authors: Мелиан
+  - id: 402
+    name: Городской суд
+    level_range: [25, 30]
+    type: groups
+    authors: Туор
+  - id: 405
+    name: Подземное озеро
+    level_range: [27, 30]
+    type: groups
+    authors: Туор
+  - id: 411
+    name: Вековечный лес
+    level_range: [28, 30]
+    type: groups
+    authors: Туор Омлин
+  - id: 420
+    name: Холмы Рохана
+    level_range: [21, 24]
+    type: solo
+    authors: Финве
+  - id: 477
+    name: Театр
+    level_range: [23, 27]
+    type: groups
+    authors: Туор
+  - id: 510
+    name: Ферма хоббита
+    level_range: [2, 7]
+    type: solo
+    authors: Готмог
+  - id: 541
+    name: Пещеры пауков
+    level_range: [23, 26]
+    type: groups
+    authors: Тайлспин
+  - id: 550
+    name: Пещеры гоблинов
+    level_range: [25, 27]
+    type: groups
+    authors: Уинен
+  - id: 594
+    name: Ярмарка
+    level_range: [19, 22]
+    type: solo
+    authors: Арэдель Белег
+  - id: 610
+    name: Заброшенная деревня
+    level_range: [14, 18]
+    type: groups
+    authors: Доллн
+  - id: 611
+    name: Болотце
+    level_range: [2, 5]
+    type: solo
+    authors: Доллн
+  - id: 621
+    name: Форт харадримов
+    level_range: [25, 28]
+    type: groups
+    authors: Юдар
+  - id: 626
+    name: Башня магов
+    level_range: [27, 30]
+    type: solo
+    authors: Арэдель, Белег
+  - id: 632
+    name: Пещеры урхов
+    level_range: [27, 29]
+    type: groups
+    authors: Юдар
+  - id: 633
+    name: Захоронения героев
+    level_range: [26, 29]
+    type: groups
+    authors: Тикстри
+  - id: 637
+    name: Старый дом
+    level_range: [4, 7]
+    type: solo
+    authors: Лант
+  - id: 649
+    name: Дорога к северу от Мордора
+    level_range: [5, 8]
+    type: groups
+    authors: Неизвестен
+  - id: 653
+    name: Гиблые болота
+    level_range: [25, 27]
+    type: groups
+    authors: Морион
+  - id: 657
+    name: Степная дорога
+    level_range: [6, 9]
+    type: solo
+    authors: Захай
+  - id: 666
+    name: Западные отроги холмов
+    level_range: [5, 8]
+    type: solo
+    authors: Неизвестен
+  - id: 667
+    name: Паучий лес
+    level_range: [24, 27]
+    type: groups
+    authors: Туор
+  - id: 668
+    name: Старая южная дорога
+    level_range: [22, 25]
+    type: groups
+    authors: Туор
+  - id: 669
+    name: Город мертвых
+    level_range: [25, 30]
+    type: groups
+    authors: Туор
+  - id: 700
+    name: Лесная просека
+    level_range: [7, 10]
+    type: solo
+    authors: Дефик Омлин
+  - id: 701
+    name: Пещеры гномов
+    level_range: [20, 24]
+    type: solo
+    authors: Дефик
+  - id: 702
+    name: Дальние подземелья
+    level_range: [25, 27]
+    type: groups
+    authors: Дефик
+  - id: 705
+    name: Деревня лесорубов
+    level_range: [12, 16]
+    type: solo
+    authors: Туор Омлин
+  - id: 720
+    name: Тайный картель гномов
+    level_range: [26, 29]
+    type: groups
+    authors: Омлин
+  - id: 721
+    name: Деревня небесного народца
+    level_range: [27, 30]
+    type: groups
+    authors: Омлин
+  - id: 722
+    name: Монастырь
+    level_range: [28, 30]
+    type: groups
+    authors: Омлин
+  - id: 723
+    name: Затонувший галеон
+    level_range: [27, 30]
+    type: groups
+    authors: Омлин
+  - id: 724
+    name: Руины крепости Дол Гулдур
+    level_range: [28, 30]
+    type: groups
+    authors: Омлин
+  - id: 730
+    name: Эдорас
+    level_range: [20, 24]
+    type: solo
+    authors: Омлин
+  - id: 731
+    name: Заброшенный особняк в Эдорасе
+    level_range: [25, 27]
+    type: groups
+    authors: Омлин
+  - id: 732
+    name: Тюрьма Эдораса.
+    level_range: [25, 27]
+    type: groups
+    authors: Омлин
+  - id: 800
+    name: Летающий город
+    level_range: [27, 30]
+    type: groups
+    authors: Туор
+  - id: 801
+    name: Лесная таверна
+    level_range: [20, 28]
+    type: groups
+    authors: Туор
+  - id: 802
+    name: Джунгли
+    level_range: [29, 30]
+    type: groups
+    authors: Туор Омлин
+  - id: 805
+    name: Северная долина
+    level_range: [29, 30]
+    type: groups
+    authors: Туор

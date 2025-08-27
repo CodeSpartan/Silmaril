@@ -1,6 +1,5 @@
 package ru.adan.silmaril.model
 
-import androidx.compose.runtime.remember
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -12,7 +11,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -20,7 +18,6 @@ import kotlinx.io.IOException
 import ru.adan.silmaril.misc.AesDecryptor
 import ru.adan.silmaril.misc.getProgramDirectory
 import ru.adan.silmaril.misc.unzipFile
-import ru.adan.silmaril.viewmodel.MainViewModel
 import ru.adan.silmaril.xml_schemas.Room
 import ru.adan.silmaril.xml_schemas.Zone
 import java.awt.Point
@@ -30,8 +27,6 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.file.Paths
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlin.collections.iterator
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.absoluteValue
@@ -73,8 +68,9 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
             profileManager.displaySystemMessage("Загружаю карты...")
             val msg = loadAllMaps()
             profileManager.displaySystemMessage(msg)
-            roomDataManager.loadSilmarilYaml()
-            profileManager.displaySystemMessage("Карты готовы")
+            roomDataManager.loadVisitedRoomsYaml()
+            roomDataManager.loadAdditionalInfoYaml(zonesMap)
+            profileManager.displaySystemMessage("Карты готовы.")
             _areMapsReady.value = true
         }
     }

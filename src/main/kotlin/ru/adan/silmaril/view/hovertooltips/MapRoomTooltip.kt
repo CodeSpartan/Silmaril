@@ -104,7 +104,7 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
                     if (mapModel.getZoneByRoomId(exit.roomId) != zone) {
                         Text(" →  ", color = Color.White, fontFamily = robotoFont, modifier = Modifier.offset(y = (-2).dp).alignByBaseline().height(16.dp)) // fix for weird behavior
                         Text(
-                            mapModel.getZoneByRoomId(exit.roomId)?.name ?: "(не существует)",
+                            mapModel.getZoneByRoomId(exit.roomId)?.fullName ?: "(не существует)",
                             color = if (mapModel.getZoneByRoomId(exit.roomId) != null) Color.White else Color.Gray,
                             fontFamily = robotoFont,
                             modifier = Modifier.alignByBaseline()

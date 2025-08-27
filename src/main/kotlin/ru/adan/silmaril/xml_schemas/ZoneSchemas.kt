@@ -1,5 +1,6 @@
 package ru.adan.silmaril.xml_schemas
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 
@@ -14,16 +15,37 @@ data class Zone(
     val author: String = "",
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "MinLevel")
-    val minLevel: Int = 0,
+    var minLevel: Int = 0,
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "MaxLevel")
-    val maxLevel: Int = 0,
+    var maxLevel: Int = 0,
 
     // When isAttribute is false, you can't have a camelCase variable with the same name in localName starting with Uppercase
     @field:JacksonXmlElementWrapper(useWrapping = true, localName = "Rooms")
     @field:JacksonXmlProperty(localName = "Room")
-    val roomsList: List<Room> = listOf()
-)
+    val roomsList: List<Room> = listOf(),
+) {
+
+    // runtime-only, not in XML (kept out of primary constructor)
+    @get:JsonIgnore @set:JsonIgnore
+    var solo: Boolean? = null
+
+    // computed or lazy runtime-only property, also ignored by Jackson
+    @get:JsonIgnore
+    val fullName: String by lazy {
+        buildString {
+            append(name)
+            if (maxLevel != 0) {
+                append(" ($minLevel - $maxLevel")
+                if (solo != null) {
+                    append(", ")
+                    append(if (solo == true) "соло" else "группы")
+                }
+                append(")")
+            }
+        }
+    }
+}
 
 data class Room(
     @field:JacksonXmlProperty(isAttribute = true, localName = "Id")

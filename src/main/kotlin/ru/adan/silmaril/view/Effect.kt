@@ -191,6 +191,8 @@ data class CreatureEffect(
                 "оглушение" -> true
                 "иммуность к оглушению" -> true
                 "торнадо" -> true
+                "придержать персону" -> true
+                "придержать любого" -> true
                 else -> false
             }
 
