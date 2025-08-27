@@ -132,8 +132,18 @@ fun MatchGroupCollection.getOrNull(name: String): MatchGroup? {
  * A helper function to find an enum value by name, ignoring case.
  * Returns a default value if no match is found.
  */
+// Case-insensitive enum lookup with fallback
 inline fun <reified T : Enum<T>> enumValueOfIgnoreCase(name: String?, default: T): T {
-    return enumValues<T>().find { it.name.equals(name, ignoreCase = true) } ?: default
+    if (name.isNullOrBlank()) return default
+    val n = name.trim()
+    return enumValues<T>().firstOrNull { it.name.equals(n, ignoreCase = true) } ?: default
+}
+
+// Nullable version (no fallback)
+inline fun <reified T : Enum<T>> enumValueOfIgnoreCaseOrNull(name: String?): T? {
+    if (name.isNullOrBlank()) return null
+    val n = name.trim()
+    return enumValues<T>().firstOrNull { it.name.equals(n, ignoreCase = true) }
 }
 
 fun List<String>.joinOrNone(): String {

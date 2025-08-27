@@ -1,5 +1,8 @@
 package ru.adan.silmaril.misc
 
+import androidx.compose.ui.graphics.Color
+import org.jetbrains.jewel.ui.util.fromRGBAHexStringOrNull
+
 data class ColorfulTextMessage(
     val chunks: Array<TextMessageChunk>
 ) {
@@ -21,7 +24,14 @@ data class ColorfulTextMessage(
          * Parses a string with nested <color=...>...</color> and <size=...>...</size> tags
          * into TextMessageChunk[].
          *
-         * Examples:
+         * Color specifies foreground color, as well as background color (optional).
+         * Size specifies small/normal/large.
+         *
+         * Color usage examples:
+         * <color=yellow>, <color fg=yellow>, <color fg=yellow, bg=black>, <color fg=#FAFAFA>, <color fg=#FAFAFA, bg=#000000>
+         * If named color is specified, it's assumed bright. You can also prefix any named color with "dark-", e.g. <color=dark-yellow>
+         *
+         * Examples with size:
          * - "Normal <color=bright-yellow>bright yellow <size=large>BIG</size> still yellow</color> back."
          * - "Mix <size=small>tiny <color=dark-green>tiny green</color> tiny</size> normal."
          */
@@ -31,36 +41,32 @@ data class ColorfulTextMessage(
         ): Array<TextMessageChunk> {
             val chunks = mutableListOf<TextMessageChunk>()
 
-            val defaultFg = if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None
-            val defaultBright = brightWhiteAsDefault
-            val defaultBg = AnsiColor.None
+            val defaultFgAnsi = if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None
+            val defaultFgBright = brightWhiteAsDefault
+            val defaultBgAnsi = AnsiColor.None
             val defaultBgBright = false
 
             data class Style(
-                val fg: AnsiColor,
-                val bright: Boolean,
-                val bg: AnsiColor,
-                val bgBright: Boolean,
+                val fg: ColorOrAnsi,
+                val bg: ColorOrAnsi,
                 val size: TextSize
             )
 
-            // Current (effective) style
             var current = Style(
-                fg = defaultFg,
-                bright = defaultBright,
-                bg = defaultBg,
-                bgBright = defaultBgBright,
+                fg = ColorOrAnsi.fromAnsi(defaultFgAnsi, defaultFgBright),
+                bg = ColorOrAnsi.fromAnsi(defaultBgAnsi, defaultBgBright),
                 size = TextSize.Normal
             )
 
             // Regex to recognize tags at the current position (case-insensitive)
-            val openColorLegacy = """<color=(?:(bright|dark)-)?(\w+)>""".toRegex(RegexOption.IGNORE_CASE)
-            val openColorAttrs  = """<color\s+([^>]+)>""".toRegex(RegexOption.IGNORE_CASE) // e.g. <color fg=yellow bg=navy>
+            // Legacy: <color=...> where ... can be "bright-yellow", "yellow", or "#RRGGBB"/"#RRGGBBAA"
+            val openColorLegacy = """<color=([^>]+)>""".toRegex(RegexOption.IGNORE_CASE)
+            // Attributes: <color fg=... bg=...>
+            val openColorAttrs  = """<color\s+([^>]+)>""".toRegex(RegexOption.IGNORE_CASE)
             val openSize        = """<size=(\w+)>""".toRegex(RegexOption.IGNORE_CASE)
             val closeTag        = """</(color|size)>""".toRegex(RegexOption.IGNORE_CASE)
 
-            // Stack holds previous style + which tag type opened it
-            val stack = ArrayDeque<Pair<Style, String>>() // tag type: "color" | "size"
+            val stack = ArrayDeque<Pair<Style, String>>() // "color" | "size"
 
             val sb = StringBuilder()
             var i = 0
@@ -70,59 +76,69 @@ data class ColorfulTextMessage(
                     chunks.add(
                         TextMessageChunk(
                             text = sb.toString(),
-                            fgColor = current.fg,
-                            bgColor = current.bg,
-                            isBright = current.bright,
-                            textSize = current.size,
-                            isBgBright = current.bgBright
+                            fg = current.fg,
+                            bg = current.bg,
+                            textSize = current.size
                         )
                     )
                     sb.clear()
                 }
             }
 
-            // Attribute parsing helpers
+            // Helper
             fun unquote(s: String): String {
                 val t = s.trim()
-                if (t.length >= 2 && ((t.first() == '"' && t.last() == '"') || (t.first() == '\'' && t.last() == '\''))) {
-                    return t.substring(1, t.length - 1)
-                }
-                return t
+                return if (t.length >= 2 && ((t.first() == '"' && t.last() == '"') || (t.first() == '\'' && t.last() == '\''))) {
+                    t.substring(1, t.length - 1)
+                } else t
             }
 
-            // Parses "bright-yellow" / "dark-green" / "yellow" into (AnsiColor, isBright)
-            fun parseColorToken(value: String, fallbackColor: AnsiColor, fallbackBright: Boolean): Pair<AnsiColor, Boolean> {
+            // Parse #RRGGBB or #RRGGBBAA into Color via your RGBA parser
+            fun parseHexToColorOrNull(v: String): Color? {
+                if (!v.startsWith("#")) return null
+                val rgba = when (v.length) {
+                    7 -> v + "FF"  // #RRGGBB -> #RRGGBBFF (RGBA)
+                    9 -> v         // #RRGGBBAA
+                    else -> return null
+                }
+                return Color.fromRGBAHexStringOrNull(rgba)
+            }
+
+            // "bright-yellow" / "dark-green" / "yellow" -> (AnsiColor, isBright)
+            fun parseAnsiToken(value: String, fallbackAnsi: AnsiColor, fallbackBright: Boolean): Pair<AnsiColor, Boolean> {
                 val v = value.trim()
                 val dash = v.indexOf('-')
-                val hasPrefix = dash > 0
-                val (explicitBright: Boolean?, colorName: String) = if (hasPrefix) {
+                val (explicitBright: Boolean?, colorName: String) = if (dash > 0) {
                     val prefix = v.substring(0, dash)
                     val name = v.substring(dash + 1)
                     when {
                         prefix.equals("bright", ignoreCase = true) -> true to name
                         prefix.equals("dark", ignoreCase = true) -> false to name
-                        else -> null to v // unknown prefix; treat whole as color name
+                        else -> null to v
                     }
                 } else {
                     null to v
                 }
-
-                val color = enumValueOfIgnoreCase(colorName, fallbackColor)
-                // Legacy behavior: default to bright=true when brightness not specified
-                val isBright = explicitBright ?: true
-
-                return color to isBright
+                val ansi = enumValueOfIgnoreCase(colorName, fallbackAnsi)
+                val isBright = explicitBright ?: true // legacy default
+                return ansi to isBright
             }
 
-            // Parse key=value pairs inside <color ...>
+            // key=value map for <color ...>
             fun parseAttrMap(attrBlob: String): Map<String, String> {
-                // Matches: key=value, value can be quoted or bare
                 val kv = """(\w+)\s*=\s*("[^"]*"|'[^']*'|[^"\s>]+)""".toRegex(RegexOption.IGNORE_CASE)
                 return kv.findAll(attrBlob).associate { m ->
                     val key = m.groups[1]!!.value.lowercase()
                     val raw = m.groups[2]!!.value
                     key to unquote(raw)
                 }
+            }
+
+            // Given a value token (hex or ansi token), return ColorOrAnsi; fallback preserves current
+            fun toColorOrAnsi(value: String, currentAnsi: AnsiColor, currentBright: Boolean): ColorOrAnsi {
+                parseHexToColorOrNull(value)?.let { return ColorOrAnsi.fromColor(it) }
+                val (ansi, bright) = parseAnsiToken(value, currentAnsi, currentBright)
+                return ColorOrAnsi.fromAnsi(ansi, bright)
             }
 
             while (i < taggedText.length) {
@@ -134,46 +150,39 @@ data class ColorfulTextMessage(
                     val openS  = openSize.find(taggedText, i)?.takeIf { it.range.first == i }
 
                     if (close != null || openCL != null || openCA != null || openS != null) {
-                        // We are at a tag boundary: first flush accumulated text
                         flush()
-
                         when {
                             openCL != null -> {
-                                // Opening legacy color tag: <color=bright-yellow> or <color=yellow>
+                                // <color=...>  where ... can be ANSI token or hex
                                 stack.addLast(current to "color")
-                                val brightness = openCL.groups[1]?.value // "bright" | "dark" | null
-                                val colorName = openCL.groups[2]?.value ?: ""
-                                val (fgColor, isBright) = parseColorToken(
-                                    if (brightness != null) "$brightness-$colorName" else colorName,
-                                    fallbackColor = current.fg,
-                                    fallbackBright = current.bright
-                                )
-                                current = current.copy(fg = fgColor, bright = isBright)
+                                val value = openCL.groups[1]!!.value.trim()
+                                // Legacy rule: acts like fg=...
+                                val newFg = toColorOrAnsi(value, currentAnsi = current.fg.ansi, currentBright = current.fg.isBright)
+                                current = current.copy(fg = newFg)
                                 i = openCL.range.last + 1
                                 continue
                             }
                             openCA != null -> {
-                                // Opening color tag with attributes: <color fg=yellow bg=navy>
+                                // <color fg=... bg=...>
                                 stack.addLast(current to "color")
-                                val attrBlob = openCA.groups[1]?.value ?: ""
-                                val attrs = parseAttrMap(attrBlob)
+                                val attrs = parseAttrMap(openCA.groups[1]?.value ?: "")
 
-                                // Update fg if present
                                 attrs["fg"]?.let { v ->
-                                    val (fgColor, isBright) = parseColorToken(v, fallbackColor = current.fg, fallbackBright = current.bright)
-                                    current = current.copy(fg = fgColor, bright = isBright)
+                                    current = current.copy(
+                                        fg = toColorOrAnsi(v, currentAnsi = current.fg.ansi, currentBright = current.fg.isBright)
+                                    )
                                 }
-                                // Update bg if present
                                 attrs["bg"]?.let { v ->
-                                    val (bgColor, isBright) = parseColorToken(v, fallbackColor = current.bg, fallbackBright = current.bgBright)
-                                    current = current.copy(bg = bgColor, bgBright = isBright)
+                                    current = current.copy(
+                                        bg = toColorOrAnsi(v, currentAnsi = current.bg.ansi, currentBright = current.bg.isBright)
+                                    )
                                 }
 
                                 i = openCA.range.last + 1
                                 continue
                             }
                             openS != null -> {
-                                // Opening size tag
+                                // <size=...>
                                 stack.addLast(current to "size")
                                 val sizeName = openS.groups[1]?.value
                                 val size = enumValueOfIgnoreCase(sizeName, TextSize.Normal)
@@ -182,7 +191,7 @@ data class ColorfulTextMessage(
                                 continue
                             }
                             else -> {
-                                // Closing tag
+                                // </color> or </size>
                                 val tagType = close!!.groups[1]!!.value.lowercase()
                                 if (stack.isNotEmpty() && stack.last().second == tagType) {
                                     val (prev, _) = stack.removeLast()
@@ -190,7 +199,7 @@ data class ColorfulTextMessage(
                                     i = close.range.last + 1
                                     continue
                                 } else {
-                                    // Mismatched closer: treat '<' literally and move forward
+                                    // Mismatched closer: treat '<' literally
                                     sb.append('<')
                                     i += 1
                                     continue
@@ -200,31 +209,47 @@ data class ColorfulTextMessage(
                     }
                 }
 
-                // Not a tag start: accumulate text
                 sb.append(c)
                 i += 1
             }
 
-            // Flush any trailing text
             flush()
-
             return chunks.toTypedArray()
-        }
-
-        // Case-insensitive enum lookup with fallback
-        inline fun <reified T : Enum<T>> enumValueOfIgnoreCase(name: String?, default: T): T {
-            if (name.isNullOrBlank()) return default
-            val n = name.trim()
-            return enumValues<T>().firstOrNull { it.name.equals(n, ignoreCase = true) } ?: default
         }
     }
 }
 
-data class TextMessageChunk (
-    var text : String,
-    var fgColor : AnsiColor,
-    var bgColor : AnsiColor = AnsiColor.None,
-    var isBright : Boolean = false,
-    var textSize : TextSize = TextSize.Normal,
-    var isBgBright : Boolean = false,
-)
+data class ColorOrAnsi(
+    val color: Color? = null,
+    val ansi: AnsiColor = AnsiColor.None,
+    val isBright: Boolean = false
+) {
+    companion object {
+        fun fromAnsi(ansi: AnsiColor, isBright: Boolean) = ColorOrAnsi(color = null, ansi = ansi, isBright = isBright)
+        fun fromColor(color: Color) = ColorOrAnsi(color = color)
+    }
+
+    val isLiteral: Boolean get() = color != null
+}
+
+data class TextMessageChunk(
+    var text: String,
+    var fg: ColorOrAnsi = ColorOrAnsi.fromAnsi(AnsiColor.None, false),
+    var bg: ColorOrAnsi = ColorOrAnsi.fromAnsi(AnsiColor.None, false),
+    var textSize: TextSize = TextSize.Normal,
+) {
+    // Legacy-friendly constructor: keeps old call sites working (including named args)
+    constructor(
+        text: String,
+        fgColor: AnsiColor,
+        bgColor: AnsiColor = AnsiColor.None,
+        isBright: Boolean = false,
+        textSize: TextSize = TextSize.Normal,
+        isBgBright: Boolean = false,
+    ) : this(
+        text = text,
+        fg = ColorOrAnsi.fromAnsi(fgColor, isBright),
+        bg = ColorOrAnsi.fromAnsi(bgColor, isBgBright),
+        textSize = textSize
+    )
+}

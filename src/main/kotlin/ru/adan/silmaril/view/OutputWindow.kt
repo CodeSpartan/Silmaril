@@ -138,18 +138,20 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
                             message.chunks.forEach { chunk ->
                                 withStyle(
                                     style = SpanStyle(
-                                        color = currentColorStyle.getAnsiColor(
-                                            chunk.fgColor,
-                                            chunk.isBright
+                                        color = if (chunk.fg.isLiteral) chunk.fg.color!! else currentColorStyle.getAnsiColor(
+                                            chunk.fg.ansi,
+                                            chunk.fg.isBright
                                         ),
                                         fontSize = when (chunk.textSize) {
                                             TextSize.Small -> (currentFontSize - 4).sp
                                             TextSize.Normal -> currentFontSize.sp
                                             TextSize.Large -> (currentFontSize + 4).sp
                                         },
-                                        background = if (chunk.bgColor != AnsiColor.None) currentColorStyle.getAnsiColor(
-                                            chunk.bgColor,
-                                            chunk.isBgBright
+                                        background = if (chunk.bg.isLiteral)
+                                            chunk.bg.color!!
+                                        else if (chunk.bg.ansi != AnsiColor.None) currentColorStyle.getAnsiColor(
+                                            chunk.bg.ansi,
+                                            chunk.bg.isBright
                                         ) else Color.Unspecified,
                                         // You can add other styles like fontWeight here if needed
                                     )
