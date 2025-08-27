@@ -48,6 +48,12 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.rememberWindowState
+import io.github.oshai.kotlinlogging.KLogger
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.OutputItem
@@ -59,6 +65,7 @@ fun MainWindow(
     owner: ComposeWindow,
     isFocused: Boolean,
     windowId: Int,
+    logger: KLogger,
 ) {
     val settingsManager: SettingsManager = koinInject()
 
@@ -92,20 +99,35 @@ fun MainWindow(
     }
 
     LaunchedEffect(mainViewModel) {
-        mainViewModel.messages.collect { msg ->
-            val item = OutputItem.new(msg) // wrap with a monotonically increasing id
-            messages += item
 
-            // Trim to cap (e.g., 100_000)
-            val cap = 50_000
-            if (messages.size > cap) {
-                val toDrop = messages.size - cap
-                // Efficient trim: drop from the front without per-item recompositions
-                messages.removeRange(0, toDrop)
+        mainViewModel.messages
+            .onEach { msg ->
+                logger.debug { "mainWindow: collection start" }
+                val item = OutputItem.new(msg) // wrap with a monotonically increasing id
+                messages += item
+
+                // Trim to cap (e.g., 100_000)
+                val cap = 50_000
+                if (messages.size > cap) {
+                    val toDrop = messages.size - cap
+                    // Efficient trim: drop from the front without per-item recompositions
+                    messages.removeRange(0, toDrop)
+                }
+
+                scrollDown()
+                logger.debug { "mainWindow: collection success" }
             }
+            .catch { e ->
+                logger.error(e) { "messages collector error" }
+            }
+            .onCompletion { cause ->
+                logger.warn { "messages collector completed. cause=$cause" }
+            }
+            .launchIn(this) // terminal
 
-            scrollDown()
-        }
+//        mainViewModel.messages.collect { msg ->
+//
+//        }
     }
 
     LaunchedEffect(isFocused, inputFieldReady) {

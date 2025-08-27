@@ -128,7 +128,7 @@ fun main() {
                                 title = profile.profileName,
                                 content = { isFocused, thisTabId ->
                                     HoverManagerProvider(window) {
-                                        MainWindow(profile.mainViewModel, window, isFocused, thisTabId)
+                                        MainWindow(profile.mainViewModel, window, isFocused, thisTabId, logger)
                                     }
                                 }
                             )

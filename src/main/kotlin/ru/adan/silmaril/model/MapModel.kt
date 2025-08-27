@@ -431,4 +431,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
             }
         }
     }
+
+    fun getZonesForLevel(level: Int) : List<Zone> =
+        zonesMap.values.filter { zone -> level >= zone.minLevel && level <= zone.maxLevel }
 }

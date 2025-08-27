@@ -1,5 +1,6 @@
 package ru.adan.silmaril.viewmodel
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,8 @@ class MainViewModel(
     private val settingsManager: SettingsManager
 ) {
 
+    val logger = KotlinLogging.logger {}
+
     // Expose the list of messages as a StateFlow for UI to observe
     private val _messages = MutableSharedFlow<ColorfulTextMessage>()
     val messages = _messages.asSharedFlow()
@@ -36,7 +39,9 @@ class MainViewModel(
             client.colorfulTextMessages.collect { message ->
                 //val message = dataToString(data)  // Convert the data (bytes) to String
                 // Append the received message to the list and expose it via StateFlow
+                logger.debug { "VM: emitting message" }
                 _messages.emit(message)
+                logger.debug { "VM: emit returned" }
             }
         }
         // Launch a coroutine for network I/O
@@ -46,7 +51,7 @@ class MainViewModel(
 
     // Function that reads user's text input
     fun treatUserInput(message: String, displayAsUserInput: Boolean = true) {
-        // println("Sending: $message")
+        //logger.info { "Sending: $message" }
         val playerCommands = splitOnTopLevelSemicolon(message)
         val splitCommands = settingsManager.settings.value.splitCommands
 

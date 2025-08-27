@@ -31,7 +31,6 @@ import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
-import ru.adan.silmaril.scripting.out
 import ru.adan.silmaril.viewmodel.MapViewModel
 
 class Profile(
@@ -184,6 +183,7 @@ class Profile(
             "#out" -> parseOutputCommand(message)
             "#lore" -> parseLoreCommand(message)
             "#comment" -> parseCommentCommand(message)
+            "#zones" -> printZonesForLevel(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -892,5 +892,28 @@ class Profile(
                 mainViewModel.displayTaggedText("Hotkey: {${hotkey.keyString}} {${hotkey.actionText}} {${hotkey.priority}} {$groupName}")
             }
         }
+    }
+
+    private fun printZonesForLevel(message: String) {
+        val zonesRegex = """\#zones (\d+)""".toRegex()
+        val match = zonesRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #zones - не смог распарсить. Правильный синтаксис: #zones уровень.")
+            return
+        }
+        val level = match.groupValues[1].toInt()
+        val zones = mapModel.getZonesForLevel(level)
+        if (zones.isNotEmpty())
+            mainViewModel.displayTaggedText("<color=green>Номер Название                       Уровни</color>")
+        mainViewModel.displayTaggedText("-----------------------------------------------------------------------", false)
+        zones.forEach { zone ->
+            mainViewModel.displayTaggedText(String.format(
+                "%-6s%-30s%5s",
+                zone.id.toString(),
+                zone.name,
+                "${zone.minLevel}-${zone.maxLevel}${if (zone.solo != null) ", ${if (zone.solo == true) "соло" else "группы"}" else ""}"
+            ), false)
+        }
+        mainViewModel.displayTaggedText("Всего подходящих зон: ${zones.size}", false)
     }
 }

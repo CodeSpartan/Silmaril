@@ -424,11 +424,41 @@ zones:
     level_range: [27, 30]
     type: groups
     authors: Мелиан
+  - id: 373
+    name: Гарцующий Пони
+    level_range: [20, 23]
+    type: groups
+    authors: Мелиан Линдир Уинен
+  - id: 374
+    name: Пригорье
+    level_range: [21, 24]
+    type: groups
+    authors: Мелиан
+  - id: 377
+    name: Поселок
+    level_range: [19, 23]
+    type: groups
+    authors: Тшах
   - id: 372
     name: Деревенский колодец
     level_range: [9, 12]
     type: solo
     authors: Мелиан
+  - id: 380
+    name: Мория 0-1
+    level_range: [26, 29]
+    type: groups
+    authors: Салмар Уинен
+  - id: 390
+    name: Поселок у Эсгарота
+    level_range: [10, 13]
+    type: solo
+    authors: Уинен
+  - id: 400
+    name: Фангорн
+    level_range: [23, 26]
+    type: groups
+    authors: Алатар Финве
   - id: 402
     name: Городской суд
     level_range: [25, 30]
