@@ -340,5 +340,13 @@ class RoomDataManager() : KoinComponent {
     fun getRoomComment(roomId: Int): String? =
         roomComments[roomId]
 
+    fun getRoomCustomIcon(roomId: Int): RoomIcon? =
+        roomIcons[roomId]
+
+    fun getRoomCustomColor(roomId: Int): RoomColor? =
+        customColors[roomId]
+
     fun hasComment(roomId: Int): Boolean = roomComments.containsKey(roomId)
+
+    fun hasColor(roomId: Int): Boolean = customColors.containsKey(roomId) && customColors[roomId] != RoomColor.Default
 }

@@ -135,7 +135,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                             iconKey = if (settings.autoReconnect) AllIconsKeys.Actions.Checked else null,
                             onClick = { settingsManager.toggleAutoReconnect() },
                         ) {
-                            Text("Переподключение")
+                            Text("Авто-подключение")
                         }
 
                         separator()

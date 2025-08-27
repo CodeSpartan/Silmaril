@@ -1,5 +1,6 @@
 package ru.adan.silmaril.misc
 
+import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
 
 enum class AnsiColor {
@@ -44,6 +45,17 @@ enum class TextSize {
 @Serializable
 enum class RoomColor {
     Default, Red, Yellow, Purple, Brown, Green
+}
+
+fun RoomColor.toComposeColor(): Color {
+    return when (this) {
+        RoomColor.Default -> Color.LightGray // Or any default color you prefer
+        RoomColor.Red -> Color.Red
+        RoomColor.Yellow -> Color.Yellow
+        RoomColor.Purple -> Color(0xffff00ff) // A common hex for purple
+        RoomColor.Brown -> Color(0xffff8400) // A common hex for brown
+        RoomColor.Green -> Color.Green
+    }
 }
 
 @Serializable

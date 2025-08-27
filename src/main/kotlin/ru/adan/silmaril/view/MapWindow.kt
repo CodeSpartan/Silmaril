@@ -30,6 +30,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
@@ -45,6 +46,7 @@ import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
+import ru.adan.silmaril.misc.toComposeColor
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
@@ -182,12 +184,18 @@ fun RoomsCanvas(
     val roomDataManager: RoomDataManager = koinInject()
     val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
 
-    // Info icon: display it on top of rooms that have comments
-    val key: IconKey = remember { AllIconsKeys.General.Inline_edit }
-    val path = remember(key, true) { key.path(true) }
-    val painterProvider = rememberResourcePainterProvider(path, key.iconClass)
-    val commentPainter by painterProvider.getPainter()
+    // Pencil icon: display it on top of rooms that have comments
+    val commentKey: IconKey = remember { AllIconsKeys.General.Inline_edit }
+    val commentIconPath = remember(commentKey, true) { commentKey.path(true) }
+    val commentPainterProvider = rememberResourcePainterProvider(commentIconPath, commentKey.iconClass)
+    val commentPainter by commentPainterProvider.getPainter()
     val commentDesiredSize = remember { Size(40f, 40f) }
+
+    val roomIconKey: IconKey = remember { AllIconsKeys.Status.FailedInProgress }
+    val roomIconPath = remember(roomIconKey, true) { roomIconKey.path(true) }
+    val roomIconPainterProvider = rememberResourcePainterProvider(roomIconPath, roomIconKey.iconClass)
+    val roomIconPainter by roomIconPainterProvider.getPainter()
+    val roomIconDesiredSize = remember { Size(70f, 70f) }
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }
@@ -236,6 +244,9 @@ fun RoomsCanvas(
         // Scaled values based on the zoom state
         val scaledRoomSize = baseRoomSize * scaleLogical * dpi
         val scaledRoomSpacing = baseRoomSpacing * scaleLogical * dpi
+
+        val roomIconScaledSize = roomIconDesiredSize * scaleLogical * dpi
+        val commentScaledSize = commentDesiredSize * scaleLogical * dpi
 
         val dragBarHeightInPixels: Float = with(LocalDensity.current) {
             topBarPixelHeight.toPx()
@@ -452,6 +463,11 @@ fun RoomsCanvas(
                     cornerRadius = roomCornerRadius,
                     style = Fill,
                     brush = roomBrush,
+                    // Apply a tint if the room has a custom color. Works okay for most cases, except applying a red tint to a blue room (in classic black color style)
+                    colorFilter =
+                        if (roomDataManager.hasColor(roomId))
+                            ColorFilter.tint(roomDataManager.getRoomCustomColor(roomId)!!.toComposeColor(), BlendMode.Softlight)
+                        else null
                 )
 
                 // Draw "has a note" icon if there's a note
@@ -459,7 +475,20 @@ fun RoomsCanvas(
                     translate(left = roomTopLeft.x, top = roomTopLeft.y) {
                         with(commentPainter) {
                             draw(
-                                size = commentDesiredSize * scaleLogical * dpi,
+                                size = commentScaledSize,
+                                // @TODO: get color from visual style
+                                colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
+                            )
+                        }
+                    }
+                }
+
+                val customIcon = roomDataManager.getRoomCustomIcon(roomId)
+                if (customIcon != null) {
+                    translate(left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2, top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2) {
+                        with(roomIconPainter) {
+                            draw(
+                                size = roomIconDesiredSize * scaleLogical * dpi,
                                 // @TODO: get color from visual style
                                 colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
                             )
