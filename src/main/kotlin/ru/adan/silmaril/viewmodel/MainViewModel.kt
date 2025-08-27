@@ -68,13 +68,13 @@ class MainViewModel(
             if (displayAsUserInput && displayFeedback) {
                 if (withVariables != message) {
                     emitMessage(ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(">> $message ",AnsiColor.Black, AnsiColor.Black, true),
-                        TextMessageChunk("> $withVariables", AnsiColor.Yellow, AnsiColor.Black, true),
+                        TextMessageChunk(">> $message ",AnsiColor.Black, AnsiColor.None, true),
+                        TextMessageChunk("> $withVariables", AnsiColor.Yellow, AnsiColor.None, true),
                     )))
                     client.logGameplayTextSynchronously(">> $message > $withVariables")
                 } else {
                     emitMessage(ColorfulTextMessage(arrayOf(
-                        TextMessageChunk(">> $withVariables", AnsiColor.Yellow, AnsiColor.Black, true),
+                        TextMessageChunk(">> $withVariables", AnsiColor.Yellow, AnsiColor.None, true),
                     )))
                     client.logGameplayTextSynchronously(">> $withVariables")
                 }
@@ -105,7 +105,7 @@ class MainViewModel(
                 }
                 else if (wasMessageChanged) {
                     emitMessage(ColorfulTextMessage(arrayOf(
-                        TextMessageChunk("> $message ", AnsiColor.Black, AnsiColor.Black, true),
+                        TextMessageChunk("> $message ", AnsiColor.Black, AnsiColor.None, true),
                         TextMessageChunk("> $withVariables", AnsiColor.Yellow),
                     )))
                     client.logGameplayTextSynchronously("> $message > $withVariables")
@@ -123,7 +123,7 @@ class MainViewModel(
             }
             if (!client.isConnected) {
                 emitMessage(ColorfulTextMessage(arrayOf(
-                    TextMessageChunk("Вы не подключены.", AnsiColor.Yellow, AnsiColor.Black, true),
+                    TextMessageChunk("Вы не подключены.", AnsiColor.Yellow, AnsiColor.None, true),
                 )))
             }
         }
@@ -158,17 +158,17 @@ class MainViewModel(
 
     fun displayColoredMessage(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
         onMessageReceived(message)
-        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, color, AnsiColor.Black, isBright))))
+        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, color, AnsiColor.None, isBright))))
     }
 
     fun displaySystemMessage(message: String) {
         onMessageReceived(message)
-        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.White, AnsiColor.Black, true))))
+        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.White, AnsiColor.None, true))))
     }
 
     fun displayErrorMessage(message: String) {
         onMessageReceived(message)
-        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.Yellow, AnsiColor.Black, true))))
+        emitMessage(ColorfulTextMessage(arrayOf(TextMessageChunk(message, AnsiColor.Yellow, AnsiColor.None, true))))
     }
 
     fun displayChunks(chunks: Array<TextMessageChunk>) {

@@ -143,7 +143,7 @@ data class ColorfulTextMessage(
 data class TextMessageChunk (
     var text : String,
     var fgColor : AnsiColor,
-    var bgColor : AnsiColor = AnsiColor.Black,
+    var bgColor : AnsiColor = AnsiColor.None,
     var isBright : Boolean = false,
     var textSize : TextSize = TextSize.Normal,
 )

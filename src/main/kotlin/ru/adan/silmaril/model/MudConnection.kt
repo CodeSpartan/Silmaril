@@ -679,7 +679,7 @@ class MudConnection(
                 if (colorTreatmentPointer > 0) {
                     val byteMsg = colorTreatmentBuffer.copyOfRange(0, colorTreatmentPointer)
                     val text = String(byteMsg, charset)
-                    gatheredChunks.add(TextMessageChunk(text, currentColor, AnsiColor.Black, isColorBright))
+                    gatheredChunks.add(TextMessageChunk(text, currentColor, AnsiColor.None, isColorBright))
                     colorTreatmentPointer = 0
                 }
                 parsingFirstParam = true
@@ -722,7 +722,7 @@ class MudConnection(
             //@TODO: move it to a substitute system
             if (text.startsWith('\u0007'))
                 text = text.replace("\u0007", "⚠")
-            gatheredChunks.add(TextMessageChunk(text, currentColor, AnsiColor.Black, isColorBright))
+            gatheredChunks.add(TextMessageChunk(text, currentColor, AnsiColor.None, isColorBright))
             colorTreatmentPointer = 0
         }
 

@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.rememberWindowState
 import org.koin.compose.koinInject
+import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.OutputItem
 import ru.adan.silmaril.misc.TextSize
 
@@ -172,7 +173,11 @@ fun MainWindow(
                                                         TextSize.Small -> (currentFontSize - 4).sp
                                                         TextSize.Normal -> currentFontSize.sp
                                                         TextSize.Large -> (currentFontSize + 4).sp
-                                                    }
+                                                    },
+                                                    background = if (chunk.bgColor != AnsiColor.None) currentColorStyle.getAnsiColor(
+                                                        chunk.bgColor,
+                                                        !chunk.isBright
+                                                    ) else Color.Unspecified,
                                                     // You can add other styles like fontWeight here if needed
                                                 )
                                             ) {

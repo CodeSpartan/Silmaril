@@ -45,6 +45,7 @@ import io.github.oshai.kotlinlogging.KLogger
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.compose.koinInject
+import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.misc.OutputItem
@@ -145,7 +146,11 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
                                             TextSize.Small -> (currentFontSize - 4).sp
                                             TextSize.Normal -> currentFontSize.sp
                                             TextSize.Large -> (currentFontSize + 4).sp
-                                        }
+                                        },
+                                        background = if (chunk.bgColor != AnsiColor.None) currentColorStyle.getAnsiColor(
+                                            chunk.bgColor,
+                                            !chunk.isBright
+                                        ) else Color.Unspecified,
                                         // You can add other styles like fontWeight here if needed
                                     )
                                 ) {
