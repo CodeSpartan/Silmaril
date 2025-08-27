@@ -14,14 +14,14 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
     infix fun String.grep(action: (Map<Int, String>) -> Unit) {
         val newTrigger = Trigger.regCreate(this, action)
         this@MudScriptHost.addTrigger(newTrigger)
-        println("Added regex lambda trigger for pattern: $this")
+        logger.debug { "Added regex lambda trigger for pattern: $this" }
     }
 
     // The function that allows writing in DSL: "condition" grep "action"
     infix fun String.grep(textAction: String) {
         val newTrigger = Trigger.regCreate(this, textAction, 5, true)
         this@MudScriptHost.addTrigger(newTrigger)
-        println("Added regex command trigger for pattern: $this")
+        logger.debug { "Added regex command trigger for pattern: $this" }
     }
 
     // The function that allows writing in DSL: "condition" act { match -> send("action") }

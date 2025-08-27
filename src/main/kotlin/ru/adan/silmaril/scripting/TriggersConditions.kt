@@ -1,5 +1,8 @@
 package ru.adan.silmaril.scripting
 
+import io.github.oshai.kotlinlogging.KotlinLogging
+import org.koin.compose.koinInject
+import org.koin.core.component.KoinComponent
 import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 import kotlin.text.toRegex
@@ -154,7 +157,8 @@ class RegexCondition(pattern: String) : TriggerCondition {
     private val regex: Regex = try {
         pattern.toRegex()
     } catch (e: PatternSyntaxException) {
-        println("ERROR: Invalid regex pattern provided to 'grep': '$pattern'. ${e.message}")
+        val logger = KotlinLogging.logger {}
+        logger.info { "ERROR: Invalid regex pattern provided to 'grep': '$pattern'. ${e.message}" }
         "a^".toRegex() // Return a regex that will never match anything.
     }
     override fun check(line: String): MatchResult? = regex.find(line)
