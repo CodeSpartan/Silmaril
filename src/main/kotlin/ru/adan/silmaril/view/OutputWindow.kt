@@ -149,7 +149,7 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
                                         },
                                         background = if (chunk.bgColor != AnsiColor.None) currentColorStyle.getAnsiColor(
                                             chunk.bgColor,
-                                            !chunk.isBright
+                                            chunk.isBgBright
                                         ) else Color.Unspecified,
                                         // You can add other styles like fontWeight here if needed
                                     )
