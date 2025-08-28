@@ -60,11 +60,11 @@ fun Effect(
             .onGloballyPositioned { layoutCoordinates ->
                 effectPosInWindow = layoutCoordinates.positionInWindow()
             }
-            .onPointerEvent(PointerEventType.Move) { event ->
-                onEffectHover(true, event.changes.first().position, effectPosInWindow)
-            }
             .onPointerEvent(PointerEventType.Exit) { event ->
                 onEffectHover(false, Offset.Zero, Offset.Zero)
+            }
+            .onPointerEvent(PointerEventType.Enter) { event ->
+                onEffectHover(true, event.changes.first().position, effectPosInWindow)
             },
         contentAlignment = Alignment.CenterStart
     ) {

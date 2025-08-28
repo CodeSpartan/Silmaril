@@ -22,7 +22,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.window.DialogWindow
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.swing.Swing
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import javax.swing.JDialog
 
 /**
@@ -72,11 +78,25 @@ fun FloatingTooltipContainer(
             LaunchedEffect(uniqueKey.value) {
                 // this threw an exception once, let's just catch it and do nothing
                 try {
-                    delay(1)
-                    val dialogWindow = window as JDialog
-                    dialogWindow.setSize(dialogWindow.width, dialogWindow.height - 1)
-                    delay(1)
-                    dialogWindow.pack()
+                    withContext(coroutineContext + NonCancellable) {
+                        yield()
+                        val dialogWindow = window as JDialog
+                        if (!dialogWindow.isDisplayable) return@withContext
+                        dialogWindow.setSize(dialogWindow.width, dialogWindow.height - 1)
+                        yield()
+                        if (dialogWindow.isDisplayable) dialogWindow.pack()
+                    }
+//                    delay(1)
+//                    val dialogWindow = window as JDialog
+//                    dialogWindow.setSize(dialogWindow.width, dialogWindow.height - 1)
+//                    delay(1)
+//                    dialogWindow.pack()
+                }
+                catch (e: CancellationException) {
+                } catch (t: Throwable) {
+                    val logger = KotlinLogging.logger {}
+                    logger.warn { t.message }
+                    logger.warn { t.stackTrace.joinToString("\n") }
                 }
                 finally {}
             }
