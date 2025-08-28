@@ -9,7 +9,7 @@ data class Zone(
     val id: Int = 0,
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "Name")
-    val name: String = "",
+    var name: String = "",
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "Author")
     val author: String = "",

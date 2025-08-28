@@ -65,7 +65,9 @@ class Profile(
     val mapViewModel : MapViewModel by lazy {
         get {
             parametersOf(
-                client
+                client,
+                { msg: String -> mainViewModel.displayTaggedText(msg, false) },
+                { msg: String -> mainViewModel.treatUserInput(msg) },
             )
         }
     }
@@ -920,23 +922,49 @@ class Profile(
     }
 
     private fun pathfind(message: String) {
-        val zonesRegex = """\#path (\d+)""".toRegex()
+        val zonesRegex = """\#path (?:(?<roomId>\d+)|(?<zoneName>.*))""".toRegex()
         val match = zonesRegex.find(message)
         if (match == null) {
-            mainViewModel.displayErrorMessage("Ошибка #path - не смог распарсить. Правильный синтаксис: #path номер комнаты")
+            mainViewModel.displayErrorMessage("Ошибка #path - не смог распарсить. Правильный синтаксис: #path номер комнаты или #path имя зоны")
             return
         }
+        val groups = match.groups
+        groups["roomId"]?.value
+
+        mapViewModel.resetPathfinding()
+
+        var targetRoomId = -1
+        var targetZoneId = -1
+        if (groups["roomId"] != null) {
+            targetRoomId = groups["roomId"]!!.value.toInt()
+        } else {
+            val foundZones = mapModel.findZonesByName(groups["zoneName"]!!.value.trim())
+            if (foundZones.isEmpty()) {
+                mainViewModel.displayTaggedText("Вы крутили карту и так и сяк, но не нашли такую локацию.", false)
+                return
+            } else if (foundZones.size > 1) {
+                mainViewModel.displayTaggedText("Похожих локаций на карте несколько: ${foundZones.joinToString { it.name }}", false)
+                return
+            } else {
+                targetZoneId = foundZones.first().id
+                targetRoomId = foundZones.first().roomsList.first().id
+            }
+        }
+
         val currentRoomId = mapViewModel.currentRoom.value.roomId
-        val targetRoomId = match.groupValues[1].toInt()
+
         scopeDefault.launch {
             val path = mapModel.findPath(currentRoomId, targetRoomId)
             val transitions = path.size - 1
             if (transitions > 0) {
                 val transitionWord = getCorrectTransitionWord(transitions)
                 mainViewModel.displayTaggedText("Вы отыскали маршрут, путь займет $transitions $transitionWord.", false)
+                // set targetRoomId, targetZoneId and path in MapViewModel here
+                // set path to highlight in MapViewModel here too
+                mapViewModel.setPathTarget(targetRoomId, targetZoneId, path)
             } else if (transitions == -1) {
                 mainViewModel.displayTaggedText("Вы крутили карту и так и сяк, но не нашли путь.", false)
-            } else if (transitions == 0) {
+            } else { // if transitions == 0
                 mainViewModel.displayTaggedText("Вы смотрите на карту, потом на местность; снова на карту, опять на местность. Ах, да вы же уже и так здесь!", false)
             }
         }

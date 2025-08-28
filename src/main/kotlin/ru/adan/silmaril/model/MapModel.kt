@@ -41,7 +41,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
     private var roads : Zone = Zone() // contains copies of actual zones, all zones related to roads
 
     // Fast lookup by roomId
-    private val roomById: Map<Int, Room> by lazy {
+    val roomById: Map<Int, Room> by lazy {
         zonesMap.values
             .asSequence()
             .flatMap { it.roomsList.asSequence() }
@@ -82,6 +82,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
             profileManager.displaySystemMessage(msg)
             roomDataManager.loadVisitedRoomsYaml()
             roomDataManager.loadAdditionalInfoYaml(zonesMap)
+            roomDataManager.fixTyposInZones(zonesMap)
             profileManager.displaySystemMessage("Карты готовы.")
             _areMapsReady.value = true
         }
@@ -494,6 +495,14 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
         // Ensure all nodes exist
         for (id in roomById.keys) rev.putIfAbsent(id, mutableListOf())
         rev.mapValues { (_, v) -> v.toIntArray() }
+    }
+
+    fun findZonesByName(name: String) : List<Zone> {
+        val exactMatch = zonesMap.values.filter { zone -> zone.name.equals(name, true) }
+        if (exactMatch.size == 1) {
+            return exactMatch
+        }
+        return zonesMap.values.filter { zone -> zone.name.contains(name, true) }
     }
 
     suspend fun findPath(startRoomId: Int, goalRoomId: Int): List<Int> = withContext(Dispatchers.Default) {

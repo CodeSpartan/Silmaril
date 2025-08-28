@@ -107,6 +107,7 @@ fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
             .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
     ) {
         RoomsCanvas(
+            mapViewModel = mapViewModel,
             settingsManager = settingsManager,
             modifier = Modifier.fillMaxSize().clipToBounds(),
             zoneState = curZoneState,
@@ -171,6 +172,7 @@ fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun RoomsCanvas(
+    mapViewModel: MapViewModel,
     settingsManager: SettingsManager,
     modifier: Modifier = Modifier,
     zoneState: MutableState<Zone?>,
@@ -184,6 +186,8 @@ fun RoomsCanvas(
     val coroutineScope = rememberCoroutineScope()
     val roomDataManager: RoomDataManager = koinInject()
     val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
+
+    val pathToHighlight by mapViewModel.pathToHighlight.collectAsState()
 
     // Pencil icon: display it on top of rooms that have comments
     val commentKey: IconKey = remember { AllIconsKeys.General.Inline_edit }
@@ -468,6 +472,8 @@ fun RoomsCanvas(
                     colorFilter =
                         if (roomDataManager.hasColor(roomId))
                             ColorFilter.tint(roomDataManager.getRoomCustomColor(roomId)!!.toComposeColor(), BlendMode.Softlight)
+                        // if the room is on the pathfinding route
+                        else if (pathToHighlight.contains(roomId)) ColorFilter.tint(Color.Green, BlendMode.Softlight)
                         else null
                 )
 
@@ -484,6 +490,7 @@ fun RoomsCanvas(
                     }
                 }
 
+                // Draw a custom icon if there's an icon
                 val customIcon = roomDataManager.getRoomCustomIcon(roomId)
                 if (customIcon != null) {
                     translate(left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2, top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2) {

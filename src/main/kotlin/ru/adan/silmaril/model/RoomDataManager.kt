@@ -30,6 +30,7 @@ import ru.adan.silmaril.misc.getSilmarilMapDataDirectory
 import ru.adan.silmaril.xml_schemas.Zone
 import java.util.concurrent.ConcurrentHashMap
 import ru.adan.silmaril.generated.resources.Res
+import ru.adan.silmaril.misc.CyrillicFixer
 import ru.adan.silmaril.xml_schemas.ZoneType
 import ru.adan.silmaril.xml_schemas.ZonesYaml
 
@@ -298,6 +299,18 @@ class RoomDataManager() : KoinComponent {
                     logger.debug { "Adjusting levels of zone ${zoneInMemory.name} (${zoneInMemory.id}). Correct levels: ${zoneInfo.levelRange}"}
                 }
                 zoneInMemory.solo = zoneInfo.type == ZoneType.SOLO
+            }
+        }
+    }
+
+    fun fixTyposInZones(zonesMap: HashMap<Int, Zone>) {
+        zonesMap.values.forEach { zone ->
+            if (CyrillicFixer.containsLatinInCyrillicContext(zone.name)) {
+                val fixed = CyrillicFixer.fixLatinHomoglyphsInRussian(zone.name)
+                if (fixed != zone.name) {
+                    println("Fixing typo in zone [${zone.id}] \"$fixed\"")
+                    zone.name = fixed
+                }
             }
         }
     }

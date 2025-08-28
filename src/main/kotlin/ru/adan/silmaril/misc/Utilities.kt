@@ -236,3 +236,53 @@ fun getCorrectTransitionWord(count: Int): String {
         else -> "переходов" // For 0, 5, 6, 7, 8, 9
     }
 }
+
+// Some strings in map data are russian, but have typos, where a latin letter is used instead of cyrillic. This object will fix it.
+object CyrillicFixer {
+    // Latin -> Cyrillic lookalike mappings (as code points)
+    private val latinToCyrillic: Map<Int, Int> = mapOf(
+        'A'.code to 'А'.code, 'a'.code to 'а'.code,
+        'B'.code to 'В'.code,
+        'C'.code to 'С'.code, 'c'.code to 'с'.code,
+        'E'.code to 'Е'.code, 'e'.code to 'е'.code,
+        'H'.code to 'Н'.code,
+        'K'.code to 'К'.code,
+        'M'.code to 'М'.code,
+        'O'.code to 'О'.code, 'o'.code to 'о'.code,
+        'P'.code to 'Р'.code, 'p'.code to 'р'.code,
+        'T'.code to 'Т'.code,
+        'X'.code to 'Х'.code, 'x'.code to 'х'.code,
+        'y'.code to 'у'.code
+    )
+
+    private fun hasScript(text: String, script: Character.UnicodeScript): Boolean {
+        val it = text.codePoints().iterator()
+        while (it.hasNext()) {
+            if (Character.UnicodeScript.of(it.nextInt()) == script) return true
+        }
+        return false
+    }
+
+    fun hasCyrillic(text: String) = hasScript(text, Character.UnicodeScript.CYRILLIC)
+    fun hasLatin(text: String) = hasScript(text, Character.UnicodeScript.LATIN)
+
+    // True if the string contains both Cyrillic and Latin
+    fun containsLatinInCyrillicContext(text: String) =
+        hasCyrillic(text) && hasLatin(text)
+
+    // Replace only safe Latin lookalikes with their Cyrillic counterparts
+    fun fixLatinHomoglyphsInRussian(text: String): String {
+        if (!hasCyrillic(text)) return text
+        val sb = StringBuilder(text.length)
+        val it = text.codePoints().iterator()
+        while (it.hasNext()) {
+            val cp = it.nextInt()
+            if (Character.UnicodeScript.of(cp) == Character.UnicodeScript.LATIN) {
+                sb.appendCodePoint(latinToCyrillic[cp] ?: cp)
+            } else {
+                sb.appendCodePoint(cp)
+            }
+        }
+        return sb.toString()
+    }
+}
