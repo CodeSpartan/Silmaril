@@ -220,3 +220,19 @@ fun currentTime() : String {
     val formatter = DateTimeFormatter.ofPattern("HH:mm:ss")
     return currentTime.format(formatter)
 }
+
+fun getCorrectTransitionWord(count: Int): String {
+    // First, check for the special cases of 11-14, which always use the genitive plural.
+    val lastTwoDigits = count % 100
+    if (lastTwoDigits in 11..14) {
+        return "переходов"
+    }
+
+    // Then, check the last digit of the number.
+    val lastDigit = count % 10
+    return when (lastDigit) {
+        1 -> "переход"
+        2, 3, 4 -> "перехода"
+        else -> "переходов" // For 0, 5, 6, 7, 8, 9
+    }
+}

@@ -28,6 +28,7 @@ import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.currentTime
+import ru.adan.silmaril.misc.getCorrectTransitionWord
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
@@ -929,7 +930,15 @@ class Profile(
         val targetRoomId = match.groupValues[1].toInt()
         scopeDefault.launch {
             val path = mapModel.findPath(currentRoomId, targetRoomId)
-            mainViewModel.displayTaggedText("Путь займет ${path.size - 1} переходов.", false)
+            val transitions = path.size - 1
+            if (transitions > 0) {
+                val transitionWord = getCorrectTransitionWord(transitions)
+                mainViewModel.displayTaggedText("Вы отыскали маршрут, путь займет $transitions $transitionWord.", false)
+            } else if (transitions == -1) {
+                mainViewModel.displayTaggedText("Вы крутили карту и так и сяк, но не нашли путь.", false)
+            } else if (transitions == 0) {
+                mainViewModel.displayTaggedText("Вы смотрите на карту, потом на местность; снова на карту, опять на местность. Ах, да вы же уже и так здесь!", false)
+            }
         }
     }
 }
