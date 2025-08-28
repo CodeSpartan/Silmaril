@@ -42,6 +42,8 @@ class MapViewModel(
     var lastValidRoomBeforePreview = CurrentRoomMessage.EMPTY
     var previewZoneMsg = CurrentRoomMessage.EMPTY
 
+    // don't take currentRoom and assume it's always a source of truth
+    // if we're in preview mode, it's not a source of truth, use getCurrentRoom() instead
     val currentRoom: StateFlow<CurrentRoomMessage> =
         client.currentRoomMessages
             // hijack messages to insert custom zone, which we want to preview through #previewZone
@@ -107,7 +109,15 @@ class MapViewModel(
         targetZoneId = inTargetZoneId
         pathToFollow = inPath
         _pathToHighlight.value = pathToFollow.toSet()
-        tryMoveAlongPath(currentRoom.value)
+        val curRoomId = getCurrentRoom()
+        tryMoveAlongPath(curRoomId)
+    }
+
+    fun getCurrentRoom() : CurrentRoomMessage {
+        return if (previewZoneMsg.zoneId == -100)
+            currentRoom.value
+        else
+            lastValidRoomBeforePreview
     }
 
     fun previewZone(zoneId: Int) {

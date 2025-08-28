@@ -951,7 +951,7 @@ class Profile(
             }
         }
 
-        val currentRoomId = mapViewModel.currentRoom.value.roomId
+        val currentRoomId = mapViewModel.getCurrentRoom().roomId
 
         scopeDefault.launch {
             val path = mapModel.findPath(currentRoomId, targetRoomId)
