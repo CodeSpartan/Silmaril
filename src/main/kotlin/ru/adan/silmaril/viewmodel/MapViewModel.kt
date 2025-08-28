@@ -1,32 +1,25 @@
 package ru.adan.silmaril.viewmodel
 
-import androidx.compose.runtime.collectAsState
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.transform
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MudConnection
-import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.mud_messages.CurrentRoomMessage
-import ru.adan.silmaril.mud_messages.GroupStatusMessage
 import kotlin.getValue
 
 class MapViewModel(
@@ -46,8 +39,26 @@ class MapViewModel(
     private val _pathToHighlight = MutableStateFlow<Set<Int>>(emptySet())
     val pathToHighlight: StateFlow<Set<Int>> = _pathToHighlight.asStateFlow()
 
+    var lastValidRoomBeforePreview = CurrentRoomMessage.EMPTY
+    var previewZoneMsg = CurrentRoomMessage.EMPTY
+
     val currentRoom: StateFlow<CurrentRoomMessage> =
         client.currentRoomMessages
+            // hijack messages to insert custom zone, which we want to preview through #previewZone
+            .transform {
+                if (previewZoneMsg.zoneId == -100) {
+                    emit(it)
+                }
+                else {
+                    // if the character has moved, turn off preview
+                    if (it.roomId != lastValidRoomBeforePreview.roomId) {
+                        stopPreview()
+                        emit(it)
+                    } else {
+                        emit(previewZoneMsg)
+                    }
+                }
+            }
             .distinctUntilChanged()
             .onEach { msg -> onNewRoom(msg) } // side-effect
             .stateIn(
@@ -97,5 +108,21 @@ class MapViewModel(
         pathToFollow = inPath
         _pathToHighlight.value = pathToFollow.toSet()
         tryMoveAlongPath(currentRoom.value)
+    }
+
+    fun previewZone(zoneId: Int) {
+        val desiredZone = mapModel.getZone(zoneId)
+        if (desiredZone == null) {
+            stopPreview()
+            return
+        }
+        val desiredRoomId = desiredZone.roomsList.first().id
+        if (previewZoneMsg.zoneId == -100)
+            lastValidRoomBeforePreview = currentRoom.value
+        previewZoneMsg = CurrentRoomMessage(roomId = desiredRoomId, zoneId = desiredZone.id)
+    }
+
+    fun stopPreview() {
+        previewZoneMsg = CurrentRoomMessage.EMPTY
     }
 }

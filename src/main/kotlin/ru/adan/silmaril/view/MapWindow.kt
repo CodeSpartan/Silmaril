@@ -214,7 +214,6 @@ fun RoomsCanvas(
     val roomIconDesiredSize = remember { Size(70f, 70f) }
 
     val lastMousePos = remember { mutableStateOf(Offset.Zero) }
-    println("recompose map canvas")
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }

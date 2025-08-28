@@ -188,6 +188,7 @@ class Profile(
             "#comment" -> parseCommentCommand(message)
             "#zones" -> printZonesForLevel(message)
             "#path" -> pathfind(message)
+            "#previewZone" -> previewZone(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -929,7 +930,6 @@ class Profile(
             return
         }
         val groups = match.groups
-        groups["roomId"]?.value
 
         mapViewModel.resetPathfinding()
 
@@ -968,5 +968,33 @@ class Profile(
                 mainViewModel.displayTaggedText("Вы смотрите на карту, потом на местность; снова на карту, опять на местность. Ах, да вы же уже и так здесь!", false)
             }
         }
+    }
+
+    private fun previewZone(message: String) {
+        val previewRegex = """\#previewZone (?:(?<zoneId>\d+)|(?<zoneName>.*))""".toRegex()
+        val match = previewRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #previewZone - не смог распарсить. Правильный синтаксис: #path номер комнаты или #previewZone имя зоны")
+            return
+        }
+        val groups = match.groups
+
+        var targetZoneId = -100
+        if (groups["zoneId"] != null) {
+            targetZoneId = groups["zoneId"]!!.value.toInt()
+        } else {
+            val foundZones = mapModel.findZonesByName(groups["zoneName"]!!.value.trim())
+            if (foundZones.isEmpty()) {
+                mainViewModel.displayTaggedText("Вы крутили карту и так и сяк, но не нашли такую локацию.", false)
+                return
+            } else if (foundZones.size > 1) {
+                mainViewModel.displayTaggedText("Похожих локаций на карте несколько: ${foundZones.joinToString { it.name }}", false)
+                return
+            } else {
+                targetZoneId = foundZones.first().id
+            }
+        }
+
+        mapViewModel.previewZone(targetZoneId)
     }
 }
