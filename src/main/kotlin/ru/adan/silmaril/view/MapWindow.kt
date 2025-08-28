@@ -28,6 +28,9 @@ import androidx.compose.animation.core.Animatable
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.PointerMatcher
+import androidx.compose.foundation.onClick
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -36,6 +39,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.Dp
 import io.github.oshai.kotlinlogging.KLogger
 import org.jetbrains.jewel.ui.icon.IconKey
@@ -47,6 +51,7 @@ import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.toComposeColor
+import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
@@ -54,7 +59,11 @@ import ru.adan.silmaril.viewmodel.MapViewModel
 
 
 @Composable
-fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
+fun MapWindow(
+    mapViewModel: MapViewModel,
+    profileManager: ProfileManager,
+    logger: KLogger
+) {
     val mapModel: MapModel = koinInject()
     val settingsManager: SettingsManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
@@ -108,6 +117,7 @@ fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
     ) {
         RoomsCanvas(
             mapViewModel = mapViewModel,
+            profileManager = profileManager,
             settingsManager = settingsManager,
             modifier = Modifier.fillMaxSize().clipToBounds(),
             zoneState = curZoneState,
@@ -169,10 +179,11 @@ fun MapWindow(mapViewModel: MapViewModel, logger: KLogger) {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun RoomsCanvas(
     mapViewModel: MapViewModel,
+    profileManager: ProfileManager,
     settingsManager: SettingsManager,
     modifier: Modifier = Modifier,
     zoneState: MutableState<Zone?>,
@@ -201,6 +212,9 @@ fun RoomsCanvas(
     val roomIconPainterProvider = rememberResourcePainterProvider(roomIconPath, roomIconKey.iconClass)
     val roomIconPainter by roomIconPainterProvider.getPainter()
     val roomIconDesiredSize = remember { Size(70f, 70f) }
+
+    val lastMousePos = remember { mutableStateOf(Offset.Zero) }
+    println("recompose map canvas")
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }
@@ -275,6 +289,19 @@ fun RoomsCanvas(
                     )
         }
 
+        fun getRoomUnderCursor(mousePosition: Offset): Int? {
+            val halfRoomSize = scaledRoomSize / 2f
+            val checkBeyondRoomSize = halfRoomSize * 1.5f
+
+            val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
+                mousePosition.x >= center.x - checkBeyondRoomSize &&
+                        mousePosition.x <= center.x + checkBeyondRoomSize &&
+                        mousePosition.y >= center.y - checkBeyondRoomSize &&
+                        mousePosition.y <= center.y + checkBeyondRoomSize
+            }?.key
+            return roomUnderMouse
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -337,25 +364,40 @@ fun RoomsCanvas(
                 }
                 // 3. Hovering (move)
                 .onPointerEvent(PointerEventType.Move) { event ->
-                    val mousePosition = event.changes.first().position
+                    lastMousePos.value = event.changes.first().position
                     val halfRoomSize = scaledRoomSize / 2f
-                    val checkBeyondRoomSize = halfRoomSize * 1.5f
 
-                    val roomUnderMouse = roomToOffsetMap.entries.find { (_, center) ->
-                        mousePosition.x >= center.x - checkBeyondRoomSize &&
-                                mousePosition.x <= center.x + checkBeyondRoomSize &&
-                                mousePosition.y >= center.y - checkBeyondRoomSize &&
-                                mousePosition.y <= center.y + checkBeyondRoomSize
-                    }?.key
+                    val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
                     onRoomHover(roomsMap[roomUnderMouse], Offset(
-                        roomToOffsetMap[roomUnderMouse]?.x?.plus(halfRoomSize)?:mousePosition.x,
-                        roomToOffsetMap[roomUnderMouse]?.y?.plus(halfRoomSize*2)?:mousePosition.y)
+                        roomToOffsetMap[roomUnderMouse]?.x?.plus(halfRoomSize)?:lastMousePos.value.x,
+                        roomToOffsetMap[roomUnderMouse]?.y?.plus(halfRoomSize*2)?:lastMousePos.value.y)
                     )
                 }
                 // 4. Hover End (exit)
                 .onPointerEvent(PointerEventType.Exit) { event ->
                     onRoomHover(null, event.changes.first().position)
                 }
+                // Double left-click on room - move there
+                .onClick(
+                    matcher = PointerMatcher.mouse(PointerButton.Primary),
+                    onDoubleClick = {
+                        val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
+                        if (roomUnderMouse != null) {
+                            profileManager.currentMainViewModel.value.treatUserInput("#path $roomUnderMouse")
+                        }
+                    },
+                    onClick = {}
+                )
+                // Single right-click - open room menu
+                .onClick(
+                    matcher = PointerMatcher.mouse(PointerButton.Secondary),
+                    onClick = {
+                        val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
+                        if (roomUnderMouse != null) {
+                            println("RMB on room $roomUnderMouse")
+                        }
+                    }
+                )
         ) {
             // Draw the connections (Lines) only for East/West/North/South exits
             val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }

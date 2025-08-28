@@ -142,7 +142,7 @@ fun main() {
                         FloatingWindow(showMapWindow, showTitleMenu, window, "MapWindow")
                         {
                             HoverManagerProvider(window) {
-                                MapWindow(profileManager.currentMapViewModel.value, logger)
+                                MapWindow(profileManager.currentMapViewModel.value, profileManager, logger)
                             }
                         }
 

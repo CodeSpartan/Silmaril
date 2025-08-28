@@ -507,11 +507,11 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
 
     suspend fun findPath(startRoomId: Int, goalRoomId: Int): List<Int> = withContext(Dispatchers.Default) {
         if (!roomById.containsKey(startRoomId) || !roomById.containsKey(goalRoomId)) {
-            logger.info { "Path length: -1 (unknown start or goal)" }
+            logger.debug { "Path length: -1 (unknown start or goal)" }
             return@withContext emptyList()
         }
         if (startRoomId == goalRoomId) {
-            logger.info {"Path length: 0" }
+            logger.debug {"Path length: 0" }
             return@withContext listOf(startRoomId)
         }
 
@@ -611,10 +611,10 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
 
     private fun emit(path: List<Int>?): List<Int> {
         return if (path == null || path.isEmpty()) {
-            logger.info {"Path length: -1 (unreachable)" }
+            logger.debug {"Path length: -1 (unreachable)" }
             emptyList()
         } else {
-            logger.info { "Path length: ${path.size - 1}" }
+            logger.debug { "Path length: ${path.size - 1}" }
             path
         }
     }

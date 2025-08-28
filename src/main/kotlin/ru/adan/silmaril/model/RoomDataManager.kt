@@ -308,7 +308,7 @@ class RoomDataManager() : KoinComponent {
             if (CyrillicFixer.containsLatinInCyrillicContext(zone.name)) {
                 val fixed = CyrillicFixer.fixLatinHomoglyphsInRussian(zone.name)
                 if (fixed != zone.name) {
-                    println("Fixing typo in zone [${zone.id}] \"$fixed\"")
+                    logger.debug { "Fixing typo in zone [${zone.id}] \"$fixed\"" }
                     zone.name = fixed
                 }
             }
