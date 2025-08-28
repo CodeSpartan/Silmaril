@@ -27,8 +27,10 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.file.Paths
 import java.time.Instant
+import java.util.PriorityQueue
 import kotlin.collections.iterator
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.math.abs
 import kotlin.math.absoluteValue
 import kotlin.math.min
 import kotlin.random.Random
@@ -36,6 +38,15 @@ import kotlin.random.Random
 class MapModel(private val settingsManager: SettingsManager, private val roomDataManager: RoomDataManager) {
     private val zonesMap = HashMap<Int, Zone>() // Key: zoneId, Value: zone
     private val roomToZone = mutableMapOf<Int, Zone>()
+    private var roads : Zone = Zone() // contains copies of actual zones, all zones related to roads
+
+    // Fast lookup by roomId
+    private val roomById: Map<Int, Room> by lazy {
+        zonesMap.values
+            .asSequence()
+            .flatMap { it.roomsList.asSequence() }
+            .associateBy { it.id }
+    }
 
     val logger = KotlinLogging.logger {}
 
@@ -67,6 +78,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
             profileManager.displaySystemMessage(if (mapsUpdated) "Карты обновлены!" else "Карты соответствуют последней версии.")
             profileManager.displaySystemMessage("Загружаю карты...")
             val msg = loadAllMaps()
+            loadRoads()
             profileManager.displaySystemMessage(msg)
             roomDataManager.loadVisitedRoomsYaml()
             roomDataManager.loadAdditionalInfoYaml(zonesMap)
@@ -202,6 +214,18 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
         }
 
         return mapsLoadedMsg
+    }
+
+    suspend fun loadRoads() {
+        val sourceDirPath = Paths.get(getProgramDirectory(), "maps", "MapGenerator", "MapResults", "roads.xml").toString()
+        val xmlMapper = XmlMapper()
+        val xmlFile = File(sourceDirPath)
+        val decryptedContent = AesDecryptor.decryptFile(xmlFile.absolutePath)
+        try {
+            roads = xmlMapper.readValue(decryptedContent, Zone::class.java)
+        } catch (e: JsonMappingException) {
+            logger.error(e) { "Mapping error in ${xmlFile.name}." }
+        }
     }
 
     // Decrypt all maps for debugging purpose
@@ -434,4 +458,268 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
 
     fun getZonesForLevel(level: Int) : List<Zone> =
         zonesMap.values.filter { zone -> level >= zone.minLevel && level <= zone.maxLevel }
+
+    /**
+     * Find a path from startRoomId to goalRoomId (list of room ids).
+     * Prints the path length (edge count). Returns emptyList() if unreachable.
+     *
+     * roadZoneId defaults to -1.
+     */
+
+    // Fast membership check: is a room part of "roads"?
+    private val roadsSet: Set<Int> by lazy {
+        roads.roomsList.asSequence().map { it.id }.toHashSet()
+    }
+
+    // Forward adjacency: roomId -> neighbors via valid exits
+    private val neighborsMap: Map<Int, IntArray> by lazy {
+        val map = HashMap<Int, MutableList<Int>>()
+        for (room in roomById.values) {
+            val list = map.getOrPut(room.id) { mutableListOf() }
+            for (ex in room.exitsList) {
+                if (roomById.containsKey(ex.roomId)) list.add(ex.roomId)
+            }
+        }
+        map.mapValues { (_, v) -> v.toIntArray() }
+    }
+
+    // Reverse adjacency: roomId -> rooms that can reach this room (for reverse BFS)
+    private val revNeighborsMap: Map<Int, IntArray> by lazy {
+        val rev = HashMap<Int, MutableList<Int>>()
+        for ((fromId, outs) in neighborsMap) {
+            for (toId in outs) {
+                rev.getOrPut(toId) { mutableListOf() }.add(fromId)
+            }
+        }
+        // Ensure all nodes exist
+        for (id in roomById.keys) rev.putIfAbsent(id, mutableListOf())
+        rev.mapValues { (_, v) -> v.toIntArray() }
+    }
+
+    suspend fun findPath(startRoomId: Int, goalRoomId: Int): List<Int> = withContext(Dispatchers.Default) {
+        if (!roomById.containsKey(startRoomId) || !roomById.containsKey(goalRoomId)) {
+            logger.info { "Path length: -1 (unknown start or goal)" }
+            return@withContext emptyList()
+        }
+        if (startRoomId == goalRoomId) {
+            logger.info {"Path length: 0" }
+            return@withContext listOf(startRoomId)
+        }
+
+        val startZoneId = roomToZone[startRoomId]?.id
+        val goalZoneId = roomToZone[goalRoomId]?.id
+
+        // 1) Same-zone search: BFS restricted to that zone
+        if (startZoneId != null && startZoneId == goalZoneId) {
+            val sameZonePath = bfs(
+                start = startRoomId,
+                isGoal = { it == goalRoomId },
+                next = { neighborsMap[it] ?: intArrayOf() },
+                allowed = { roomToZone[it]?.id == startZoneId }
+            )
+            return@withContext emit(sameZonePath)
+        }
+
+        val startInRoads = roadsSet.contains(startRoomId)
+        val goalInRoads = roadsSet.contains(goalRoomId)
+
+        // 2) Both in roads: A* inside roads with Manhattan heuristic
+        if (startInRoads && goalInRoads) {
+            val path = aStar(
+                start = startRoomId,
+                goal = goalRoomId,
+                next = { neighborsMap[it] ?: intArrayOf() },
+                allowed = { it in roadsSet },
+                h = { a, b -> manhattan3D(a, b) }
+            ) ?: bfs(
+                start = startRoomId,
+                isGoal = { it == goalRoomId },
+                next = { neighborsMap[it] ?: intArrayOf() },
+                allowed = { it in roadsSet }
+            )
+            return@withContext emit(path)
+        }
+
+        // 3) Cross-zone via roads: start -> sRoad (forward BFS),
+        //    gRoad <- goal (reverse BFS for forward-reachability),
+        //    sRoad -> gRoad (A* on roads),
+        //    gRoad -> goal (forward BFS).
+        val startToRoad = bfs(
+            start = startRoomId,
+            isGoal = { it in roadsSet },
+            next = { neighborsMap[it] ?: intArrayOf() },
+            allowed = { true }
+        )
+
+        val goalRoadAnchor = reverseBfsFindRoad(
+            goal = goalRoomId
+        )
+
+        if (startToRoad != null && goalRoadAnchor != null) {
+            val sRoad = startToRoad.last()
+            val gRoad = goalRoadAnchor
+
+            // Roads leg
+            val roadLeg = if (sRoad == gRoad) listOf(sRoad) else
+                aStar(
+                    start = sRoad,
+                    goal = gRoad,
+                    next = { neighborsMap[it] ?: intArrayOf() },
+                    allowed = { it in roadsSet },
+                    h = { a, b -> manhattan3D(a, b) }
+                ) ?: bfs(
+                    start = sRoad,
+                    isGoal = { it == gRoad },
+                    next = { neighborsMap[it] ?: intArrayOf() },
+                    allowed = { it in roadsSet }
+                )
+
+            if (roadLeg != null) {
+                val roadToGoal = bfs(
+                    start = gRoad,
+                    isGoal = { it == goalRoomId },
+                    next = { neighborsMap[it] ?: intArrayOf() },
+                    allowed = { true }
+                )
+                if (roadToGoal != null) {
+                    val full = stitch(startToRoad, roadLeg, roadToGoal)
+                    return@withContext emit(full)
+                }
+            }
+        }
+
+        // 4) Fallback: global BFS
+        val fallback = bfs(
+            start = startRoomId,
+            isGoal = { it == goalRoomId },
+            next = { neighborsMap[it] ?: intArrayOf() },
+            allowed = { true }
+        )
+        return@withContext emit(fallback)
+    }
+
+    // ---------- Helpers ----------
+
+    private fun emit(path: List<Int>?): List<Int> {
+        return if (path == null || path.isEmpty()) {
+            logger.info {"Path length: -1 (unreachable)" }
+            emptyList()
+        } else {
+            logger.info { "Path length: ${path.size - 1}" }
+            path
+        }
+    }
+
+    private fun manhattan3D(aId: Int, bId: Int): Int {
+        val a = roomById[aId] ?: return 0
+        val b = roomById[bId] ?: return 0
+        return abs(a.x - b.x) + abs(a.y - b.y) + abs(a.z - b.z)
+    }
+
+    // Forward BFS (can be zone-restricted or roads-restricted via `allowed`)
+    private fun bfs(
+        start: Int,
+        isGoal: (Int) -> Boolean,
+        next: (Int) -> IntArray,
+        allowed: (Int) -> Boolean
+    ): List<Int>? {
+        val q = ArrayDeque<Int>()
+        val prev = HashMap<Int, Int?>()
+        q.add(start)
+        prev[start] = null
+
+        while (q.isNotEmpty()) {
+            val cur = q.removeFirst()
+            if (isGoal(cur)) return reconstruct(prev, cur)
+
+            for (n in next(cur)) {
+                if (!allowed(n)) continue
+                if (!prev.containsKey(n)) {
+                    prev[n] = cur
+                    q.add(n)
+                }
+            }
+        }
+        return null
+    }
+
+    // Reverse BFS from goal until hitting a road room, ensuring forward reachability from that road to goal
+    private fun reverseBfsFindRoad(goal: Int): Int? {
+        val q = ArrayDeque<Int>()
+        val seen = HashSet<Int>()
+        q.add(goal)
+        seen.add(goal)
+
+        while (q.isNotEmpty()) {
+            val cur = q.removeFirst()
+            if (cur in roadsSet) return cur
+            for (p in revNeighborsMap[cur] ?: intArrayOf()) {
+                if (seen.add(p)) q.add(p)
+            }
+        }
+        return null
+    }
+
+    private fun reconstruct(prev: Map<Int, Int?>, end: Int): List<Int> {
+        val out = ArrayList<Int>()
+        var cur: Int? = end
+        while (cur != null) {
+            out.add(cur)
+            cur = prev[cur]
+        }
+        out.reverse()
+        return out
+    }
+
+    // A* with constraints via `allowed`
+    private fun aStar(
+        start: Int,
+        goal: Int,
+        next: (Int) -> IntArray,
+        allowed: (Int) -> Boolean,
+        h: (Int, Int) -> Int
+    ): List<Int>? {
+        data class QNode(val id: Int, val f: Int)
+
+        val open = PriorityQueue<QNode>(compareBy { it.f })
+        val came = HashMap<Int, Int?>()
+        val g = HashMap<Int, Int>()
+        val f = HashMap<Int, Int>()
+
+        came[start] = null
+        g[start] = 0
+        f[start] = h(start, goal)
+        open.add(QNode(start, f[start]!!))
+
+        while (open.isNotEmpty()) {
+            val (cur, fCur) = open.poll()
+            if (fCur > (f[cur] ?: Int.MAX_VALUE)) continue
+            if (cur == goal) return reconstruct(came, cur)
+
+            val gCur = g[cur] ?: continue
+            for (n in next(cur)) {
+                if (!allowed(n)) continue
+                val gTent = gCur + 1
+                if (gTent < (g[n] ?: Int.MAX_VALUE)) {
+                    came[n] = cur
+                    g[n] = gTent
+                    val fN = gTent + h(n, goal)
+                    f[n] = fN
+                    open.add(QNode(n, fN))
+                }
+            }
+        }
+        return null
+    }
+
+    private fun stitch(a: List<Int>, b: List<Int>, c: List<Int>): List<Int> {
+        // a: ... sRoad
+        // b: sRoad ... gRoad
+        // c: gRoad ... goal
+        val out = ArrayList<Int>(a.size + b.size + c.size)
+        out.addAll(a)
+        if (b.isNotEmpty()) out.addAll(b.drop(1))
+        if (c.isNotEmpty()) out.addAll(c.drop(1))
+        return out
+    }
 }

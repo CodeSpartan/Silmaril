@@ -184,6 +184,7 @@ class Profile(
             "#lore" -> parseLoreCommand(message)
             "#comment" -> parseCommentCommand(message)
             "#zones" -> printZonesForLevel(message)
+            "#path" -> pathfind(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -915,5 +916,20 @@ class Profile(
             ), false)
         }
         mainViewModel.displayTaggedText("Всего подходящих зон: ${zones.size}", false)
+    }
+
+    private fun pathfind(message: String) {
+        val zonesRegex = """\#path (\d+)""".toRegex()
+        val match = zonesRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #path - не смог распарсить. Правильный синтаксис: #path номер комнаты")
+            return
+        }
+        val currentRoomId = mapViewModel.currentRoom.value.roomId
+        val targetRoomId = match.groupValues[1].toInt()
+        scopeDefault.launch {
+            val path = mapModel.findPath(currentRoomId, targetRoomId)
+            mainViewModel.displayTaggedText("Путь займет ${path.size - 1} переходов.", false)
+        }
     }
 }
