@@ -601,14 +601,14 @@ fun RoomsCanvas(
                 if (roomId != centerOnRoomId && groupMatesHere != null) {
                     val dx = roomTopLeft.x + roomSize.width * 1.03f
                     val dy = roomTopLeft.y - roomSize.height * 0.2f
-                    // @TODO: there's a compose bug that prevents just using drawText if text is drawn outside of the canvas, but try it in later versions
+                    // there's a compose bug that crashes if drawText(topLeft is outside of Canvas bounds), so we translate instead
                     translate(left = dx, top = dy) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "${groupMatesHere.size}",
                             topLeft = Offset.Zero, // stay in-bounds and offset the canvas instead
                             style = TextStyle(
-                                color = Color.White,
+                                color = Color(0xffe8e8e8), // @TODO: get color from visual style
                                 fontFamily = robotoFont,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = (24 * scaleLogical * dpi).sp
@@ -624,8 +624,7 @@ fun RoomsCanvas(
                         with(roomIconPainter) {
                             draw(
                                 size = roomIconDesiredSize * scaleLogical * dpi,
-                                // @TODO: get color from visual style
-                                colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
+                                colorFilter = ColorFilter.tint(Color(0xffcfcfcf)) // @TODO: get color from visual style
                             )
                         }
                     }
