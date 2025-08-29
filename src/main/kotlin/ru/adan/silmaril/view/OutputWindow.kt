@@ -42,6 +42,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.oshai.kotlinlogging.KLogger
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.compose.koinInject
@@ -82,8 +85,15 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
     val outputMessages = remember { mutableStateListOf<OutputItem>() }
 
     suspend fun scrollDown() {
-        if (outputMessages.isNotEmpty()) {
-            listState.scrollToItem(outputMessages.size - 1)
+        try {
+            if (outputMessages.isNotEmpty()) {
+                listState.scrollToItem(outputMessages.size - 1)
+            }
+        } catch (e: CancellationException) {
+            // If our Job is actually cancelled, propagate it
+            if (!currentCoroutineContext().isActive) throw e
+            // Otherwise it's a MutatorMutex cancellation (e.g., user scroll); ignore
+            logger.debug { "Scroll cancelled (higher-priority mutation). This is normal, ignoring." }
         }
     }
 

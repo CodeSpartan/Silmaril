@@ -50,10 +50,15 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.rememberWindowState
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.isActive
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.OutputItem
@@ -93,8 +98,15 @@ fun MainWindow(
     var inputTextField by remember { mutableStateOf(TextFieldValue("")) }
 
     suspend fun scrollDown() {
-        if (messages.isNotEmpty()) {
-            listState.scrollToItem(messages.size - 1)
+        try {
+            if (messages.isNotEmpty()) {
+                listState.scrollToItem(messages.size - 1)
+            }
+        } catch (e: CancellationException) {
+            // If our Job is actually cancelled, propagate it
+            if (!currentCoroutineContext().isActive) throw e
+            // Otherwise it's a MutatorMutex cancellation (e.g., user scroll); ignore
+            logger.debug { "Scroll cancelled (higher-priority mutation). This is normal, ignoring." }
         }
     }
 
@@ -102,7 +114,6 @@ fun MainWindow(
 
         mainViewModel.messages
             .onEach { msg ->
-                logger.debug { "mainWindow: collection start" }
                 val item = OutputItem.new(msg) // wrap with a monotonically increasing id
                 messages += item
 
@@ -115,19 +126,15 @@ fun MainWindow(
                 }
 
                 scrollDown()
-                logger.debug { "mainWindow: collection success" }
             }
             .catch { e ->
+                if (e is CancellationException) throw e // let real cancellation propagate
                 logger.error(e) { "messages collector error" }
             }
             .onCompletion { cause ->
                 logger.warn { "messages collector completed. cause=$cause" }
             }
             .launchIn(this) // terminal
-
-//        mainViewModel.messages.collect { msg ->
-//
-//        }
     }
 
     LaunchedEffect(isFocused, inputFieldReady) {
