@@ -215,7 +215,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun echoCommand(message: String, color: AnsiColor, isBright: Boolean) {
-        mainViewModel.displayColoredMessage(message, color, isBright)
+        mainViewModel.displayChunks(ColorfulTextMessage.makeColoredChunksFromTaggedText(message, isBright, color))
     }
 
     override fun sortTriggersByPriority() {
@@ -294,97 +294,74 @@ open class ScriptingEngineImpl(
         if (substitutesByPriority.isEmpty()) return msg
 
         var current = msg
-        val maxPasses = 1 // safety to avoid infinite loops
+        // Keep list order as is (assumed already by priority), or sort if needed:
+        // val triggers = substitutesByPriority.sortedByDescending { it.priority }
+        val triggers = substitutesByPriority
 
-        repeat(maxPasses) {
+        for (trigger in triggers) {
             val fullText = buildString { current.chunks.forEach { append(it.text) } }
             if (fullText.isEmpty()) return current
 
-            var matchedAny = false
-            var replacedThisPass = false
-
-            for (trigger in substitutesByPriority) {
-                val match = trigger.condition.check(fullText) ?: continue
-                matchedAny = true
-
-                // DSL trigger: execute and suppress the entire line
-                if (trigger.action.commandToSend == null) {
-                    trigger.action.lambda.invoke(this, match)
+            // DSL trigger: execute and suppress the line entirely.
+            if (trigger.action.commandToSend == null) {
+                val m = trigger.condition.check(fullText)
+                if (m != null) {
+                    trigger.action.lambda.invoke(this, m)
                     return null
                 }
+                continue
+            }
 
-                // Substitution trigger: replace the matched span across chunks
-                val replacementText = trigger.action.commandToSend.invoke(this, match)
-                val startIdx = match.range.first
-                val endExclusive = match.range.last + 1
+            // Substitution trigger: find all non-overlapping occurrences on the current text
+            val occurrences = findAllOccurrences(fullText, trigger.condition)
+            if (occurrences.isEmpty()) continue
 
-                val indexed = indexChunks(current.chunks)
-                val startPos = locateChunk(indexed, startIdx)
-                val endPos = if (endExclusive > 0) locateChunk(indexed, endExclusive - 1) else startPos
+            // Build a new chunk list by splicing in replacements for every occurrence (left-to-right).
+            val originalChunks = current.chunks
+            val indexed = indexChunks(originalChunks)
+            val result = ArrayList<TextMessageChunk>(originalChunks.size + occurrences.size * 2)
 
-                val newChunks = mutableListOf<TextMessageChunk>()
-
-                // 1) Chunks fully before the match
-                for (i in 0 until startPos.index) {
-                    newChunks += indexed[i].chunk
+            var cursor = 0
+            for (occ in occurrences) {
+                // Copy original text between cursor and the match start (preserving styles)
+                if (occ.start > cursor) {
+                    appendSlice(result, indexed, cursor, occ.start)
                 }
 
-                // 2) Left remainder of the start chunk (before the match)
-                val startIC = startPos.ic
-                if (startIdx > startIC.start) {
-                    val leftText = startIC.chunk.text.substring(0, startIdx - startIC.start)
-                    if (leftText.isNotEmpty()) {
-                        newChunks += startIC.chunk.copy(text = leftText)
-                    }
-                }
+                // Replacement chunks: default style from the start chunk of this match
+                val startLoc = locateChunk(indexed, occ.start)
+                val defaultBright = startLoc.ic.chunk.fg.isBright
+                val defaultAnsi = startLoc.ic.chunk.fg.ansi
 
-                // 3) Replacement chunks: defaults from the start chunk's FG style
-                val defaultBright = startIC.chunk.fg.isBright
-                val defaultAnsi = startIC.chunk.fg.ansi
-
+                val replacementText = trigger.action.commandToSend!!.invoke(this, occ.match)
                 val replacementChunks: Array<TextMessageChunk> =
                     ColorfulTextMessage.makeColoredChunksFromTaggedText(
                         taggedText = replacementText,
                         brightWhiteAsDefault = defaultBright,
                         defaultFgAnsi = defaultAnsi
                     )
-                newChunks.addAll(replacementChunks)
+                result.addAll(replacementChunks)
 
-                // 4) Right remainder of the end chunk (after the match)
-                val endIC = endPos.ic
-                if (endExclusive < endIC.end) {
-                    val rightText = endIC.chunk.text.substring(endExclusive - endIC.start)
-                    if (rightText.isNotEmpty()) {
-                        newChunks += endIC.chunk.copy(text = rightText)
-                    }
-                }
-
-                // 5) Chunks fully after the match
-                for (i in (endPos.index + 1) until indexed.size) {
-                    newChunks += indexed[i].chunk
-                }
-
-                val merged = mergeAdjacentChunks(newChunks)
-                current = ColorfulTextMessage(merged.toTypedArray())
-
-                replacedThisPass = true
-                break // only the first matching trigger per pass
+                cursor = occ.end
             }
 
-            if (!matchedAny) {
-                // No triggers matched anywhere in the line
-                return current
+            // Tail after the last match
+            val endOfLine = if (indexed.isEmpty()) 0 else indexed.last().end
+            if (cursor < endOfLine) {
+                appendSlice(result, indexed, cursor, endOfLine)
             }
 
-            if (replacedThisPass) {
-                // Continue to next pass from the top with updated chunks
-                return@repeat
-            }
+            // Merge adjacent chunks with identical style to reduce fragmentation
+            val merged = mergeAdjacentChunks(result)
+            current = ColorfulTextMessage(merged.toTypedArray())
+
+            // Respect stopProcess after applying this trigger
+            if (trigger.stopProcess) return current
         }
 
-        // Max passes reached; return what we have (prevents infinite loops)
         return current
     }
+
 
     /**
      * Loads and executes a user's .kts script file.
@@ -437,10 +414,11 @@ open class ScriptingEngineImpl(
 
     // ————— Substitution Helpers —————
 
-    private data class Indexed(val chunk: TextMessageChunk, val start: Int, val end: Int)
+    private data class Indexed(val chunk: TextMessageChunk, val start: Int, val end: Int) // end exclusive
     private data class Located(val index: Int, val ic: Indexed)
+    private data class MatchAt(val start: Int, val end: Int, val match: MatchResult)
 
-    // Build global indices for chunks (end is exclusive)
+    // Build global indices for each chunk (end exclusive)
     private fun indexChunks(chunks: Array<TextMessageChunk>): List<Indexed> {
         val list = ArrayList<Indexed>(chunks.size)
         var pos = 0
@@ -453,19 +431,72 @@ open class ScriptingEngineImpl(
         return list
     }
 
-    // Find the chunk containing global position `pos` (0-based, inclusive).
+    // Find the chunk that contains global position pos (0-based, inclusive)
     private fun locateChunk(indexed: List<Indexed>, pos: Int): Located {
-        // For many chunks, consider binary search
+        // Linear scan is fine for small N; switch to binary search if needed.
         for (i in indexed.indices) {
             val ic = indexed[i]
             if (pos >= ic.start && pos < ic.end) return Located(i, ic)
         }
-        // Fallback: return last if pos is at/beyond the end
+        // Fallback to last if pos is at/beyond the end
         val lastIdx = indexed.lastIndex
         return Located(lastIdx, indexed[lastIdx])
     }
 
-    // Merge adjacent chunks that share the same style
+    // Append a slice [from, to) from the original chunks into dst, preserving styles.
+    private fun appendSlice(
+        dst: MutableList<TextMessageChunk>,
+        indexed: List<Indexed>,
+        from: Int,
+        to: Int
+    ) {
+        if (from >= to || indexed.isEmpty()) return
+
+        val startL = locateChunk(indexed, from)
+        val endL = locateChunk(indexed, to - 1)
+
+        val startIC = startL.ic
+        val endIC = endL.ic
+
+        if (startL.index == endL.index) {
+            val text = startIC.chunk.text.substring(from - startIC.start, to - startIC.start)
+            if (text.isNotEmpty()) dst += startIC.chunk.copy(text = text)
+            return
+        }
+
+        // First partial
+        val firstText = startIC.chunk.text.substring(from - startIC.start)
+        if (firstText.isNotEmpty()) dst += startIC.chunk.copy(text = firstText)
+
+        // Middle whole chunks
+        for (i in (startL.index + 1) until endL.index) {
+            dst += indexed[i].chunk
+        }
+
+        // Last partial
+        val lastText = endIC.chunk.text.substring(0, to - endIC.start)
+        if (lastText.isNotEmpty()) dst += endIC.chunk.copy(text = lastText)
+    }
+
+    // Collect all non-overlapping matches of a TriggerCondition over the given line.
+// Guards against zero-length matches to avoid infinite loops.
+    private fun findAllOccurrences(line: String, condition: TriggerCondition): List<MatchAt> {
+        val out = ArrayList<MatchAt>()
+        var offset = 0
+        while (offset <= line.length) {
+            val segment = line.substring(offset)
+            val m = condition.check(segment) ?: break
+            val s = offset + m.range.first
+            val e = offset + m.range.last + 1
+            if (e < s) break
+            out += MatchAt(s, e, m)
+            // Prevent zero-length infinite loops
+            offset = if (e == s) e + 1 else e
+        }
+        return out
+    }
+
+    // Merge adjacent chunks that share the same style (fg/bg/size)
     private fun mergeAdjacentChunks(chunks: List<TextMessageChunk>): List<TextMessageChunk> {
         if (chunks.isEmpty()) return chunks
         val out = ArrayList<TextMessageChunk>(chunks.size)

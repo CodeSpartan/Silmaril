@@ -11,6 +11,7 @@ class Trigger(
     val condition: TriggerCondition,
     val action: TriggerAction,
     val priority: Int,
+    val stopProcess: Boolean,
     val withDsl: Boolean // true when created in DSL
 ) {
 
@@ -34,7 +35,7 @@ class Trigger(
                     }
                 }
                 sendCommand(commandToSend)
-            }), priority, withDsl)
+            }), priority, stopProcess = false, withDsl)
             return newTrigger
         }
 
@@ -51,7 +52,7 @@ class Trigger(
 
                 // Execute the user's lambda with the prepared map
                 action(match)
-            }), 5, true)
+            }), 5, stopProcess = false,true)
             return newTrigger
         }
 
@@ -71,7 +72,7 @@ class Trigger(
                     .toMap()
 
                 action(matchMap)
-            }), 5, true)
+            }), 5, stopProcess = false, true)
         }
 
         /**
@@ -91,7 +92,7 @@ class Trigger(
                 }
 
                 sendCommand(commandToSend)
-            }), priority, withDsl)
+            }), priority, stopProcess = false, withDsl)
         }
 
         public fun createAlias(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
@@ -107,7 +108,7 @@ class Trigger(
 
                 // Execute the user's lambda with the prepared map
                 action(match)
-            }), 5, true)
+            }), 5, stopProcess = false, true)
         }
 
         public fun createAlias(textCondition: String, textAction: String, priority: Int, withDsl: Boolean) : Trigger {
@@ -130,7 +131,7 @@ class Trigger(
                 }
 
                 commandToSend
-            }, lambda = {}), priority, withDsl)
+            }, lambda = {}), priority, stopProcess = false, withDsl)
         }
 
         /**
@@ -150,7 +151,7 @@ class Trigger(
                     .toMap()
 
                 action(matchMap)
-            }), 5, true)
+            }), 5, stopProcess = false, true)
         }
 
         /**
@@ -171,7 +172,7 @@ class Trigger(
                 }
 
                 commandToSend
-            }, lambda = {}), priority, withDsl)
+            }, lambda = {}), priority, stopProcess = false, withDsl)
         }
 
         public fun subCreate(textCondition: String, action: (Map<Int, String>) -> Unit) : Trigger {
@@ -187,7 +188,7 @@ class Trigger(
 
                 // Execute the user's lambda with the prepared map
                 action(match)
-            }), 5, true)
+            }), 5, stopProcess = false, true)
             return newTrigger
         }
 
@@ -217,7 +218,7 @@ class Trigger(
                 }
 
                 commandToSend
-            }, lambda = {}), priority, withDsl)
+            }, lambda = {}), priority, stopProcess = false, withDsl)
             return newTrigger
         }
     }

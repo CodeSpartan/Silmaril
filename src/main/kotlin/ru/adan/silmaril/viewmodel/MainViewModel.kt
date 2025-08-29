@@ -41,8 +41,17 @@ class MainViewModel(
                 //val message = dataToString(data)  // Convert the data (bytes) to String
                 // Append the received message to the list and expose it via StateFlow
                 val afterSubs = onRunSubstitutes(message)
-                if (afterSubs != null)
-                    _messages.emit(afterSubs)
+                if (afterSubs != null) {
+                    val originalText = message.chunks.joinToString(separator = "") { it.toString() }
+                    val newText = afterSubs.chunks.joinToString(separator = "") { it.toString() }
+                    // drop line if new text is empty, but originally there was some text
+                    if (newText == "" && originalText != "") {
+                        logger.debug { "Dropped line: $originalText" }
+                    }
+                    else {
+                        _messages.emit(afterSubs)
+                    }
+                }
             }
         }
         // Launch a coroutine for network I/O
