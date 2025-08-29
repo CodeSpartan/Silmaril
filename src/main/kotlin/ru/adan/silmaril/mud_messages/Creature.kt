@@ -8,6 +8,7 @@ data class Creature(
     val movesPercent: Double,
     val isAttacked: Boolean,
     val affects: List<Affect>,
+    val isGroupMate: Boolean,
 
     // Group-specific
     val inSameRoom: Boolean,
@@ -31,6 +32,7 @@ fun GroupMate.toCreature(): Creature {
         isAttacked = this.isAttacked,
         affects = this.affects,
         inSameRoom = this.inSameRoom,
+        isGroupMate = true,
 
         // Logic specific to GroupMate
         isPlayerCharacter = true, // A GroupMate is always a player character
@@ -38,7 +40,7 @@ fun GroupMate.toCreature(): Creature {
 
         // GroupMate-specific fields
         memTime = this.memTime,
-        waitState = this.waitState
+        waitState = this.waitState,
     )
 }
 
@@ -52,6 +54,7 @@ fun Pet.toCreature(): Creature {
         isAttacked = this.isAttacked,
         affects = this.affects,
         inSameRoom = this.inSameRoom,
+        isGroupMate = true,
 
         // Logic specific to Pet
         isPlayerCharacter = false, // A Pet is never a player character
@@ -69,6 +72,7 @@ fun Monster.toCreature(): Creature {
         movesPercent = this.movesPercent,
         isAttacked = this.isAttacked,
         affects = this.affects,
+        isGroupMate = false,
 
         // Logic specific to Monster
         isPlayerCharacter = this.isPlayerCharacter, // This is variable for a Monster

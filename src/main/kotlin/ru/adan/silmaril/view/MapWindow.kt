@@ -216,22 +216,8 @@ fun RoomsCanvas(
     val pathToHighlight by mapViewModel.pathToHighlight.collectAsState()
     val robotoFont = remember {FontManager.getFont("RobotoClassic")}
 
-    // This is collection of groupMembers info from the UnifiedMapViewModel
-    val members by unifiedMapsViewModel.sources.collectAsStateWithLifecycle(initialValue = emptyList())
-    val memberRooms: List<MapInfoUpdate> =
-        members.map { member ->
-            key(member.profileName) {
-                val room by member.currentRoom.collectAsStateWithLifecycle()
-                MapInfoUpdate(profileName = member.profileName, message = room)
-            }
-        }
-    val groupMatesRooms = remember(memberRooms) {
-        memberRooms
-            .groupBy{ it.message.roomId }
-            .mapValues { entry ->
-                entry.value.map { mapInfoUpdate -> mapInfoUpdate.profileName }
-            }
-    }
+    val groupMatesRooms by unifiedMapsViewModel.groupMatesRooms
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
 
     // Pencil icon: display it on top of rooms that have comments
     val commentKey: IconKey = remember { AllIconsKeys.General.Inline_edit }

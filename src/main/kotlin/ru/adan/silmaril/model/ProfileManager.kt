@@ -62,7 +62,7 @@ class ProfileManager(
                     currentRoom = profile.mapViewModel.currentRoom
                 )
             }
-        unifiedMapsViewModel.setSources(sources)
+        unifiedMapsViewModel.setProfileSources(sources)
     }
 
     fun addProfile(windowName: String) {
