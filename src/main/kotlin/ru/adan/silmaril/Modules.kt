@@ -55,6 +55,7 @@ val appModule = module {
             onInsertVariables = params[2],
             onProcessAliases = params[3],
             onMessageReceived = params[4],
+            onRunSubstitutes = params[5],
             settingsManager = get()
         )
     }

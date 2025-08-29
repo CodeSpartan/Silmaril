@@ -8,8 +8,10 @@ import androidx.compose.ui.input.key.key
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ru.adan.silmaril.misc.AnsiColor
+import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.misc.Hotkey
+import ru.adan.silmaril.misc.TextMessageChunk
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.ProfileManager
@@ -35,6 +37,8 @@ interface ScriptingEngine {
     fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
     fun addAliasToGroup(group: String, alias: Trigger)
     fun addAlias(alias: Trigger)
+    fun addSubstituteToGroup(group: String, sub: Trigger)
+    fun addSubstitute(sub: Trigger)
     fun removeAliasFromGroup(condition: String, action: String, priority: Int, group: String) : Boolean
     fun addHotkeyToGroup(group: String, hotkey: Hotkey)
     fun removeHotkeyFromGroup(keyString: String, actionText: String, priority: Int, group: String) : Boolean
@@ -48,13 +52,16 @@ interface ScriptingEngine {
     fun sortTriggersByPriority()
     fun sortAliasesByPriority()
     fun sortHotkeysByPriority()
+    fun sortSubstitutesByPriority()
     fun processLine(line: String)
     fun processAlias(line: String) : Pair<Boolean, String?>
     fun processHotkey(keyEvent: KeyEvent) : Boolean
+    fun processSubstitutes(msg: ColorfulTextMessage) : ColorfulTextMessage?
     fun loadScript(scriptFile: File) : Int
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun getAliases(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun getHotkeys(): MutableMap<String, CopyOnWriteArrayList<Hotkey>>
+    fun getSubstitutes(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
     fun switchWindowCommand(window: String) : Boolean
     fun loreCommand(loreName: String)
     fun commentCommand(comment: String): Boolean
@@ -81,6 +88,9 @@ open class ScriptingEngineImpl(
 
     private val aliases : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
     private var aliasesByPriority = listOf<Trigger>()
+
+    private val substitutes : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
+    private var substitutesByPriority = listOf<Trigger>()
 
     private val hotkeys : MutableMap<String, CopyOnWriteArrayList<Hotkey>> = mutableMapOf() // key is GroupName
     private var hotkeysByPriority = listOf<Hotkey>()
@@ -119,6 +129,21 @@ open class ScriptingEngineImpl(
             aliases[group] = CopyOnWriteArrayList<Trigger>()
         }
         aliases[group]!!.add(alias)
+    }
+
+    override fun addSubstituteToGroup(group: String, sub: Trigger) {
+        if (!substitutes.containsKey(group)) {
+            substitutes[group] = CopyOnWriteArrayList<Trigger>()
+        }
+        substitutes[group]!!.add(sub)
+    }
+
+    override fun addSubstitute(sub: Trigger) {
+        val group = currentlyLoadingScript
+        if (!substitutes.containsKey(group)) {
+            substitutes[group] = CopyOnWriteArrayList<Trigger>()
+        }
+        substitutes[group]!!.add(sub)
     }
 
     override fun addAliasToGroup(group: String, alias: Trigger) {
@@ -205,6 +230,10 @@ open class ScriptingEngineImpl(
         hotkeysByPriority = hotkeys.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
     }
 
+    override fun sortSubstitutesByPriority() {
+        substitutesByPriority = substitutes.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
+    }
+
     /**
      * Checks a line of text from the MUD against all active triggers.
      */
@@ -261,6 +290,102 @@ open class ScriptingEngineImpl(
         return foundHotkeys.isNotEmpty()
     }
 
+    override fun processSubstitutes(msg: ColorfulTextMessage): ColorfulTextMessage? {
+        if (substitutesByPriority.isEmpty()) return msg
+
+        var current = msg
+        val maxPasses = 1 // safety to avoid infinite loops
+
+        repeat(maxPasses) {
+            val fullText = buildString { current.chunks.forEach { append(it.text) } }
+            if (fullText.isEmpty()) return current
+
+            var matchedAny = false
+            var replacedThisPass = false
+
+            for (trigger in substitutesByPriority) {
+                val match = trigger.condition.check(fullText) ?: continue
+                matchedAny = true
+
+                // DSL trigger: execute and suppress the entire line
+                if (trigger.action.commandToSend == null) {
+                    trigger.action.lambda.invoke(this, match)
+                    return null
+                }
+
+                // Substitution trigger: replace the matched span across chunks
+                val replacementText = trigger.action.commandToSend.invoke(this, match)
+                val startIdx = match.range.first
+                val endExclusive = match.range.last + 1
+
+                val indexed = indexChunks(current.chunks)
+                val startPos = locateChunk(indexed, startIdx)
+                val endPos = if (endExclusive > 0) locateChunk(indexed, endExclusive - 1) else startPos
+
+                val newChunks = mutableListOf<TextMessageChunk>()
+
+                // 1) Chunks fully before the match
+                for (i in 0 until startPos.index) {
+                    newChunks += indexed[i].chunk
+                }
+
+                // 2) Left remainder of the start chunk (before the match)
+                val startIC = startPos.ic
+                if (startIdx > startIC.start) {
+                    val leftText = startIC.chunk.text.substring(0, startIdx - startIC.start)
+                    if (leftText.isNotEmpty()) {
+                        newChunks += startIC.chunk.copy(text = leftText)
+                    }
+                }
+
+                // 3) Replacement chunks: defaults from the start chunk's FG style
+                val defaultBright = startIC.chunk.fg.isBright
+                val defaultAnsi = startIC.chunk.fg.ansi
+
+                val replacementChunks: Array<TextMessageChunk> =
+                    ColorfulTextMessage.makeColoredChunksFromTaggedText(
+                        taggedText = replacementText,
+                        brightWhiteAsDefault = defaultBright,
+                        defaultFgAnsi = defaultAnsi
+                    )
+                newChunks.addAll(replacementChunks)
+
+                // 4) Right remainder of the end chunk (after the match)
+                val endIC = endPos.ic
+                if (endExclusive < endIC.end) {
+                    val rightText = endIC.chunk.text.substring(endExclusive - endIC.start)
+                    if (rightText.isNotEmpty()) {
+                        newChunks += endIC.chunk.copy(text = rightText)
+                    }
+                }
+
+                // 5) Chunks fully after the match
+                for (i in (endPos.index + 1) until indexed.size) {
+                    newChunks += indexed[i].chunk
+                }
+
+                val merged = mergeAdjacentChunks(newChunks)
+                current = ColorfulTextMessage(merged.toTypedArray())
+
+                replacedThisPass = true
+                break // only the first matching trigger per pass
+            }
+
+            if (!matchedAny) {
+                // No triggers matched anywhere in the line
+                return current
+            }
+
+            if (replacedThisPass) {
+                // Continue to next pass from the top with updated chunks
+                return@repeat
+            }
+        }
+
+        // Max passes reached; return what we have (prevents infinite loops)
+        return current
+    }
+
     /**
      * Loads and executes a user's .kts script file.
      * @return number of triggers loaded
@@ -306,6 +431,56 @@ open class ScriptingEngineImpl(
 
     override fun getHotkeys() = hotkeys
 
+    override fun getSubstitutes() = substitutes
+
     /** Private methods **/
+
+    // ————— Substitution Helpers —————
+
+    private data class Indexed(val chunk: TextMessageChunk, val start: Int, val end: Int)
+    private data class Located(val index: Int, val ic: Indexed)
+
+    // Build global indices for chunks (end is exclusive)
+    private fun indexChunks(chunks: Array<TextMessageChunk>): List<Indexed> {
+        val list = ArrayList<Indexed>(chunks.size)
+        var pos = 0
+        for (c in chunks) {
+            val s = pos
+            val e = s + c.text.length
+            list += Indexed(c, s, e)
+            pos = e
+        }
+        return list
+    }
+
+    // Find the chunk containing global position `pos` (0-based, inclusive).
+    private fun locateChunk(indexed: List<Indexed>, pos: Int): Located {
+        // For many chunks, consider binary search
+        for (i in indexed.indices) {
+            val ic = indexed[i]
+            if (pos >= ic.start && pos < ic.end) return Located(i, ic)
+        }
+        // Fallback: return last if pos is at/beyond the end
+        val lastIdx = indexed.lastIndex
+        return Located(lastIdx, indexed[lastIdx])
+    }
+
+    // Merge adjacent chunks that share the same style
+    private fun mergeAdjacentChunks(chunks: List<TextMessageChunk>): List<TextMessageChunk> {
+        if (chunks.isEmpty()) return chunks
+        val out = ArrayList<TextMessageChunk>(chunks.size)
+        var cur = chunks[0]
+        for (i in 1 until chunks.size) {
+            val nxt = chunks[i]
+            if (cur.fg == nxt.fg && cur.bg == nxt.bg && cur.textSize == nxt.textSize) {
+                cur = cur.copy(text = cur.text + nxt.text)
+            } else {
+                out += cur
+                cur = nxt
+            }
+        }
+        out += cur
+        return out
+    }
 
 }

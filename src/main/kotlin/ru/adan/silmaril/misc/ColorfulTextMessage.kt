@@ -37,11 +37,17 @@ data class ColorfulTextMessage(
          */
         fun makeColoredChunksFromTaggedText(
             taggedText: String,
-            brightWhiteAsDefault: Boolean
+            brightWhiteAsDefault: Boolean,
+            defaultFgAnsi: AnsiColor = AnsiColor.None,
         ): Array<TextMessageChunk> {
             val chunks = mutableListOf<TextMessageChunk>()
 
-            val defaultFgAnsi = if (brightWhiteAsDefault) AnsiColor.White else AnsiColor.None
+            val defaultFgAnsi =
+                if (defaultFgAnsi != AnsiColor.None)
+                    defaultFgAnsi
+                else
+                    if (brightWhiteAsDefault) AnsiColor.White
+                    else AnsiColor.None
             val defaultFgBright = brightWhiteAsDefault
             val defaultBgAnsi = AnsiColor.None
             val defaultBgBright = false

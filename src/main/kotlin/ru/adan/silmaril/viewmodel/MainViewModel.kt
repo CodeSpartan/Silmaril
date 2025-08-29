@@ -19,6 +19,7 @@ class MainViewModel(
     val onInsertVariables: (String) -> String,
     val onProcessAliases: (String) -> Pair<Boolean, String?>,
     private val onMessageReceived: (String) -> Unit,
+    private val onRunSubstitutes: (ColorfulTextMessage) -> ColorfulTextMessage?,
     private val settingsManager: SettingsManager
 ) {
 
@@ -39,9 +40,9 @@ class MainViewModel(
             client.colorfulTextMessages.collect { message ->
                 //val message = dataToString(data)  // Convert the data (bytes) to String
                 // Append the received message to the list and expose it via StateFlow
-                logger.debug { "VM: emitting message" }
-                _messages.emit(message)
-                logger.debug { "VM: emit returned" }
+                val afterSubs = onRunSubstitutes(message)
+                if (afterSubs != null)
+                    _messages.emit(afterSubs)
             }
         }
         // Launch a coroutine for network I/O

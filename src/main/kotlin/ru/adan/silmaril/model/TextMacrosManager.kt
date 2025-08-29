@@ -24,6 +24,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.adan.silmaril.misc.getAliasesDirectory
 import ru.adan.silmaril.misc.getHotkeysDirectory
+import ru.adan.silmaril.misc.getSubstitutesDirectory
 import ru.adan.silmaril.misc.getTriggersDirectory
 import java.io.File
 import java.nio.file.Files
@@ -75,6 +76,9 @@ class TextMacrosManager() : KoinComponent {
     private val _hotkeysByGroup = MutableStateFlow<Map<String, List<SimpleHotkeyData>>>(emptyMap())
     val hotkeysByGroup: StateFlow<Map<String, List<SimpleHotkeyData>>> = _hotkeysByGroup.asStateFlow()
 
+    private val _textSubsByGroup = MutableStateFlow<Map<String, List<SimpleTriggerData>>>(emptyMap())
+    val textSubsByGroup: StateFlow<Map<String, List<SimpleTriggerData>>> = _textSubsByGroup.asStateFlow()
+
     @OptIn(ExperimentalAtomicApi::class)
     public suspend fun initExplicit(callerProfile: Profile) {
         // if the initial loading has happened before, because we're opening a new profile window
@@ -96,6 +100,15 @@ class TextMacrosManager() : KoinComponent {
             val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
             callerProfile.scriptingEngine.sortAliasesByPriority()
             callerProfile.mainViewModel.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
+
+            textSubsByGroup.value.forEach { (groupName, subs) ->
+                subs.forEach { sub ->
+                    callerProfile.addSingleSubToWindow(sub.condition, sub.action, groupName, sub.priority, sub.isRegex)
+                }
+            }
+            val totalNumberOfSubs = textSubsByGroup.value.values.sumOf { it.size }
+            callerProfile.scriptingEngine.sortSubstitutesByPriority()
+            callerProfile.mainViewModel.displaySystemMessage("Простых замен загружено: $totalNumberOfSubs")
 
             hotkeysByGroup.value.forEach { (groupName, hotkeys) ->
                 hotkeys.forEach { hotkey ->
@@ -119,6 +132,7 @@ class TextMacrosManager() : KoinComponent {
         coroutineScope.launch {
             val initialTriggerData = loadTextTriggers()
             val initialAliasData = loadTextAliases()
+            val initialSubsData = loadTextSubs()
             val initialHotkeyData = loadHotkeys()
 
             // triggers
@@ -143,6 +157,17 @@ class TextMacrosManager() : KoinComponent {
             val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
             profileManager.currentMainViewModel.value.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
 
+            // subs
+            initialSubsData.forEach { (groupName, aliases) ->
+                aliases.forEach { sub ->
+                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleSubToAll(sub.condition, sub.action, groupName, sub.priority, sub.isRegex)
+                }
+            }
+            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortSubstitutesByPriority() }
+            _textSubsByGroup.value = initialSubsData
+            val totalNumberOfSubs = textSubsByGroup.value.values.sumOf { it.size }
+            profileManager.currentMainViewModel.value.displaySystemMessage("Простых замен загружено: $totalNumberOfSubs")
+
             // hotkeys
             initialHotkeyData.forEach { (groupName, hotkeys) ->
                 hotkeys.forEach { hotkey ->
@@ -153,7 +178,6 @@ class TextMacrosManager() : KoinComponent {
             _hotkeysByGroup.value = initialHotkeyData
             val totalNumberOfHotkeys = hotkeysByGroup.value.values.sumOf { it.size }
             profileManager.currentMainViewModel.value.displaySystemMessage("Хоткеев загружено: $totalNumberOfHotkeys")
-
 
             hasInitialized.store(true)
 
@@ -186,6 +210,17 @@ class TextMacrosManager() : KoinComponent {
                     .onEach {
                         logger.debug { "HotkeysManager: change detected, saving hotkeys..." }
                         saveHotkeys()
+                    }
+                    .collect()
+            }
+
+            launch {
+                _textSubsByGroup
+                    .drop(1)
+                    .debounce(500L) // Still debounce to batch rapid changes.
+                    .onEach {
+                        logger.debug { "TextSubsManager: change detected, saving text aliases..." }
+                        saveTextSubs()
                     }
                     .collect()
             }
@@ -319,6 +354,70 @@ class TextMacrosManager() : KoinComponent {
                 mutableMap[groupName] = emptyList()
             } else {
                 mutableMap[groupName] = updatedAliases
+            }
+            mutableMap
+        }
+    }
+
+    private suspend fun loadTextSubs() : Map<String, List<SimpleTriggerData>> {
+        return withContext(Dispatchers.IO) {
+            logger.debug { "Loading text subs from disk..." }
+            val subsDir = File(getSubstitutesDirectory())
+
+            val subsFiles =
+                subsDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) }
+                    ?: emptyArray()
+
+            if (subsFiles.isEmpty()) return@withContext emptyMap()
+
+            subsFiles.associate { subFile ->
+                val groupName = subFile.nameWithoutExtension
+                val yaml = subFile.readText()
+                val subs = Yaml.default.decodeFromString<List<SimpleTriggerData>>(string = yaml)
+                groupName to subs
+            }
+        }
+    }
+
+    fun saveTextSubs() {
+        logger.debug { "Saving text subs to disk..." }
+        try {
+            for ((groupName, subsDataList) in textSubsByGroup.value) {
+                val file = Paths.get(getSubstitutesDirectory(), "$groupName.yaml")
+                if (subsDataList.isEmpty()) {
+                    Files.deleteIfExists(file)
+                } else {
+                    val yaml = Yaml.default.encodeToString<List<SimpleTriggerData>>(value = subsDataList)
+                    file.toFile().writeText(yaml)
+                }
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to save text subs" }
+        }
+    }
+
+    fun saveTextSub(shorthand: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
+        val newSubData = SimpleTriggerData(shorthand, action, priority, isRegex)
+        _textSubsByGroup.update { currentMap ->
+            val mutableMap = currentMap.toMutableMap()
+            val groupSubs = mutableMap.getOrPut(groupName) { emptyList() }.toMutableList()
+            groupSubs.add(newSubData)
+            mutableMap[groupName] = groupSubs
+            mutableMap
+        }
+    }
+
+    fun deleteTextSub(shorthand: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
+        _textSubsByGroup.update { currentMap ->
+            val mutableMap = currentMap.toMutableMap()
+            // Find the list of triggers for the given group. If it doesn't exist, do nothing.
+            val currentSubs = mutableMap[groupName] ?: return@update currentMap
+            val updatedSubs = currentSubs.filterNot {
+                it.condition == shorthand && it.action == action && it.priority == priority && it.isRegex == isRegex }
+            if (updatedSubs.isEmpty()) {
+                mutableMap[groupName] = emptyList()
+            } else {
+                mutableMap[groupName] = updatedSubs
             }
             mutableMap
         }

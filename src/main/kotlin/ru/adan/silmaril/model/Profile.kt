@@ -26,6 +26,7 @@ import java.io.File
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getCorrectTransitionWord
@@ -57,7 +58,8 @@ class Profile(
                 ::onSystemMessage,
                 ::onInsertVariables,
                 { msg: String -> scriptingEngine.processAlias(msg) },
-                { msg: String -> scriptingEngine.processLine(msg) }
+                { msg: String -> scriptingEngine.processLine(msg) },
+                { colorfulMsg: ColorfulTextMessage -> scriptingEngine.processSubstitutes(colorfulMsg)}
             )
         }
     }
@@ -340,6 +342,8 @@ class Profile(
             }
             scriptingEngine.sortTriggersByPriority()
             scriptingEngine.sortAliasesByPriority()
+            scriptingEngine.sortSubstitutesByPriority()
+            scriptingEngine.sortHotkeysByPriority()
         } else {
             val groupRegex2 = """\#group [{]?([\p{L}\p{N}_]+)[}]?$""".toRegex()
             val match2 = groupRegex2.find(message)
@@ -378,6 +382,13 @@ class Profile(
         profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addAliasToGroup(groupName, newAlias) }
     }
 
+    fun addSingleSubToAll(condition: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
+        val newSub =
+            if (isRegex) Trigger.subRegCreate(condition, action, priority, false)
+            else Trigger.subCreate(condition, action, priority, false)
+        profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.addSubstituteToGroup(groupName, newSub) }
+    }
+
     fun addSingleHotkeyToAll(hotkey: String, action: String, groupName: String, priority: Int) {
         val newHotkey = Hotkey.create(hotkey, action, priority)
         if (newHotkey != null)
@@ -394,6 +405,13 @@ class Profile(
     fun addSingleAliasToWindow(shorthand: String, action: String, groupName: String, priority: Int) {
         val newAlias = Trigger.createAlias(shorthand, action, priority, false)
         scriptingEngine.addTriggerToGroup(groupName, newAlias)
+    }
+
+    fun addSingleSubToWindow(shorthand: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
+        val newSub =
+            if (isRegex) Trigger.subRegCreate(shorthand, action, priority, false)
+            else Trigger.subCreate(shorthand, action, priority, false)
+        scriptingEngine.addSubstituteToGroup(groupName, newSub)
     }
 
     fun addSingleHotkeyToWindow(keyString: String, action: String, groupName: String, priority: Int) {

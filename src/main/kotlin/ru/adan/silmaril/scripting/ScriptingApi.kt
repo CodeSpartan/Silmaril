@@ -51,6 +51,34 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         this@MudScriptHost.addAlias(newAlias)
         logger.debug {"Added simple alias for pattern: $this"}
     }
+
+    // The function that allows writing in DSL: "initial text" subReg { match -> echo("new text") }
+    infix fun String.subReg(action: (Map<Int, String>) -> Unit) {
+        val newSub = Trigger.subRegCreate(this, action)
+        this@MudScriptHost.addSubstitute(newSub)
+        logger.debug { "Added regex substitute for pattern: $this" }
+    }
+
+    // The function that allows writing in DSL: "initial text" subReg "new text"
+    infix fun String.subReg(textAction: String) {
+        val newSub = Trigger.subRegCreate(this, textAction, 5, true)
+        this@MudScriptHost.addSubstitute(newSub)
+        logger.debug { "Added regex substitute for pattern: $this" }
+    }
+
+    // The function that allows writing in DSL: "initial text" sub { match -> echo("new text") }
+    infix fun String.sub(action: (Map<Int, String>) -> Unit) {
+        val newSub = Trigger.subCreate(this, action)
+        this@MudScriptHost.addSubstitute(newSub)
+        logger.debug { "Added text substitute for pattern: $this" }
+    }
+
+    // The function that allows writing in DSL: "initial text" sub "result"
+    infix fun String.sub(textAction: String) {
+        val newSub = Trigger.subCreate(this, textAction, 5, true)
+        this@MudScriptHost.addSubstitute(newSub)
+        logger.debug { "Added text substitute for pattern: $this" }
+    }
 }
 
 fun ScriptingEngine.send(command: String) {
