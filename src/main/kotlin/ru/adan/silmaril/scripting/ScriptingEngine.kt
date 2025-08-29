@@ -35,6 +35,7 @@ interface ScriptingEngine {
     fun addTriggerToGroup(group: String, trigger: Trigger)
     fun addTrigger(trigger: Trigger)
     fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
+    fun removeSubstituteFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
     fun addAliasToGroup(group: String, alias: Trigger)
     fun addAlias(alias: Trigger)
     fun addSubstituteToGroup(group: String, sub: Trigger)
@@ -120,6 +121,22 @@ open class ScriptingEngineImpl(
             && it.priority == priority
             && it.action.originalCommand == action
             && it.condition.originalPattern == condition
+        } == true
+    }
+
+    override fun removeSubstituteFromGroup(
+        condition: String,
+        action: String,
+        priority: Int,
+        group: String,
+        isRegex: Boolean
+    ): Boolean {
+        return substitutes[group]?.removeIf {
+            !it.withDsl
+                    && (it.condition is RegexCondition) == isRegex
+                    && it.priority == priority
+                    && it.action.originalCommand == action
+                    && it.condition.originalPattern == condition
         } == true
     }
 

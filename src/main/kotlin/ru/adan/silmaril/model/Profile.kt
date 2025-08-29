@@ -191,6 +191,11 @@ class Profile(
             "#zones" -> printZonesForLevel(message)
             "#path" -> pathfind(message)
             "#previewZone" -> previewZone(message)
+            "#sub" -> parseTextSubstitute(message)
+            "#subreg" -> parseTextSubstitute(message)
+            "#unsub" -> parseRemoveSubstitute(message)
+            "#unsubreg" -> parseRemoveSubstitute(message)
+            "#subs" -> printAllSubstitutes()
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -505,7 +510,7 @@ class Profile(
             ?: actRegexMediumV2.find(message)
             ?: actRegexSmall.find(message)
         if (match == null) {
-            if (message.startsWith("#aunct"))
+            if (message.startsWith("#unact"))
                 mainViewModel.displayErrorMessage("Ошибка #unact - не смог распарсить. Правильный синтаксис: #unact {условие} {команда} {приоритет} {группа}.")
             else
                 mainViewModel.displayErrorMessage("Ошибка #grep - не смог распарсить. Правильный синтаксис: #ungrep {регекс} {команда} {приоритет} {группа}.")
@@ -1014,5 +1019,138 @@ class Profile(
         }
 
         mapViewModel.previewZone(targetZoneId)
+    }
+
+    private fun parseTextSubstitute(message: String) {
+        val subRegexBig = """\#sub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val subRegexMedium = """\#sub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val subRegexMediumV2 = """\#sub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val subRegexSmall = """\#sub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = subRegexBig.find(message)
+            ?: subRegexMedium.find(message)
+            ?: subRegexMediumV2.find(message)
+            ?: subRegexSmall.find(message)
+        if (match == null) {
+            if (message.startsWith("#subreg"))
+                mainViewModel.displayErrorMessage("Ошибка #subreg - не смог распарсить. Правильный синтаксис: #subreg {регекс} {желаемая строка} {приоритет} {группа}.")
+            else
+                mainViewModel.displayErrorMessage("Ошибка #sub - не смог распарсить. Правильный синтаксис: #sub {изначальная строка} {желаемая строка} {приоритет} {группа}.")
+            return
+        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val isRegex = groups["isRegex"] != null
+        val condition = groups["condition"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        logger.debug { "Parsed substitute: $entireCommand" }
+        logger.debug { "Is regex: $isRegex" }
+        logger.debug { "Condition: $condition" }
+        logger.debug { "Action: $action" }
+        logger.debug { "Priority: $priority" }
+        logger.debug { "Group: $groupName" }
+
+        settingsManager.addGroup(groupName)
+
+        val newSub =
+            if (isRegex) Trigger.subRegCreate(condition, action, priority, false)
+            else Trigger.subCreate(condition, action, priority, false)
+
+        // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
+        // They're not saved to any file, so they're transient.
+        // The "SESSION" group always exists and is enabled at every launch of the program, even if it had been manually disabled before.
+        if (groupName == "SESSION") {
+            scriptingEngine.addSubstituteToGroup(groupName, newSub)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortSubstitutesByPriority()
+        }
+        else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                profile.scriptingEngine.addSubstituteToGroup(groupName, newSub)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortSubstitutesByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textMacrosManager.saveTextSub(condition, action, groupName, priority, isRegex)
+
+        mainViewModel.displaySystemMessage("Замена добавлена в группу {$groupName}.")
+
+        if (!profileData.value.enabledGroups.contains(groupName)) {
+            mainViewModel.displayTaggedText("Группа {$groupName} <color=yellow>выключена</color>. Чтобы включить, наберите #group enable {$groupName}.")
+        }
+    }
+
+    private fun parseRemoveSubstitute(message: String) {
+        val subRegexBig = """\#unsub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val subRegexMedium = """\#unsub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)} \{(?<priority>\d+)}$""".toRegex()
+        val subRegexMediumV2 = """\#unsub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)} \{(?<group>[\p{L}\p{N}_]+)}$""".toRegex()
+        val subRegexSmall = """\#unsub(?<isRegex>reg)? \{(?<condition>.+?)} \{(?<action>.+)}$""".toRegex()
+
+        val match = subRegexBig.find(message)
+            ?: subRegexMedium.find(message)
+            ?: subRegexMediumV2.find(message)
+            ?: subRegexSmall.find(message)
+        if (match == null) {
+            if (message.startsWith("#unsubreg"))
+                mainViewModel.displayErrorMessage("Ошибка #unsubreg - не смог распарсить. Правильный синтаксис: #unsubreg {регекс} {желаемая строка} {приоритет} {группа}.")
+            else
+                mainViewModel.displayErrorMessage("Ошибка #unsub - не смог распарсить. Правильный синтаксис: #unsub {изначальная строка} {желаемая строка} {приоритет} {группа}.")
+            return
+        }
+        val groups = match.groups
+
+        val entireCommand = match.value
+        val isRegex = groups["isRegex"] != null
+        val condition = groups["condition"]!!.value
+        val action = groups["action"]!!.value
+        val priority = groups.getOrNull("priority")?.value?.toIntOrNull() ?: 5
+        val groupName = groups.getOrNull("group")?.value?.uppercase() ?: "SESSION"
+
+        var removedSub = false
+        if (groupName == "SESSION") {
+            removedSub = scriptingEngine.removeSubstituteFromGroup(condition, action, priority, groupName, isRegex)
+            if (isGroupActive(groupName))
+                scriptingEngine.sortSubstitutesByPriority()
+        } else {
+            profileManager.gameWindows.value.values.forEach { profile ->
+                removedSub = profile.scriptingEngine.removeSubstituteFromGroup(condition, action, priority, groupName, isRegex)
+                if (profile.isGroupActive(groupName))
+                    profile.scriptingEngine.sortSubstitutesByPriority()
+            }
+        }
+
+        if (groupName != "SESSION")
+            textMacrosManager.deleteTextSub(condition, action, groupName, priority, isRegex)
+
+        if (removedSub)
+            mainViewModel.displaySystemMessage("Замена успешно удалена.")
+        else
+            mainViewModel.displaySystemMessage("Замена не найдена.")
+    }
+
+    private fun printAllSubstitutes() {
+        for ((groupName, subsList) in scriptingEngine.getSubstitutes()) {
+            if (subsList.isEmpty()) continue
+            if (isGroupActive(groupName))
+                mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
+            else
+                mainViewModel.displayTaggedText("Группа: <color=yellow>$groupName</color>")
+
+            for (sub in subsList.filter { it.withDsl }.sortedBy { it.priority }) {
+                val isRegex = sub.condition is RegexCondition
+                mainViewModel.displayTaggedText("<color=magenta>DSL</color> ${if (isRegex) "Regex-Sub" else "Sub"}: {${sub.condition.originalPattern}} {${sub.action.originalCommand ?: "-> lambda"}} {${sub.priority}} {$groupName}")
+            }
+
+            for (sub in subsList.filter { !it.withDsl }.sortedBy { it.priority }) {
+                val isRegex = sub.condition is RegexCondition
+                mainViewModel.displayTaggedText("${if (isRegex) "Regex-Sub" else "Sub"}: {${sub.condition.originalPattern}} {${sub.action.originalCommand}} {${sub.priority}} {$groupName}")
+            }
+        }
     }
 }
