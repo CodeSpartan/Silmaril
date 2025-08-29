@@ -44,6 +44,7 @@ import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.view.GroupWindow
 import ru.adan.silmaril.view.MobsWindow
+import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 
 @OptIn(ExperimentalLayoutApi::class)
 fun main() {
@@ -67,6 +68,7 @@ fun main() {
             val mapModel: MapModel = koinInject()
             val loreManager: LoreManager = koinInject()
             val roomDataManager: RoomDataManager = koinInject()
+            val unifiedMapsViewModel: UnifiedMapsViewModel = koinInject()
 
             val showTitleMenu: MutableState<Boolean> = remember { mutableStateOf(false) }
 
@@ -93,7 +95,8 @@ fun main() {
             ) {
                 DecoratedWindow(
                     onCloseRequest = {
-                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel, roomDataManager)
+                        cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager,
+                            loreManager, outputWindowModel, roomDataManager, unifiedMapsViewModel)
                         exitApplication()
                      },
                     onPreviewKeyEvent = profileManager::onHotkeyKey,
@@ -111,7 +114,8 @@ fun main() {
                             showTitleMenu = showTitleMenu,
                             selectedTabIndex = profileManager.selectedTabIndex,
                             onExit = {
-                                cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager, loreManager, outputWindowModel, roomDataManager)
+                                cleanupOnExit(mapModel, profileManager, settingsManager, textMacrosManager,
+                                    loreManager, outputWindowModel, roomDataManager, unifiedMapsViewModel)
                                 exitApplication()
                             },
                         )
@@ -192,6 +196,7 @@ fun cleanupOnExit(
     loreManager: LoreManager,
     outputWindowModel: OutputWindowModel,
     roomDataManager: RoomDataManager,
+    unifiedMapsViewModel: UnifiedMapsViewModel,
 ) {
     textMacrosManager.cleanup()
     mapModel.cleanup()
@@ -200,6 +205,7 @@ fun cleanupOnExit(
     loreManager.cleanup()
     outputWindowModel.cleanup()
     roomDataManager.cleanup()
+    unifiedMapsViewModel.cleanup()
 }
 
 @Composable

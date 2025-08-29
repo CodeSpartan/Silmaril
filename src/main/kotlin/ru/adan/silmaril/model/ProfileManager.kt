@@ -2,11 +2,8 @@ package ru.adan.silmaril.model
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +13,14 @@ import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
 import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.viewmodel.MainViewModel
+import ru.adan.silmaril.viewmodel.MapInfoSource
 import ru.adan.silmaril.viewmodel.MapViewModel
+import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 
-class ProfileManager(private val settingsManager: SettingsManager) : KoinComponent {
+class ProfileManager(
+    private val unifiedMapsViewModel: UnifiedMapsViewModel,
+    private val settingsManager: SettingsManager
+) : KoinComponent {
     var currentClient: MutableState<MudConnection>
     var currentMapViewModel: MutableState<MapViewModel>
     var currentMainViewModel: MutableState<MainViewModel>
@@ -40,6 +42,7 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
     private val _knownMobsHPs = MutableStateFlow(mapOf<String, Int>())
     val knownMobsHPs: StateFlow<Map<String, Int>> get() = _knownMobsHPs
 
+
     //@TODO: move knownGroupHPs to some other singleton class more appropriate for this, e.g. "GameState"
     // called from GroupModel's coroutine
     suspend fun addKnownHp(name: String, maxHp: Int) {
@@ -51,14 +54,27 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         }
     }
 
+    fun updateUnifiedMapViewModel() {
+        val sources: List<MapInfoSource> =
+            gameWindows.value.values.map { profile ->
+                MapInfoSource(
+                    profileName = profile.profileName,
+                    currentRoom = profile.mapViewModel.currentRoom
+                )
+            }
+        unifiedMapsViewModel.setSources(sources)
+    }
+
     fun addProfile(windowName: String) {
         val newProfile: Profile = get { parametersOf(windowName) }
         _gameWindows.value += (windowName to newProfile)
+        updateUnifiedMapViewModel()
     }
 
     fun removeWindow(windowName: String) {
         gameWindows.value[windowName]?.onCloseWindow()
         _gameWindows.value = gameWindows.value.filterKeys { it != windowName }.toMap()
+        updateUnifiedMapViewModel()
     }
 
     init {
@@ -100,11 +116,16 @@ class ProfileManager(private val settingsManager: SettingsManager) : KoinCompone
         return true
     }
 
-    fun getCurrentProfile() : Profile? {
-        return gameWindows.value.entries.firstOrNull { (key, value) -> key.equals(currentProfileName.value, ignoreCase = true) }?.value
+    fun getCurrentProfile(): Profile? {
+        return gameWindows.value.entries.firstOrNull { (key, value) ->
+            key.equals(
+                currentProfileName.value,
+                ignoreCase = true
+            )
+        }?.value
     }
 
-    fun getProfileByName(name: String) : Profile? {
+    fun getProfileByName(name: String): Profile? {
         return gameWindows.value.entries.firstOrNull { (key, value) -> key.equals(name, ignoreCase = true) }?.value
     }
 

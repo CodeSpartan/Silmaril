@@ -18,6 +18,7 @@ import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.scripting.ScriptingEngineImpl
 import ru.adan.silmaril.viewmodel.MainViewModel
 import ru.adan.silmaril.viewmodel.MapViewModel
+import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 
 val appModule = module {
     singleOf (::SettingsManager)
@@ -27,6 +28,7 @@ val appModule = module {
     singleOf(::LoreManager)
     singleOf(::OutputWindowModel)
     singleOf(::RoomDataManager)
+    singleOf(::UnifiedMapsViewModel)
 
     factory { params ->
         Profile(

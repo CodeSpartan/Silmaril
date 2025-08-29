@@ -40,7 +40,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.oshai.kotlinlogging.KLogger
 import org.jetbrains.jewel.ui.icon.IconKey
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
@@ -56,7 +62,10 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
+import ru.adan.silmaril.viewmodel.MapInfoUpdate
 import ru.adan.silmaril.viewmodel.MapViewModel
+import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
+import kotlin.collections.mapValues
 
 
 @Composable
@@ -69,6 +78,8 @@ fun MapWindow(
     val settingsManager: SettingsManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
     val currentColorStyle = settings.colorStyle
+
+    val robotoFont = remember {FontManager.getFont("RobotoClassic")}
 
     var lastZone = -1000000 // -1 zone is reserved for roads
     var lastRoom = -1000000
@@ -159,7 +170,6 @@ fun MapWindow(
                         .copy(alpha = 0.8f)
                 )
         ) {
-            val robotoFont = remember {FontManager.getFont("RobotoClassic")}
             Column {
                 // Room name
                 Text(
@@ -201,8 +211,27 @@ fun RoomsCanvas(
     val coroutineScope = rememberCoroutineScope()
     val roomDataManager: RoomDataManager = koinInject()
     val currentColorStyle = StyleManager.getStyle(settings.value.colorStyle)
-
+    val unifiedMapsViewModel: UnifiedMapsViewModel = koinInject()
+    val textMeasurer = rememberTextMeasurer()
     val pathToHighlight by mapViewModel.pathToHighlight.collectAsState()
+    val robotoFont = remember {FontManager.getFont("RobotoClassic")}
+
+    // This is collection of groupMembers info from the UnifiedMapViewModel
+    val members by unifiedMapsViewModel.sources.collectAsStateWithLifecycle(initialValue = emptyList())
+    val memberRooms: List<MapInfoUpdate> =
+        members.map { member ->
+            key(member.profileName) {
+                val room by member.currentRoom.collectAsStateWithLifecycle()
+                MapInfoUpdate(profileName = member.profileName, message = room)
+            }
+        }
+    val groupMatesRooms = remember(memberRooms) {
+        memberRooms
+            .groupBy{ it.message.roomId }
+            .mapValues { entry ->
+                entry.value.map { mapInfoUpdate -> mapInfoUpdate.profileName }
+            }
+    }
 
     // Pencil icon: display it on top of rooms that have comments
     val commentKey: IconKey = remember { AllIconsKeys.General.Inline_edit }
@@ -564,6 +593,27 @@ fun RoomsCanvas(
                                 colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
                             )
                         }
+                    }
+                }
+
+                // Draw the number of groupmates in this room
+                val groupMatesHere = groupMatesRooms[roomId]
+                if (roomId != centerOnRoomId && groupMatesHere != null) {
+                    val dx = roomTopLeft.x + roomSize.width * 1.03f
+                    val dy = roomTopLeft.y - roomSize.height * 0.2f
+                    // @TODO: there's a compose bug that prevents just using drawText if text is drawn outside of the canvas, but try it in later versions
+                    translate(left = dx, top = dy) {
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "${groupMatesHere.size}",
+                            topLeft = Offset.Zero, // stay in-bounds and offset the canvas instead
+                            style = TextStyle(
+                                color = Color.White,
+                                fontFamily = robotoFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = (24 * scaleLogical * dpi).sp
+                            )
+                        )
                     }
                 }
 
