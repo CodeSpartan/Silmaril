@@ -50,6 +50,7 @@ import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
+import ru.adan.silmaril.misc.doubleClickOrSingle
 import ru.adan.silmaril.misc.toComposeColor
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.RoomDataManager
@@ -119,6 +120,7 @@ fun MapWindow(
             mapViewModel = mapViewModel,
             profileManager = profileManager,
             settingsManager = settingsManager,
+            logger = logger,
             modifier = Modifier.fillMaxSize().clipToBounds(),
             zoneState = curZoneState,
             centerOnRoomId = centerOnRoomId, // Pass the target ID to the canvas
@@ -185,6 +187,7 @@ fun RoomsCanvas(
     mapViewModel: MapViewModel,
     profileManager: ProfileManager,
     settingsManager: SettingsManager,
+    logger: KLogger,
     modifier: Modifier = Modifier,
     zoneState: MutableState<Zone?>,
     centerOnRoomId: Int?,
@@ -288,7 +291,7 @@ fun RoomsCanvas(
                     )
         }
 
-        fun getRoomUnderCursor(mousePosition: Offset): Int? {
+        val getRoomUnderCursor by rememberUpdatedState(newValue = { mousePosition: Offset ->
             val halfRoomSize = scaledRoomSize / 2f
             val checkBeyondRoomSize = halfRoomSize * 1.5f
 
@@ -298,14 +301,36 @@ fun RoomsCanvas(
                         mousePosition.y >= center.y - checkBeyondRoomSize &&
                         mousePosition.y <= center.y + checkBeyondRoomSize
             }?.key
-            return roomUnderMouse
-        }
+            roomUnderMouse
+        })
 
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 // We chain the pointer input modifiers. They are processed in order.
-                // 1. Panning (drag)
+                // 1. Double left-click on room - move there
+                // Use custom double click detection, because compose's native detection doesn't work very well - it misses quick double-clicks
+                .doubleClickOrSingle(
+                    onDoubleClick = { mousePos ->
+                        val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
+                        if (roomUnderMouse != null) {
+                            //logger.info { "double click $roomUnderMouse" }
+                            profileManager.currentMainViewModel.value.treatUserInput("#path $roomUnderMouse")
+                        }
+                    },
+                    onSingleClick = { }
+                )
+                // 2. Single right-click - open room menu
+                .onClick(
+                    matcher = PointerMatcher.mouse(PointerButton.Secondary),
+                    onClick = {
+                        val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
+                        if (roomUnderMouse != null) {
+                            println("RMB on room $roomUnderMouse")
+                        }
+                    }
+                )
+                // 3. Panning (drag)
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
@@ -314,7 +339,7 @@ fun RoomsCanvas(
                         }
                     }
                 }
-                // 2. Zooming (scroll)
+                // 4. Zooming (scroll)
                 .onPointerEvent(PointerEventType.Scroll) { event ->
                     val change = event.changes.first()
                     val scrollDelta = change.scrollDelta.y
@@ -361,7 +386,7 @@ fun RoomsCanvas(
                     }
                     change.consume()
                 }
-                // 3. Hovering (move)
+                // 5. Hovering (move)
                 .onPointerEvent(PointerEventType.Move) { event ->
                     lastMousePos.value = event.changes.first().position
                     val halfRoomSize = scaledRoomSize / 2f
@@ -372,31 +397,10 @@ fun RoomsCanvas(
                         roomToOffsetMap[roomUnderMouse]?.y?.plus(halfRoomSize*2)?:lastMousePos.value.y)
                     )
                 }
-                // 4. Hover End (exit)
+                // 6. Hover End (exit)
                 .onPointerEvent(PointerEventType.Exit) { event ->
                     onRoomHover(null, event.changes.first().position)
                 }
-                // Double left-click on room - move there
-                .onClick(
-                    matcher = PointerMatcher.mouse(PointerButton.Primary),
-                    onDoubleClick = {
-                        val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
-                        if (roomUnderMouse != null) {
-                            profileManager.currentMainViewModel.value.treatUserInput("#path $roomUnderMouse")
-                        }
-                    },
-                    onClick = {}
-                )
-                // Single right-click - open room menu
-                .onClick(
-                    matcher = PointerMatcher.mouse(PointerButton.Secondary),
-                    onClick = {
-                        val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
-                        if (roomUnderMouse != null) {
-                            println("RMB on room $roomUnderMouse")
-                        }
-                    }
-                )
         ) {
             // Draw the connections (Lines) only for East/West/North/South exits
             val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }

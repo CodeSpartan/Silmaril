@@ -1,5 +1,13 @@
 package ru.adan.silmaril.misc
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -284,5 +292,33 @@ object CyrillicFixer {
             }
         }
         return sb.toString()
+    }
+}
+
+fun Modifier.doubleClickOrSingle(
+    doubleClickTimeoutMs: Long = 250,
+    doubleClickSlopDp: Float = 6f,
+    onDoubleClick: (Offset) -> Unit,
+    onSingleClick: (Offset) -> Unit
+) = pointerInput(doubleClickTimeoutMs, doubleClickSlopDp) {
+    awaitEachGesture {
+        // Use the density from PointerInputScope
+        val slopPx = with(density) { doubleClickSlopDp.dp.toPx() }
+
+        val firstDown = awaitFirstDown(requireUnconsumed = false)
+        val firstUp = waitForUpOrCancellation() ?: return@awaitEachGesture
+
+        val secondDown = withTimeoutOrNull(doubleClickTimeoutMs) {
+            awaitFirstDown(requireUnconsumed = false)
+        }
+
+        if (secondDown != null &&
+            (secondDown.position - firstDown.position).getDistance() <= slopPx
+        ) {
+            waitForUpOrCancellation()
+            onDoubleClick(secondDown.position)
+        } else {
+            onSingleClick(firstUp.position)
+        }
     }
 }

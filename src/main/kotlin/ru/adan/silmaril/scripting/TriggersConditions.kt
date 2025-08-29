@@ -141,7 +141,7 @@ class TriggerAction(
     val lambda: ScriptingEngine.(match: MatchResult) -> Unit,
     val originalCommand: String? = null, // optional
     //@TODO: make an interface GenericAction and two classes TriggerAction and AliasAction, since they're quite different
-    // for aliases only:
+    // for aliases and substitutes only:
     val commandToSend: (ScriptingEngine.(match: MatchResult) -> String)? = null,
 )
 
@@ -167,7 +167,7 @@ class RegexCondition(pattern: String) : TriggerCondition {
 /**
  * A condition of the "act" verb in DSL.
 * 1. It reads a ^ prefix and treats it like the ^ prefix in regex
-* 2. It reads a $ suffix and trats it like the $ suffix in regex
+* 2. It reads a $ suffix and treats it like the $ suffix in regex
 * 3. It treats %0, %1, %2, etc as (.*) in regex, then allows the match to be referenced in the associated action using the same (%0, %1) names
 * So for example, a condition "^%0 entered the room" would match "Mob entered the room",
 * allowing the user to preconfigure the action "kill %0", which would effectively send "kill Mob" in this case.
