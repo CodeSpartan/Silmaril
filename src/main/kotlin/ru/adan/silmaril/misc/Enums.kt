@@ -34,6 +34,7 @@ enum class UiColor {
     HpExecrable,
     Stamina,
     WaitTime,
+    AttackedInAnotherRoom,
 }
 
 enum class TextSize {

@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -226,7 +227,11 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        //.background(Color.LightGray)
+                        .background(
+                            if (creature.isAttacked && !creature.inSameRoom)
+                                currentColorStyle.getUiColor(UiColor.AttackedInAnotherRoom)
+                            else Color.Unspecified
+                        )
                         .height(28.dp),
                     verticalAlignment = Alignment.Top
                 ) {

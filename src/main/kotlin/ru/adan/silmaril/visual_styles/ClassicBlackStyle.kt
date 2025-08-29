@@ -28,6 +28,7 @@ class ClassicBlackColorStyle : ColorStyle() {
             UiColor.HpExecrable -> Color(0xffc91c1c)
             UiColor.Stamina -> Color(0xffe7dfd5)
             UiColor.WaitTime -> Color(0xffe98447)
+            UiColor.AttackedInAnotherRoom -> Color(0xff330000)
             else -> Color.White
         }
     }
