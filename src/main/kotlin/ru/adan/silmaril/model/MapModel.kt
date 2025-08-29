@@ -731,4 +731,16 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
         if (c.isNotEmpty()) out.addAll(c.drop(1))
         return out
     }
+
+    fun areRoomsConnected(roomId1: Int?, roomId2: Int): Boolean {
+        if (roomId1 == null) return false
+        if (roomId1 == roomId2) return false
+        val room1 = roomById[roomId1]
+        val room2 = roomById[roomId2]
+        if (room1 == null || room2 == null) return false
+
+        if (room1.exitsList.any { exit -> exit.roomId == roomId2 }) return true
+        if (room2.exitsList.any { exit -> exit.roomId == roomId1 }) return true
+        return false
+    }
 }

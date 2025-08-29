@@ -370,7 +370,16 @@ class RoomDataManager() : KoinComponent {
     }
 
     fun isRoomVisited(zoneId: Int, roomId: Int): Boolean =
-        visitedRooms[zoneId]?.contains(roomId) == true
+        when (zoneId) {
+            // zones without fog of war:
+            20 -> true // минас-моргул
+            22 -> true // мордорский лагерь
+            25 -> true // эсгарот
+            26 -> true // мон-харнен
+            27 -> true // норгорд
+            30 -> true // минас-тирит
+            else -> visitedRooms[zoneId]?.contains(roomId) == true
+        }
 
     fun getRoomComment(roomId: Int): String? =
         roomComments[roomId]

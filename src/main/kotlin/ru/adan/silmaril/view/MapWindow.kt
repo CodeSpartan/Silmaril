@@ -195,6 +195,7 @@ fun RoomsCanvas(
     // The canvas accepts a callback to report hover events up to its parent
     onRoomHover: (room: Room?, position: Offset) -> Unit
 ) {
+    val mapModel: MapModel = koinInject()
     val settings = settingsManager.settings.collectAsState()
     val dpi = LocalDensity.current.density
     val coroutineScope = rememberCoroutineScope()
@@ -314,7 +315,12 @@ fun RoomsCanvas(
                     onDoubleClick = { mousePos ->
                         val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
                         if (roomUnderMouse != null) {
-                            //logger.info { "double click $roomUnderMouse" }
+
+                            // don't detect double clicks on hidden rooms
+                            val isRoomVisited = roomDataManager.isRoomVisited(zoneState.value?.id ?: -100, roomUnderMouse)
+                            val hideRoom = !isRoomVisited && !mapModel.areRoomsConnected(centerOnRoomId, roomUnderMouse)
+                            if (hideRoom) return@doubleClickOrSingle
+                            
                             profileManager.currentMainViewModel.value.treatUserInput("#path $roomUnderMouse")
                         }
                     },
@@ -326,6 +332,12 @@ fun RoomsCanvas(
                     onClick = {
                         val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
                         if (roomUnderMouse != null) {
+
+                            // don't treat RMB clicks on hidden rooms
+                            val isRoomVisited = roomDataManager.isRoomVisited(zoneState.value?.id ?: -100, roomUnderMouse)
+                            val hideRoom = !isRoomVisited && !mapModel.areRoomsConnected(centerOnRoomId, roomUnderMouse)
+                            if (hideRoom) return@onClick
+
                             println("RMB on room $roomUnderMouse")
                         }
                     }
@@ -392,6 +404,14 @@ fun RoomsCanvas(
                     val halfRoomSize = scaledRoomSize / 2f
 
                     val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
+
+                    // don't display hover for unvisited rooms
+                    val isRoomVisited = roomDataManager.isRoomVisited(zoneState.value?.id ?: -100, roomUnderMouse ?: -1)
+                    if (!isRoomVisited) {
+                        onRoomHover(null, event.changes.first().position)
+                        return@onPointerEvent
+                    }
+
                     onRoomHover(roomsMap[roomUnderMouse], Offset(
                         roomToOffsetMap[roomUnderMouse]?.x?.plus(halfRoomSize)?:lastMousePos.value.x,
                         roomToOffsetMap[roomUnderMouse]?.y?.plus(halfRoomSize*2)?:lastMousePos.value.y)
@@ -402,6 +422,8 @@ fun RoomsCanvas(
                     onRoomHover(null, event.changes.first().position)
                 }
         ) {
+            val zoneId = zoneState.value?.id ?: -1
+
             // Draw the connections (Lines) only for East/West/North/South exits
             val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
             roomsMap.values.forEach roomLoop@{ room ->
@@ -411,6 +433,13 @@ fun RoomsCanvas(
                         // the "stairs" are drawn after the rooms, not here
                         return@exitLoop
                     }
+
+                    // don't draw connections if one of the rooms is hidden
+                    val isRoom1Visited = roomDataManager.isRoomVisited(zoneId, room.id)
+                    val hideRoom1 = !isRoom1Visited && !mapModel.areRoomsConnected(centerOnRoomId, room.id)
+                    val isRoom2Visited = roomDataManager.isRoomVisited(zoneId, exit.roomId)
+                    val hideRoom2 = !isRoom2Visited && !mapModel.areRoomsConnected(centerOnRoomId, exit.roomId)
+                    if (hideRoom1 || hideRoom2) return@exitLoop
 
                     val connectionColor =
                         if (exit.roomId == centerOnRoomId || room.id == centerOnRoomId) Color.White
@@ -487,6 +516,11 @@ fun RoomsCanvas(
 
             // Draw the rooms (Squares with rounded corners)
             roomToOffsetMap.entries.forEach { (roomId, centerOffset) ->
+                val isRoomVisited = roomDataManager.isRoomVisited(zoneId, roomId)
+
+                // don't draw unvisited rooms, unless they're adjacent to the one we're standing in
+                if (!isRoomVisited && !mapModel.areRoomsConnected(centerOnRoomId, roomId)) return@forEach
+
                 val cornerRadiusValue = scaledRoomSize * 0.15f // 15% of the size for the corner radius
                 val roomTopLeft = Offset(
                     x = centerOffset.x - (scaledRoomSize / 2),
@@ -495,8 +529,6 @@ fun RoomsCanvas(
                 val roomSize = Size(scaledRoomSize, scaledRoomSize)
                 val roomCornerRadius = CornerRadius(cornerRadiusValue, cornerRadiusValue)
 
-                val zoneId = zoneState.value?.id ?: -1
-                val isRoomVisited = roomDataManager.isRoomVisited(zoneId, roomId)
                 // start->end: from top-right corner to bottom-left corner
                 val roomBrush = Brush.linearGradient(
                     colors = currentColorStyle.getUiColorList(
@@ -567,6 +599,14 @@ fun RoomsCanvas(
                 val startOffset = roomToOffsetMap[room.id] ?: return@roomLoop
                 room.exitsList.forEach { exit ->
                     if (exit.direction == "Up" || exit.direction == "Down") {
+
+                        // don't draw connections if one of the rooms is hidden
+                        val isRoom1Visited = roomDataManager.isRoomVisited(zoneId, room.id)
+                        val hideRoom1 = !isRoom1Visited && !mapModel.areRoomsConnected(centerOnRoomId, room.id)
+                        val isRoom2Visited = roomDataManager.isRoomVisited(zoneId, exit.roomId)
+                        val hideRoom2 = !isRoom2Visited && !mapModel.areRoomsConnected(centerOnRoomId, exit.roomId)
+                        if (hideRoom1 || hideRoom2) return@forEach
+
                         // We need the top-left corner of the room to position the stairs.
                         // `startOffset` is the center of the room, which we already have.
                         val roomTopLeft = Offset(

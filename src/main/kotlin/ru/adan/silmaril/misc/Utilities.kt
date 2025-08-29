@@ -3,7 +3,10 @@ package ru.adan.silmaril.misc
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -295,30 +298,64 @@ object CyrillicFixer {
     }
 }
 
+//fun Modifier.doubleClickOrSingle(
+//    doubleClickTimeoutMs: Long = 250,
+//    doubleClickSlopDp: Float = 6f,
+//    onDoubleClick: (Offset) -> Unit,
+//    onSingleClick: (Offset) -> Unit
+//) = pointerInput(doubleClickTimeoutMs, doubleClickSlopDp) {
+//    awaitEachGesture {
+//        // Use the density from PointerInputScope
+//        val slopPx = with(density) { doubleClickSlopDp.dp.toPx() }
+//
+//        val firstDown = awaitFirstDown(requireUnconsumed = false)
+//        val firstUp = waitForUpOrCancellation() ?: return@awaitEachGesture
+//
+//        val secondDown = withTimeoutOrNull(doubleClickTimeoutMs) {
+//            awaitFirstDown(requireUnconsumed = false)
+//        }
+//
+//        if (secondDown != null &&
+//            (secondDown.position - firstDown.position).getDistance() <= slopPx
+//        ) {
+//            waitForUpOrCancellation()
+//            onDoubleClick(secondDown.position)
+//        } else {
+//            onSingleClick(firstUp.position)
+//        }
+//    }
+//}
+
 fun Modifier.doubleClickOrSingle(
     doubleClickTimeoutMs: Long = 250,
     doubleClickSlopDp: Float = 6f,
     onDoubleClick: (Offset) -> Unit,
     onSingleClick: (Offset) -> Unit
-) = pointerInput(doubleClickTimeoutMs, doubleClickSlopDp) {
-    awaitEachGesture {
-        // Use the density from PointerInputScope
-        val slopPx = with(density) { doubleClickSlopDp.dp.toPx() }
+) = composed {
+// Always call the latest lambdas (prevents stale captures)
+    val latestOnDouble by rememberUpdatedState(onDoubleClick)
+    val latestOnSingle by rememberUpdatedState(onSingleClick)
 
-        val firstDown = awaitFirstDown(requireUnconsumed = false)
-        val firstUp = waitForUpOrCancellation() ?: return@awaitEachGesture
 
-        val secondDown = withTimeoutOrNull(doubleClickTimeoutMs) {
-            awaitFirstDown(requireUnconsumed = false)
-        }
+    pointerInput(doubleClickTimeoutMs, doubleClickSlopDp) {
+        awaitEachGesture {
+            val slopPx = with(density) { doubleClickSlopDp.dp.toPx() }
 
-        if (secondDown != null &&
-            (secondDown.position - firstDown.position).getDistance() <= slopPx
-        ) {
-            waitForUpOrCancellation()
-            onDoubleClick(secondDown.position)
-        } else {
-            onSingleClick(firstUp.position)
+            val firstDown = awaitFirstDown(requireUnconsumed = false)
+            val firstUp = waitForUpOrCancellation() ?: return@awaitEachGesture
+
+            val secondDown = withTimeoutOrNull(doubleClickTimeoutMs) {
+                awaitFirstDown(requireUnconsumed = false)
+            }
+
+            if (secondDown != null &&
+                (secondDown.position - firstDown.position).getDistance() <= slopPx
+            ) {
+                val secondUp = waitForUpOrCancellation()
+                latestOnDouble(secondUp?.position ?: secondDown.position)
+            } else {
+                latestOnSingle(firstUp.position)
+            }
         }
     }
 }
