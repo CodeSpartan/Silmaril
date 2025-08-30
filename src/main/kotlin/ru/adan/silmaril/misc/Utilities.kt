@@ -3,7 +3,11 @@ package ru.adan.silmaril.misc
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -19,6 +23,7 @@ import java.nio.file.Paths
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.zip.ZipInputStream
+import androidx.compose.runtime.*
 
 fun unzipFile(zipFilePath: String, destDirectory: String) {
     val destDir = File(destDirectory)
@@ -363,6 +368,30 @@ fun Modifier.doubleClickOrSingle(
                 latestOnDouble(secondUp?.position ?: secondDown.position)
             } else {
                 latestOnSingle(firstUp.position)
+            }
+        }
+    }
+}
+
+@Composable
+fun rememberIsAtBottom(state: LazyListState, fullyVisible: Boolean = false): State<Boolean> {
+    return remember(state, fullyVisible) {
+        derivedStateOf {
+            val info = state.layoutInfo
+            val total = info.totalItemsCount
+            if (total == 0) true
+            else {
+                val last = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+                val isLastIndex = last.index == total - 1
+                if (!isLastIndex) return@derivedStateOf false
+
+                if (fullyVisible) {
+                    // last item fully within viewport
+                    (last.offset + last.size) <= info.viewportEndOffset
+                } else {
+                    // last item at least partially visible
+                    true
+                }
             }
         }
     }

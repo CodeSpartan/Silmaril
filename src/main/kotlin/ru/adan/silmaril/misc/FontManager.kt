@@ -112,6 +112,17 @@ object FontManager {
     fun getFont(s: String): FontFamily {
         return fontFamilies[s]!!
     }
+
+    fun getFontLineHeight(s: String): Float {
+        return when (s) {
+            "RobotoMono" -> 20f
+            "JetbrainsMono" -> 20f
+            "Consolas" -> 17.5f
+            "Cousine" -> 17f
+            "FiraMono" -> 18f
+            else -> 20f
+        }
+    }
 }
 
 // This may be the new way of adding fonts when they teach Windows to read variable fonts
