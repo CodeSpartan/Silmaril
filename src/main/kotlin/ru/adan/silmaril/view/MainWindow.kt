@@ -37,10 +37,13 @@ import ru.adan.silmaril.model.SettingsManager
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -109,13 +112,14 @@ fun MainWindow(
     suspend fun scrollDown(primaryWindow: Boolean = true) {
         try {
             if (messages.isNotEmpty()) {
-                if (primaryWindow)
+                if (primaryWindow && listStateAutoScrollDown.layoutInfo.totalItemsCount > 0) {
                     listStateAutoScrollDown.scrollToItem(messages.size - 1)
+                }
                 else {
                     val oneLineHeight = getFontLineHeight(currentFontFamily)
                     val linesOnScreen = textWindowHeight/oneLineHeight
                     if (listStateNoAutoScroll.layoutInfo.totalItemsCount >= (linesOnScreen + 5))
-                    listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - (linesOnScreen.toInt() + 5))
+                        listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - (linesOnScreen.toInt() + 5))
                 }
             }
         } catch (e: CancellationException) {
@@ -126,19 +130,12 @@ fun MainWindow(
         }
     }
 
-    val mainAtBottom by rememberIsAtBottom(listStateAutoScrollDown)
     val secondaryAtBottom by rememberIsAtBottom(listStateNoAutoScroll)
 
     // When main screen isn't at bottom, display split screen. When upper split screen at bottom, hide it
-    LaunchedEffect(mainAtBottom, secondaryAtBottom) {
+    LaunchedEffect(secondaryAtBottom) {
         when {
-            !mainAtBottom && !showSplitScreen -> {
-                showSplitScreen = true
-                delay(16)
-                scrollDown(true)
-                scrollDown(false)
-            }
-            secondaryAtBottom && showSplitScreen -> {
+            showSplitScreen && secondaryAtBottom -> {
                 showSplitScreen = false
             }
         }
@@ -173,6 +170,17 @@ fun MainWindow(
     LaunchedEffect(isFocused, inputFieldReady) {
         if (isFocused && inputFieldReady) {
             focusRequester.requestFocus()
+        }
+    }
+
+    fun displaySplitScreen() {
+        if (!showSplitScreen) {
+            showSplitScreen = true
+            scope.launch {
+                withFrameNanos { /* wait 1 frame */ }
+                scrollDown()
+                scrollDown(false)
+            }
         }
     }
 
@@ -211,7 +219,8 @@ fun MainWindow(
                             currentColorStyle,
                             currentFontSize,
                             currentFontFamily,
-                            false
+                            false,
+                            ::displaySplitScreen
                         )
                     } else {
                         VerticalSplitLayout(
@@ -229,7 +238,8 @@ fun MainWindow(
                                     currentColorStyle,
                                     currentFontSize,
                                     currentFontFamily,
-                                    true
+                                    true,
+                                    ::displaySplitScreen
                                 )
                             },
                             second = {
@@ -242,7 +252,8 @@ fun MainWindow(
                                     currentColorStyle,
                                     currentFontSize,
                                     currentFontFamily,
-                                    false
+                                    false,
+                                    ::displaySplitScreen
                                 )
                             },
                         )
@@ -313,6 +324,7 @@ fun MainWindow(
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun TextColumn(
     paddingLeft: Dp,
@@ -323,7 +335,8 @@ private fun TextColumn(
     currentColorStyle: ColorStyle,
     currentFontSize: Int,
     currentFontFamily: String,
-    withScrollbar: Boolean
+    withScrollbar: Boolean,
+    showSplitScreen: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -341,8 +354,18 @@ private fun TextColumn(
                         modifier = Modifier
                             //.weight(1f, true) // true = take up all remaining space horizontally
                             .padding(end = paddingRight)
+                            .onPointerEvent(PointerEventType.Scroll) { event ->
+                                if (!withScrollbar) {
+                                    val change = event.changes.firstOrNull()
+                                    if (change != null && change.scrollDelta.y < 0) {
+                                        change.consume()
+                                        showSplitScreen()
+                                    }
+                                }
+                            }
                             .fillMaxHeight(),
                         state = listState,
+                        userScrollEnabled = withScrollbar,
                         verticalArrangement = Arrangement.Bottom,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
