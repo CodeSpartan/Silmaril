@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.oshai.kotlinlogging.KLogger
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.jewel.ui.icon.IconKey
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
 import org.jetbrains.jewel.ui.painter.rememberResourcePainterProvider
@@ -56,6 +57,8 @@ import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
+import ru.adan.silmaril.generated.resources.Res
+import ru.adan.silmaril.generated.resources.warn
 import ru.adan.silmaril.misc.doubleClickOrSingle
 import ru.adan.silmaril.misc.toComposeColor
 import ru.adan.silmaril.model.ProfileManager
@@ -224,11 +227,17 @@ fun RoomsCanvas(
     val commentPainter by commentPainterProvider.getPainter()
     val commentDesiredSize = remember { Size(40f, 40f) }
 
+    // Generic icon: display it on top of rooms that have a custom icon set
     val roomIconKey: IconKey = remember { AllIconsKeys.Status.FailedInProgress }
     val roomIconPath = remember(roomIconKey, true) { roomIconKey.path(true) }
     val roomIconPainterProvider = rememberResourcePainterProvider(roomIconPath, roomIconKey.iconClass)
     val roomIconPainter by roomIconPainterProvider.getPainter()
     val roomIconDesiredSize = remember { Size(70f, 70f) }
+
+    // Warn icon: display it on top of rooms where groupmates are in-fight
+
+    val roomWarnPainter = painterResource(Res.drawable.warn)
+    val roomWarnDesiredSize = remember { Size(70f, 61f) }
 
     val lastMousePos = remember { mutableStateOf(Offset.Zero) }
 
@@ -448,9 +457,10 @@ fun RoomsCanvas(
                     }
 
                     // don't draw connections if one of the rooms is hidden
-                    val isRoom1Visited = roomDataManager.isRoomVisited(zoneId, room.id)
+
+                    val isRoom1Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(room.id)?.id ?: zoneId, room.id)
                     val hideRoom1 = !isRoom1Visited && !mapModel.areRoomsConnected(centerOnRoomId, room.id)
-                    val isRoom2Visited = roomDataManager.isRoomVisited(zoneId, exit.roomId)
+                    val isRoom2Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(exit.roomId)?.id ?: zoneId, exit.roomId)
                     val hideRoom2 = !isRoom2Visited && !mapModel.areRoomsConnected(centerOnRoomId, exit.roomId)
                     if (hideRoom1 || hideRoom2) return@exitLoop
 
@@ -582,7 +592,7 @@ fun RoomsCanvas(
 
                 // Draw the number of groupmates and enemies in this room
                 val roomInfo = mapInfoByRoom[roomId]
-                if (roomId != centerOnRoomId && roomInfo != null) {
+                if (roomInfo != null) {
                     // there's a compose bug that crashes if drawText(topLeft is outside of Canvas bounds), so we translate instead
                     val baseStyle = TextStyle(
                         fontFamily = robotoFont,
@@ -592,11 +602,11 @@ fun RoomsCanvas(
 
                     val gmText = roomInfo.groupMates.toString()
                     val gmLayout = textMeasurer.measure(text = gmText, style = baseStyle)
-                    val gmColor = if (roomInfo.groupMatesInFight) Color(0xFFffe0d3)
+                    val gmColor = if (roomInfo.groupMatesInFight) Color(0xffffa3a0)
                         else Color(0xffe8e8e8)
 
                     translate(
-                        left = roomTopLeft.x + roomSize.width * 1.03f,
+                        left = roomTopLeft.x - roomSize.width * 0.33f,
                         top = roomTopLeft.y - roomSize.height * 0.2f
                     ) {
                         // Note: this overload takes a TextLayoutResult and a color override
@@ -610,11 +620,11 @@ fun RoomsCanvas(
                     // Enemies
                     val enemiesText = roomInfo.monsters.toString()
                     val enemiesLayout = textMeasurer.measure(text = enemiesText, style = baseStyle)
-                    val enemiesColor = if (roomInfo.groupMatesInFight) Color(0xFFffe0d3)
+                    val enemiesColor = if (roomInfo.groupMatesInFight) Color(0xffffa3a0)
                         else Color(0xffe8e8e8)
 
                     translate(
-                        left = roomTopLeft.x + roomSize.width * 1.03f,
+                        left = roomTopLeft.x - roomSize.width * 0.33f,
                         top = roomTopLeft.y + roomSize.height * 0.61f
                     ) {
                         drawText(
@@ -627,7 +637,7 @@ fun RoomsCanvas(
 
                 // Draw a custom icon if there's an icon
                 val customIcon = roomDataManager.getRoomCustomIcon(roomId)
-                if (customIcon != null) {
+                if (customIcon != null && (roomInfo == null || !roomInfo.groupMatesInFight || roomId == centerOnRoomId)) {
                     translate(left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2, top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2) {
                         with(roomIconPainter) {
                             draw(
@@ -637,12 +647,25 @@ fun RoomsCanvas(
                         }
                     }
                 }
+                // Draw a warn icon if there's a groupmate in-fight
+                else if ((roomId != centerOnRoomId) && roomInfo != null && roomInfo.groupMatesInFight){
+                    translate(left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2, top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2) {
+                        with(roomWarnPainter) {
+                            draw(
+                                size = roomWarnDesiredSize * scaleLogical * dpi,
+                                colorFilter = ColorFilter.tint(Color(0xffff7e7e)) // @TODO: get color from visual style
+                            )
+                        }
+                    }
+                }
 
-                // if the player is in the roomId, draw a stroke over it
-                if (roomId == centerOnRoomId) {
+                // if the player is in the roomId, draw a white stroke over it
+                // if a groupmate is in the roomId, draw a gray stroke over it
+                if (roomId == centerOnRoomId || roomInfo != null) {
                     val strokeWidth = 15f * scaleLogical // Make the stroke responsive to zoom
                     drawRoundRect(
-                        color = currentColorStyle.getUiColor(UiColor.MapRoomStroke),
+                        color = if (roomId == centerOnRoomId) currentColorStyle.getUiColor(UiColor.MapRoomStroke)
+                            else Color(0xff818181), //@TODO: use color from color style
                         topLeft = roomTopLeft,
                         size = roomSize,
                         cornerRadius = roomCornerRadius,
@@ -658,9 +681,9 @@ fun RoomsCanvas(
                     if (exit.direction == "Up" || exit.direction == "Down") {
 
                         // don't draw connections if one of the rooms is hidden
-                        val isRoom1Visited = roomDataManager.isRoomVisited(zoneId, room.id)
+                        val isRoom1Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(room.id)?.id ?: zoneId, room.id)
                         val hideRoom1 = !isRoom1Visited && !mapModel.areRoomsConnected(centerOnRoomId, room.id)
-                        val isRoom2Visited = roomDataManager.isRoomVisited(zoneId, exit.roomId)
+                        val isRoom2Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(exit.roomId)?.id ?: zoneId, exit.roomId)
                         val hideRoom2 = !isRoom2Visited && !mapModel.areRoomsConnected(centerOnRoomId, exit.roomId)
                         if (hideRoom1 || hideRoom2) return@forEach
 

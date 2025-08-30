@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license. -->
+
+<svg
+   width="26"
+   height="23"
+   viewBox="0 0 26 23"
+   fill="none"
+   version="1.1"
+   id="svg3"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <path
+     id="path1"
+     style="display:inline;fill:#ffe0d3;fill-opacity:1"
+     d="M 12.999148,0 C 12.501373,0 12.004301,0.2475625 11.719851,0.7421875 L 0.20031954,20.773438 C -0.36856151,21.762638 0.34185644,23 1.4796165,23 H 24.518679 c 1.1378,0 1.848197,-1.237362 1.279297,-2.226562 L 14.278445,0.7421875 C 13.993995,0.2475625 13.496923,0 12.999148,0 Z m 0,6 c 0.5523,0 1,0.44772 1,1 v 6 c 0,0.5523 -0.4477,1 -1,1 -0.5523,0 -1,-0.4477 -1,-1 V 7 c 0,-0.55229 0.4477,-1 1,-1 z m 0,11 c 0.8284,0 1.5,0.6716 1.5,1.5 0,0.8284 -0.6716,1.5 -1.5,1.5 -0.8284,0 -1.5,-0.6716 -1.5,-1.5 0,-0.8284 0.6716,-1.5 1.5,-1.5 z" />
+</svg>
