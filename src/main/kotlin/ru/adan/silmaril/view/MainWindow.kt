@@ -38,6 +38,13 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -151,6 +158,49 @@ fun MainWindow(
         }
     }
 
+    fun handleKey(event: KeyEvent): Boolean {
+        if (event.type != KeyEventType.KeyUp) return false
+        when (event.key) {
+            Key.PageUp -> {
+                scope.launch {
+                    if (!showSplitScreen)
+                        displaySplitScreen()
+                    else {
+                        val firstVisibleIndex = listStateNoAutoScroll.layoutInfo.visibleItemsInfo.first().index
+                        val oneLineHeight = getFontLineHeight(currentFontFamily)
+                        val linesOnScreen = textWindowHeight/oneLineHeight
+                        val scrollToIndex = (firstVisibleIndex - linesOnScreen * 0.5f).toInt().coerceAtLeast(0)
+                        if (listStateNoAutoScroll.layoutInfo.totalItemsCount >= scrollToIndex)
+                            listStateNoAutoScroll.animateScrollToItem(scrollToIndex)
+                    }
+                }
+                return true
+            }
+            Key.PageDown -> {
+                scope.launch {
+                    if (showSplitScreen)
+                    {
+                        val firstVisibleIndex = listStateNoAutoScroll.layoutInfo.visibleItemsInfo.first().index
+                        val oneLineHeight = getFontLineHeight(currentFontFamily)
+                        val linesOnScreen = textWindowHeight/oneLineHeight
+                        val scrollToIndex = (firstVisibleIndex + linesOnScreen * 0.5f).toInt().coerceAtMost(listStateNoAutoScroll.layoutInfo.totalItemsCount-1)
+                        listStateNoAutoScroll.animateScrollToItem(scrollToIndex)
+                    }
+                }
+                return showSplitScreen
+            }
+            Key.MoveEnd -> {
+                if (showSplitScreen && event.isCtrlPressed) {
+                    scope.launch {
+                        listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - 1)
+                    }
+                }
+                return showSplitScreen && event.isCtrlPressed
+            }
+        }
+        return false
+    }
+
     // Collect messages
     LaunchedEffect(mainViewModel) {
         mainViewModel.messages
@@ -158,9 +208,8 @@ fun MainWindow(
                 val item = OutputItem.new(msg) // wrap with a monotonically increasing id
                 messages += item
 
-                // consider RingBuffer<OutputItem>(capacity = 100_000) if current setup doesn't work out
-                
-                // Trim to cap (e.g., 100_000)
+                // consider RingBuffer<OutputItem>(capacity = 50_000) if current setup doesn't work out
+                // Trim to cap
                 val cap = 50_000
                 if (messages.size > cap) {
                     val toDrop = messages.size - cap
@@ -179,11 +228,20 @@ fun MainWindow(
     }
 
     // When main screen isn't at bottom, display split screen. When upper split screen at bottom, hide it
-    val secondaryAtBottom by rememberIsAtBottom(listStateNoAutoScroll)
-    LaunchedEffect(secondaryAtBottom) {
+    val upperScreenAtBottom by rememberIsAtBottom(listStateNoAutoScroll)
+    LaunchedEffect(upperScreenAtBottom) {
         when {
-            showSplitScreen && secondaryAtBottom -> {
+            showSplitScreen && upperScreenAtBottom -> {
                 showSplitScreen = false
+            }
+        }
+    }
+
+    val lowerScreenAtBottom by rememberIsAtBottom(listStateAutoScrollDown2)
+    LaunchedEffect(lowerScreenAtBottom) {
+        when {
+            showSplitScreen && !lowerScreenAtBottom -> {
+                scrollDown()
             }
         }
     }
@@ -208,9 +266,9 @@ fun MainWindow(
     Surface(
         modifier = Modifier
             .fillMaxSize()
+            .onPreviewKeyEvent (::handleKey),
             // testing shaders
             //.exampleShaderWithIntArray(Color.Red, intArrayOf(0, 1, -20, 300, 400, 5000, 9500, -700000))
-        ,
         color = currentColorStyle.getUiColor(UiColor.MainWindowBackground)
     ) {
         BoxWithConstraints(
