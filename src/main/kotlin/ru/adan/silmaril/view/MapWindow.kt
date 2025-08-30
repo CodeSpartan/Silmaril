@@ -214,7 +214,7 @@ fun RoomsCanvas(
     val pathToHighlight by mapViewModel.pathToHighlight.collectAsState()
     val robotoFont = remember {FontManager.getFont("RobotoClassic")}
 
-    val groupMatesRooms by unifiedMapsViewModel.groupMatesRooms
+    val mapInfoByRoom by unifiedMapsViewModel.mapUpdatesForRooms
         .collectAsStateWithLifecycle(initialValue = emptyMap())
 
     // Pencil icon: display it on top of rooms that have comments
@@ -580,23 +580,47 @@ fun RoomsCanvas(
                     }
                 }
 
-                // Draw the number of groupmates in this room
-                val groupMatesHere = groupMatesRooms[roomId]
-                if (roomId != centerOnRoomId && groupMatesHere != null) {
-                    val dx = roomTopLeft.x + roomSize.width * 1.03f
-                    val dy = roomTopLeft.y - roomSize.height * 0.2f
+                // Draw the number of groupmates and enemies in this room
+                val roomInfo = mapInfoByRoom[roomId]
+                if (roomId != centerOnRoomId && roomInfo != null) {
                     // there's a compose bug that crashes if drawText(topLeft is outside of Canvas bounds), so we translate instead
-                    translate(left = dx, top = dy) {
+                    val baseStyle = TextStyle(
+                        fontFamily = robotoFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = (24 * scaleLogical * dpi).sp
+                    )
+
+                    val gmText = roomInfo.groupMates.toString()
+                    val gmLayout = textMeasurer.measure(text = gmText, style = baseStyle)
+                    val gmColor = if (roomInfo.groupMatesInFight) Color(0xFFffe0d3)
+                        else Color(0xffe8e8e8)
+
+                    translate(
+                        left = roomTopLeft.x + roomSize.width * 1.03f,
+                        top = roomTopLeft.y - roomSize.height * 0.2f
+                    ) {
+                        // Note: this overload takes a TextLayoutResult and a color override
                         drawText(
-                            textMeasurer = textMeasurer,
-                            text = "${groupMatesHere.size}",
-                            topLeft = Offset.Zero, // stay in-bounds and offset the canvas instead
-                            style = TextStyle(
-                                color = Color(0xffe8e8e8), // @TODO: get color from visual style
-                                fontFamily = robotoFont,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = (24 * scaleLogical * dpi).sp
-                            )
+                            textLayoutResult = gmLayout,
+                            color = gmColor,
+                            topLeft = Offset.Zero
+                        )
+                    }
+
+                    // Enemies
+                    val enemiesText = roomInfo.monsters.toString()
+                    val enemiesLayout = textMeasurer.measure(text = enemiesText, style = baseStyle)
+                    val enemiesColor = if (roomInfo.groupMatesInFight) Color(0xFFffe0d3)
+                        else Color(0xffe8e8e8)
+
+                    translate(
+                        left = roomTopLeft.x + roomSize.width * 1.03f,
+                        top = roomTopLeft.y + roomSize.height * 0.61f
+                    ) {
+                        drawText(
+                            textLayoutResult = enemiesLayout,
+                            color = enemiesColor,
+                            topLeft = Offset.Zero
                         )
                     }
                 }
