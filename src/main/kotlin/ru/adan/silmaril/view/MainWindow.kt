@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import io.github.oshai.kotlinlogging.KLogger
@@ -64,8 +66,20 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
+import org.jetbrains.jewel.intui.standalone.styling.dark
+import org.jetbrains.jewel.ui.component.DefaultButton
+import org.jetbrains.jewel.ui.component.DropdownLink
+import org.jetbrains.jewel.ui.component.Link
+import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.SplitLayoutState
+import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.VerticalSplitLayout
+import org.jetbrains.jewel.ui.component.separator
+import org.jetbrains.jewel.ui.component.styling.LocalTooltipStyle
+import org.jetbrains.jewel.ui.component.styling.MenuColors
+import org.jetbrains.jewel.ui.component.styling.MenuStyle
+import org.jetbrains.jewel.ui.component.styling.TooltipAutoHideBehavior
+import org.jetbrains.jewel.ui.component.styling.TooltipStyle
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.FontManager.getFontLineHeight
@@ -73,6 +87,9 @@ import ru.adan.silmaril.misc.OutputItem
 import ru.adan.silmaril.misc.TextSize
 import ru.adan.silmaril.visual_styles.ColorStyle
 import ru.adan.silmaril.misc.rememberIsAtBottom
+import ru.adan.silmaril.view.hovertooltips.LoreTooltip
+import kotlin.collections.forEach
+import kotlin.random.Random
 
 @Composable
 fun MainWindow(
@@ -237,6 +254,7 @@ fun MainWindow(
         }
     }
 
+    // When the lower screen isn't at the bottom (e.g. the user moved the split separator), scroll it down
     val lowerScreenAtBottom by rememberIsAtBottom(listStateAutoScrollDown2)
     LaunchedEffect(lowerScreenAtBottom) {
         when {
@@ -408,7 +426,7 @@ fun MainWindow(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun TextColumn(
     paddingLeft: Dp,
@@ -422,6 +440,13 @@ private fun TextColumn(
     withScrollbar: Boolean,
     showSplitScreen: () -> Unit
 ) {
+    val loreLinkTextStyle = remember {
+        TextStyle(
+            fontSize = currentFontSize.sp,
+            fontFamily = FontManager.getFont(currentFontFamily)
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -459,40 +484,102 @@ private fun TextColumn(
                         ) { idx ->
                             val message = messages[idx].message
                             // Combine chunks into a single AnnotatedString
-                            val annotatedText = buildAnnotatedString {
-                                message.chunks.forEach { chunk ->
-                                    withStyle(
-                                        style = SpanStyle(
-                                            color = if (chunk.fg.isLiteral) chunk.fg.color!! else currentColorStyle.getAnsiColor(
-                                                chunk.fg.ansi,
-                                                chunk.fg.isBright
-                                            ),
-                                            fontSize = when (chunk.textSize) {
-                                                TextSize.Small -> (currentFontSize - 4).sp
-                                                TextSize.Normal -> currentFontSize.sp
-                                                TextSize.Large -> (currentFontSize + 4).sp
-                                            },
-                                            background = if (chunk.bg.isLiteral)
-                                                chunk.bg.color!!
-                                            else if (chunk.bg.ansi != AnsiColor.None) currentColorStyle.getAnsiColor(
-                                                chunk.bg.ansi,
-                                                chunk.bg.isBright
-                                            ) else Color.Unspecified,
-                                            // You can add other styles like fontWeight here if needed
-                                        )
-                                    ) {
-                                        append(chunk.text)
+                            val annotatedText = remember (
+                                messages[idx].id,
+                                currentColorStyle,
+                                currentFontSize,
+                                currentFontFamily
+                            ) {
+                                buildAnnotatedString {
+                                    message.chunks.forEach { chunk ->
+                                        withStyle(
+                                            style = SpanStyle(
+                                                color = if (chunk.fg.isLiteral) chunk.fg.color!! else currentColorStyle.getAnsiColor(
+                                                    chunk.fg.ansi,
+                                                    chunk.fg.isBright
+                                                ),
+                                                fontSize = when (chunk.textSize) {
+                                                    TextSize.Small -> (currentFontSize - 4).sp
+                                                    TextSize.Normal -> currentFontSize.sp
+                                                    TextSize.Large -> (currentFontSize + 4).sp
+                                                },
+                                                background = if (chunk.bg.isLiteral)
+                                                    chunk.bg.color!!
+                                                else if (chunk.bg.ansi != AnsiColor.None) currentColorStyle.getAnsiColor(
+                                                    chunk.bg.ansi,
+                                                    chunk.bg.isBright
+                                                ) else Color.Unspecified,
+                                                // You can add other styles like fontWeight here if needed
+                                            )
+                                        ) {
+                                            append(chunk.text)
+                                        }
                                     }
+                                    append("\r") // helps format the copied text, otherwise it has no newlines
                                 }
-                                append("\r") // helps format the copied text, otherwise it has no newlines
                             }
 
-                            Text(
-                                text = annotatedText,
-                                modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
-                                fontSize = currentFontSize.sp,
-                                fontFamily = FontManager.getFont(currentFontFamily)
-                            )
+                            // Make random choice stable per item
+                            val showDropdown by remember(messages[idx].id) {
+                                mutableStateOf(Random.nextInt(10) == 0)
+                            }
+
+                            val showPopupMenu = remember {mutableStateOf(false)}
+
+                            if (showDropdown) {
+                                Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        text = annotatedText,
+                                        //modifier = Modifier.fillMaxWidth(), leave space for lore
+                                        fontSize = currentFontSize.sp,
+                                        fontFamily = FontManager.getFont(currentFontFamily)
+                                    )
+
+                                    DisableSelection {
+                                        Link(
+                                            text = "link",
+                                            textStyle = loreLinkTextStyle,
+                                            onClick = { showPopupMenu.value = !showPopupMenu.value }
+                                        )
+                                        if (showPopupMenu.value) {
+                                            PopupMenu(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                style = MenuStyle.dark(
+                                                    colors = MenuColors.dark(
+                                                        border = Color.Unspecified,
+                                                        background = currentColorStyle.getUiColor(UiColor.HoverBackground)
+                                                    )),
+                                                onDismissRequest = {
+                                                    showPopupMenu.value = false
+                                                    true
+                                                },
+                                                content = {
+                                                    passiveItem {
+                                                        LoreTooltip("кольцо насыщения", currentColorStyle)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+//                                    DisableSelection {
+//                                        DropdownLink(text = "Лор", textStyle = loreLinkTextStyle) {
+//                                            passiveItem {
+//                                                Text("tedfs")
+//                                            }
+//                                        }
+//                                    }
+                                }
+                            }
+                            else {
+                                Text(
+                                    text = annotatedText,
+                                    modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
+                                    fontSize = currentFontSize.sp,
+                                    fontFamily = FontManager.getFont(currentFontFamily)
+                                )
+                            }
                         }
                     }
                 }

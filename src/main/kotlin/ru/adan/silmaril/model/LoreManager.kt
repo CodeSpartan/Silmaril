@@ -27,6 +27,22 @@ class LoreManager() : KoinComponent {
         coroutineScope.cancel()
     }
 
+    suspend fun findExactMatchOrAlmost(loreName: String) : Pair<Boolean, List<String>> = withContext(Dispatchers.IO) {
+        val directory = File(getLoresDirectory())
+        val sanitized = loreName.replace(" ", "_").replace("\"", "")
+        val filter = FilenameFilter { _, name ->
+            name.startsWith(sanitized, ignoreCase = true)
+        }
+        val files = directory.listFiles(filter)
+        val fileExactMatch = files.find { it.name == sanitized }
+        if (files.size == 1 || fileExactMatch != null ) {
+            val file = if (files.size == 1) files[0] else fileExactMatch
+            true to (LoreMessage.fromXml(file!!.readText(Charsets.UTF_16LE))?.loreAsTaggedTexts() ?: emptyList())
+        } else {
+            false to emptyList()
+        }
+    }
+
     fun findLoreInFiles(loreName: String) {
         val sanitized = loreName.replace(" ", "_").replace("\"", "")
         coroutineScope.launch {

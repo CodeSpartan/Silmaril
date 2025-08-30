@@ -1,8 +1,10 @@
 package ru.adan.silmaril.misc
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import org.jetbrains.jewel.ui.util.fromRGBAHexStringOrNull
 
+@Immutable
 data class ColorfulTextMessage(
     val chunks: Array<TextMessageChunk>
 ) {
@@ -238,6 +240,7 @@ data class ColorOrAnsi(
     val isLiteral: Boolean get() = color != null
 }
 
+@Immutable
 data class TextMessageChunk(
     var text: String,
     var fg: ColorOrAnsi = ColorOrAnsi.fromAnsi(AnsiColor.None, false),

@@ -228,6 +228,7 @@ fun formatMem(seconds: Int): String {
 }
 
 // a wrapper to carry a stable, monotonic id
+@Immutable
 data class OutputItem(val id: Long, val message: ColorfulTextMessage) {
     companion object {
         private var nextId = 0L

@@ -54,12 +54,12 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
                 if (myName == "") {
                     val myNameMatch = myNameRegex.find(textMessage)
                     if (myNameMatch != null) {
-                        logger.info { "My name is $myName" }
+                        logger.debug { "My name is $myName" }
                         myName = myNameMatch.groupValues[1]
                     } else {
                         val myNameMatch2 = myNameRegex2.find(textMessage)
                         if (myNameMatch2 != null) {
-                            logger.info { "My name is $myName" }
+                            logger.debug { "My name is $myName" }
                             myName = myNameMatch2.groupValues[1]
                         }
                     }
