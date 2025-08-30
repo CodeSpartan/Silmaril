@@ -58,6 +58,7 @@ import ru.adan.silmaril.model.SettingsManager
 import kotlin.collections.get
 import org.koin.compose.koinInject
 import ru.adan.silmaril.generated.resources.Res
+import ru.adan.silmaril.generated.resources.map_highlight
 import ru.adan.silmaril.generated.resources.warn
 import ru.adan.silmaril.misc.doubleClickOrSingle
 import ru.adan.silmaril.misc.toComposeColor
@@ -235,9 +236,12 @@ fun RoomsCanvas(
     val roomIconDesiredSize = remember { Size(70f, 70f) }
 
     // Warn icon: display it on top of rooms where groupmates are in-fight
-
     val roomWarnPainter = painterResource(Res.drawable.warn)
     val roomWarnDesiredSize = remember { Size(70f, 61f) }
+
+    // Warn icon: display it on top of rooms where groupmates are in-fight
+    val roomHighlightPainter = painterResource(Res.drawable.map_highlight)
+    val roomHighlightDesiredSize = remember { Size(200f, 200f) }
 
     val lastMousePos = remember { mutableStateOf(Offset.Zero) }
 
@@ -291,6 +295,7 @@ fun RoomsCanvas(
 
         val roomIconScaledSize = roomIconDesiredSize * scaleLogical * dpi
         val commentScaledSize = commentDesiredSize * scaleLogical * dpi
+        val roomHighlightScaledSize = roomHighlightDesiredSize * scaleLogical * dpi
 
         val dragBarHeightInPixels: Float = with(LocalDensity.current) {
             topBarPixelHeight.toPx()
@@ -583,8 +588,7 @@ fun RoomsCanvas(
                         with(commentPainter) {
                             draw(
                                 size = commentScaledSize,
-                                // @TODO: get color from visual style
-                                colorFilter = ColorFilter.tint(Color(0xffcfcfcf))
+                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.MapNeutralIcon))
                             )
                         }
                     }
@@ -602,8 +606,8 @@ fun RoomsCanvas(
 
                     val gmText = roomInfo.groupMates.toString()
                     val gmLayout = textMeasurer.measure(text = gmText, style = baseStyle)
-                    val gmColor = if (roomInfo.groupMatesInFight) Color(0xffffa3a0)
-                        else Color(0xffe8e8e8)
+                    val gmColor = if (roomInfo.groupMatesInFight) currentColorStyle.getUiColor(UiColor.MapWarningIcon)
+                        else currentColorStyle.getUiColor(UiColor.InputFieldText)
 
                     translate(
                         left = roomTopLeft.x - roomSize.width * 0.33f,
@@ -620,8 +624,8 @@ fun RoomsCanvas(
                     // Enemies
                     val enemiesText = roomInfo.monsters.toString()
                     val enemiesLayout = textMeasurer.measure(text = enemiesText, style = baseStyle)
-                    val enemiesColor = if (roomInfo.groupMatesInFight) Color(0xffffa3a0)
-                        else Color(0xffe8e8e8)
+                    val enemiesColor = if (roomInfo.groupMatesInFight) currentColorStyle.getUiColor(UiColor.MapWarningIcon)
+                        else currentColorStyle.getUiColor(UiColor.InputFieldText)
 
                     translate(
                         left = roomTopLeft.x - roomSize.width * 0.33f,
@@ -642,18 +646,33 @@ fun RoomsCanvas(
                         with(roomIconPainter) {
                             draw(
                                 size = roomIconDesiredSize * scaleLogical * dpi,
-                                colorFilter = ColorFilter.tint(Color(0xffcfcfcf)) // @TODO: get color from visual style
+                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.MapNeutralIcon))
                             )
                         }
                     }
                 }
                 // Draw a warn icon if there's a groupmate in-fight
                 else if ((roomId != centerOnRoomId) && roomInfo != null && roomInfo.groupMatesInFight){
-                    translate(left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2, top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2) {
+                    // red glow
+                    translate(
+                        left = roomTopLeft.x + scaledRoomSize * 0.5f - roomHighlightScaledSize.width * 0.5f,
+                        top = roomTopLeft.y + scaledRoomSize * 0.5f - roomHighlightScaledSize.height * 0.5f
+                    ) {
+                        with(roomHighlightPainter) {
+                            draw(
+                                size = roomHighlightDesiredSize * scaleLogical * dpi,
+                            )
+                        }
+                    }
+                    // warn icon
+                    translate(
+                        left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2,
+                        top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2
+                    ) {
                         with(roomWarnPainter) {
                             draw(
                                 size = roomWarnDesiredSize * scaleLogical * dpi,
-                                colorFilter = ColorFilter.tint(Color(0xffff7e7e)) // @TODO: get color from visual style
+                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.MapWarningIcon))
                             )
                         }
                     }
@@ -661,11 +680,11 @@ fun RoomsCanvas(
 
                 // if the player is in the roomId, draw a white stroke over it
                 // if a groupmate is in the roomId, draw a gray stroke over it
-                if (roomId == centerOnRoomId || roomInfo != null) {
+                if (roomId == centerOnRoomId || (roomInfo != null && !roomInfo.groupMatesInFight)) {
                     val strokeWidth = 15f * scaleLogical // Make the stroke responsive to zoom
                     drawRoundRect(
                         color = if (roomId == centerOnRoomId) currentColorStyle.getUiColor(UiColor.MapRoomStroke)
-                            else Color(0xff818181), //@TODO: use color from color style
+                                else currentColorStyle.getUiColor(UiColor.MapRoomStrokeSecondary),
                         topLeft = roomTopLeft,
                         size = roomSize,
                         cornerRadius = roomCornerRadius,
