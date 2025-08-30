@@ -48,12 +48,11 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.zIndex
 import io.github.oshai.kotlinlogging.KLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -78,7 +77,6 @@ fun MainWindow(
 ) {
     val settingsManager: SettingsManager = koinInject()
 
-    // consider RingBuffer<OutputItem>(capacity = 100_000) if current setup doesn't work out
     val messages = remember { mutableStateListOf<OutputItem>() }
     val settings by settingsManager.settings.collectAsState()
 
@@ -99,7 +97,8 @@ fun MainWindow(
     val focusRequester = remember { FocusRequester() }
     var inputFieldReady by remember { mutableStateOf(false) }
     val listStateNoAutoScroll = rememberLazyListState()
-    val listStateAutoScrollDown = rememberLazyListState()
+    val listStateAutoScrollDown1 = rememberLazyListState()
+    val listStateAutoScrollDown2 = rememberLazyListState()
     var showSplitScreen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -107,19 +106,30 @@ fun MainWindow(
 
     var inputTextField by remember { mutableStateOf(TextFieldValue("")) }
 
+    val density = LocalDensity.current.density
+
     // Scrolls the primary window down completely
     // Scrolls the secondary window down incompletely
     suspend fun scrollDown(primaryWindow: Boolean = true) {
         try {
             if (messages.isNotEmpty()) {
-                if (primaryWindow && listStateAutoScrollDown.layoutInfo.totalItemsCount > 0) {
-                    listStateAutoScrollDown.scrollToItem(messages.size - 1)
+                if (primaryWindow) {
+                    if (listStateAutoScrollDown1.layoutInfo.totalItemsCount > 0)
+                        listStateAutoScrollDown1.scrollToItem(listStateAutoScrollDown1.layoutInfo.totalItemsCount - 1)
+
+                    if (listStateAutoScrollDown2.layoutInfo.totalItemsCount > 0)
+                        listStateAutoScrollDown2.scrollToItem(listStateAutoScrollDown2.layoutInfo.totalItemsCount - 1)
+
+                    if (!showSplitScreen) {
+                        if (listStateNoAutoScroll.layoutInfo.totalItemsCount > 0)
+                            listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - 1)
+                    }
                 }
                 else {
                     val oneLineHeight = getFontLineHeight(currentFontFamily)
                     val linesOnScreen = textWindowHeight/oneLineHeight
                     if (listStateNoAutoScroll.layoutInfo.totalItemsCount >= (linesOnScreen + 5))
-                        listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - (linesOnScreen.toInt() + 5))
+                        listStateNoAutoScroll.animateScrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - (linesOnScreen.toInt() + 5))
                 }
             }
         } catch (e: CancellationException) {
@@ -127,49 +137,6 @@ fun MainWindow(
             if (!currentCoroutineContext().isActive) throw e
             // Otherwise it's a MutatorMutex cancellation (e.g., user scroll); ignore
             logger.debug { "Scroll cancelled (higher-priority mutation). This is normal, ignoring." }
-        }
-    }
-
-    val secondaryAtBottom by rememberIsAtBottom(listStateNoAutoScroll)
-
-    // When main screen isn't at bottom, display split screen. When upper split screen at bottom, hide it
-    LaunchedEffect(secondaryAtBottom) {
-        when {
-            showSplitScreen && secondaryAtBottom -> {
-                showSplitScreen = false
-            }
-        }
-    }
-
-    LaunchedEffect(mainViewModel) {
-        mainViewModel.messages
-            .onEach { msg ->
-                val item = OutputItem.new(msg) // wrap with a monotonically increasing id
-                messages += item
-
-                // Trim to cap (e.g., 100_000)
-                val cap = 50_000
-                if (messages.size > cap) {
-                    val toDrop = messages.size - cap
-                    // Efficient trim: drop from the front without per-item recompositions
-                    messages.removeRange(0, toDrop)
-                }
-
-                scrollDown()
-            }
-            .catch { e ->
-                if (e is CancellationException) throw e // let real cancellation propagate
-                logger.error(e) { "messages collector error" }
-            }
-            .onCompletion { cause ->
-                logger.warn { "messages collector completed. cause=$cause" }
-            }
-            .launchIn(this) // terminal
-    }
-
-    LaunchedEffect(isFocused, inputFieldReady) {
-        if (isFocused && inputFieldReady) {
-            focusRequester.requestFocus()
         }
     }
 
@@ -184,8 +151,60 @@ fun MainWindow(
         }
     }
 
-    val density = LocalDensity.current.density
+    // Collect messages
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.messages
+            .onEach { msg ->
+                val item = OutputItem.new(msg) // wrap with a monotonically increasing id
+                messages += item
 
+                // consider RingBuffer<OutputItem>(capacity = 100_000) if current setup doesn't work out
+                
+                // Trim to cap (e.g., 100_000)
+                val cap = 50_000
+                if (messages.size > cap) {
+                    val toDrop = messages.size - cap
+                    // Efficient trim: drop from the front without per-item recompositions
+                    messages.removeRange(0, toDrop)
+                }
+            }
+            .catch { e ->
+                if (e is CancellationException) throw e // let real cancellation propagate
+                logger.error(e) { "messages collector error" }
+            }
+            .onCompletion { cause ->
+                logger.warn { "messages collector completed. cause=$cause" }
+            }
+            .launchIn(this) // terminal
+    }
+
+    // When main screen isn't at bottom, display split screen. When upper split screen at bottom, hide it
+    val secondaryAtBottom by rememberIsAtBottom(listStateNoAutoScroll)
+    LaunchedEffect(secondaryAtBottom) {
+        when {
+            showSplitScreen && secondaryAtBottom -> {
+                showSplitScreen = false
+            }
+        }
+    }
+
+    // When the window gets focused, give focus to input field
+    LaunchedEffect(isFocused, inputFieldReady) {
+        if (isFocused && inputFieldReady) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    // Scroll when lastId changes (i.e., on each new message)
+    val lastId by remember { derivedStateOf { messages.lastOrNull()?.id } } // Track the id of the last item
+    LaunchedEffect(lastId) {
+        if (lastId == null) return@LaunchedEffect
+        // Wait one frame so LazyColumn is laid out with the new item
+        withFrameNanos { }
+        scrollDown()
+    }
+
+    // Composable itself
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -209,12 +228,16 @@ fun MainWindow(
 
             Column {
                 Box(Modifier.weight(1f)) {
-                    if (!showSplitScreen) {
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer(alpha = if (!showSplitScreen) 1f else 0f)
+                            .zIndex(if (!showSplitScreen) 1f else 0f),
+                    ) {
                         TextColumn(
                             paddingLeft,
                             customTextSelectionColors,
                             paddingRight,
-                            listStateAutoScrollDown,
+                            listStateAutoScrollDown1,
                             messages,
                             currentColorStyle,
                             currentFontSize,
@@ -222,42 +245,45 @@ fun MainWindow(
                             false,
                             ::displaySplitScreen
                         )
-                    } else {
-                        VerticalSplitLayout(
-                            state = splitState,
-                            modifier = Modifier.fillMaxWidth(),
-                            firstPaneMinWidth = 200.dp,
-                            secondPaneMinWidth = 200.dp,
-                            first = {
-                                TextColumn(
-                                    paddingLeft,
-                                    customTextSelectionColors,
-                                    paddingRight,
-                                    listStateNoAutoScroll,
-                                    messages,
-                                    currentColorStyle,
-                                    currentFontSize,
-                                    currentFontFamily,
-                                    true,
-                                    ::displaySplitScreen
-                                )
-                            },
-                            second = {
-                                TextColumn(
-                                    paddingLeft,
-                                    customTextSelectionColors,
-                                    paddingRight,
-                                    listStateAutoScrollDown,
-                                    messages,
-                                    currentColorStyle,
-                                    currentFontSize,
-                                    currentFontFamily,
-                                    false,
-                                    ::displaySplitScreen
-                                )
-                            },
-                        )
                     }
+
+                    VerticalSplitLayout(
+                        state = splitState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer(alpha = if (showSplitScreen) 1f else 0f)
+                            .zIndex(if (showSplitScreen) 1f else 0f),
+                        firstPaneMinWidth = 200.dp,
+                        secondPaneMinWidth = 200.dp,
+                        first = {
+                            TextColumn(
+                                paddingLeft,
+                                customTextSelectionColors,
+                                paddingRight,
+                                listStateNoAutoScroll,
+                                messages,
+                                currentColorStyle,
+                                currentFontSize,
+                                currentFontFamily,
+                                true,
+                                ::displaySplitScreen
+                            )
+                        },
+                        second = {
+                            TextColumn(
+                                paddingLeft,
+                                customTextSelectionColors,
+                                paddingRight,
+                                listStateAutoScrollDown2,
+                                messages,
+                                currentColorStyle,
+                                currentFontSize,
+                                currentFontFamily,
+                                false,
+                                ::displaySplitScreen
+                            )
+                        },
+                    )
                 }
 
                 // Input field at the bottom of the screen
