@@ -27,7 +27,8 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
     private var myName = ""
     private var myMaxHp = -1
 
-    val myNameRegex = """^Вы \p{L}+ (\p{L}+), \p{L}+ \d+ уровня\.$""".toRegex()
+    val myNameRegex = """^Вы [\p{L}-]+ (\p{L}+), (\p{L})+ \d+ уровня\.$""".toRegex()
+    val myNameRegex2 = """^Аккaунт \[\p{L}+\] Персонаж \[(\p{L}+)\]$""".toRegex()
     val myMaxHpRegex = """^Вы имеете \d+\((\d+)\) единиц здоровья, \d+\(\d+\) энергетических единиц\.$""".toRegex()
     val othersMaxHpRegex = """^(\p{L}+) сообщи(?:л|ла|ло|ли) группе: \d+\/(\d+)H, \d+\/\d+V$""".toRegex()
     val petRegex1 = """^Имя:\s+([\p{L}\s]+), Где находится: В комнате <.+>$""".toRegex()
@@ -36,7 +37,7 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
     var groupPetName = ""
     var petOnNextLine = false
 
-    private val groupMates: StateFlow<List<Creature>> = client.lastGroupMessage
+    val groupMates: StateFlow<List<Creature>> = client.lastGroupMessage
         .stateIn(
             scope = scopeDefault,
             started = SharingStarted.Eagerly, // is initialized and runs continuously
@@ -53,11 +54,17 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
                 if (myName == "") {
                     val myNameMatch = myNameRegex.find(textMessage)
                     if (myNameMatch != null) {
-                        logger.debug { "My name is $myName" }
+                        logger.info { "My name is $myName" }
                         myName = myNameMatch.groupValues[1]
+                    } else {
+                        val myNameMatch2 = myNameRegex2.find(textMessage)
+                        if (myNameMatch2 != null) {
+                            logger.info { "My name is $myName" }
+                            myName = myNameMatch2.groupValues[1]
+                        }
                     }
                 }
-                if (myName != "" && myMaxHp == -1) {
+                if (myName != "") {
                     val myMaxHpMatch = myMaxHpRegex.find(textMessage)
                     if (myMaxHpMatch != null) {
                         myMaxHp = myMaxHpMatch.groupValues[1].toInt()

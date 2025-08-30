@@ -15,6 +15,7 @@ import ru.adan.silmaril.misc.capitalized
 import ru.adan.silmaril.viewmodel.MainViewModel
 import ru.adan.silmaril.viewmodel.MapInfoSource
 import ru.adan.silmaril.viewmodel.MapViewModel
+import ru.adan.silmaril.viewmodel.ProfileCreatureSource
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 
 class ProfileManager(
@@ -55,14 +56,31 @@ class ProfileManager(
     }
 
     fun updateUnifiedMapViewModel() {
-        val sources: List<MapInfoSource> =
+        val roomSources: List<MapInfoSource> =
             gameWindows.value.values.map { profile ->
                 MapInfoSource(
                     profileName = profile.profileName,
                     currentRoom = profile.mapViewModel.currentRoom
                 )
             }
-        unifiedMapsViewModel.setProfileSources(sources)
+
+        val groupSources: List<ProfileCreatureSource> =
+            gameWindows.value.values.map { profile ->
+                ProfileCreatureSource(
+                    profileName = profile.profileName,
+                    currentCreatures = profile.groupModel.groupMates
+                )
+            }
+
+        val enemySources: List<ProfileCreatureSource> =
+            gameWindows.value.values.map { profile ->
+                ProfileCreatureSource(
+                    profileName = profile.profileName,
+                    currentCreatures = profile.mobsModel.mobs
+                )
+            }
+
+        unifiedMapsViewModel.setSources(roomSources, groupSources, enemySources)
     }
 
     fun addProfile(windowName: String) {

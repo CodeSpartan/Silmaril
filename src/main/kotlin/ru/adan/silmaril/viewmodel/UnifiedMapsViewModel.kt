@@ -7,24 +7,24 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import org.koin.core.component.KoinComponent
+import ru.adan.silmaril.mud_messages.Creature
 import ru.adan.silmaril.mud_messages.CurrentRoomMessage
 
 data class MapInfoSource (
     val profileName: String,
     val currentRoom: StateFlow<CurrentRoomMessage>,
+)
+
+data class ProfileCreatureSource(
+    val profileName: String,
+    val currentCreatures: StateFlow<List<Creature>>,
 )
 
 data class MapUpdate(
@@ -39,6 +39,12 @@ class UnifiedMapsViewModel () : KoinComponent {
     // Dynamic list of instances can change at runtime
     private val _profilesInRoom = MutableStateFlow<List<MapInfoSource>>(emptyList())
     val profilesInRoom: StateFlow<List<MapInfoSource>> = _profilesInRoom
+
+    private val _groupMatesInRoom = MutableStateFlow<List<ProfileCreatureSource>>(emptyList())
+    val groupMatesInRoom: StateFlow<List<ProfileCreatureSource>> = _groupMatesInRoom
+
+    private val _enemiesInRoom = MutableStateFlow<List<ProfileCreatureSource>>(emptyList())
+    val enemiesInRoom: StateFlow<List<ProfileCreatureSource>> = _enemiesInRoom
 
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -63,8 +69,10 @@ class UnifiedMapsViewModel () : KoinComponent {
             initialValue = emptyMap()
         )
 
-    fun setProfileSources(newSources: List<MapInfoSource>) {
+    fun setSources(newSources: List<MapInfoSource>, groupSources: List<ProfileCreatureSource>, enemySources: List<ProfileCreatureSource>) {
         _profilesInRoom.value = newSources
+        _groupMatesInRoom.value = groupSources
+        _enemiesInRoom.value = enemySources
     }
 
     fun cleanup() {

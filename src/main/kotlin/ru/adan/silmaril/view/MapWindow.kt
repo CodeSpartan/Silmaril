@@ -62,10 +62,8 @@ import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
-import ru.adan.silmaril.viewmodel.MapInfoUpdate
 import ru.adan.silmaril.viewmodel.MapViewModel
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
-import kotlin.collections.mapValues
 
 
 @Composable

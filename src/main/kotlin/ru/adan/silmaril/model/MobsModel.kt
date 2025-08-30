@@ -20,7 +20,7 @@ class MobsModel(private val client: MudConnection, private val settingsManager: 
 
     private val scopeDefault = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val mobs: StateFlow<List<Creature>> = client.lastMonstersMessage
+    val mobs: StateFlow<List<Creature>> = client.lastMonstersMessage
         .stateIn(
             scope = scopeDefault,
             started = SharingStarted.Eagerly, // is initialized and runs continuously
