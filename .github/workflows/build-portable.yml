@@ -26,8 +26,8 @@ jobs:
           # macOS arm64 (macos-latest runners are Apple Silicon)
           - os: macos-latest
             artifact_suffix: macos
-            # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef)
-            jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-osx-x64-b895.146.tar.gz"
+            # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef). Use osx-aarch64.
+            jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-osx-aarch64-b895.146.tar.gz"
             jbr_archive: "jbr.tar.gz"
           # Windows x64
           - os: windows-latest
@@ -43,12 +43,11 @@ jobs:
       - name: Validate Gradle Wrapper
         uses: gradle/wrapper-validation-action@v2
 
-      # Linux: install libfuse for AppImage runtime tooling
       - name: Install dependencies (Linux)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2
+          sudo apt-get install -y libfuse2 zip
 
       # Download and set up JBR 21.0.8 (SDK variant) per-OS
       - name: Download JBR (Linux/macOS)
@@ -60,7 +59,6 @@ jobs:
           echo "Downloading: ${{ matrix.jbr_url }}"
           curl -fL "${{ matrix.jbr_url }}" -o "$RUNNER_TEMP/${{ matrix.jbr_archive }}"
           tar -xzf "$RUNNER_TEMP/${{ matrix.jbr_archive }}" -C "$RUNNER_TEMP/jbr"
-          # Find extracted JBR directory
           JBR_HOME=$(find "$RUNNER_TEMP/jbr" -maxdepth 1 -type d -name "jbrsdk*" | head -n1)
           if [[ -z "$JBR_HOME" ]]; then
             echo "Failed to locate extracted JBR directory" >&2
@@ -70,8 +68,6 @@ jobs:
           echo "JBR_HOME=$JBR_HOME" >> $GITHUB_ENV
           echo "JAVA_HOME=$JBR_HOME" >> $GITHUB_ENV
           echo "$JBR_HOME/bin" >> $GITHUB_PATH
-          # Force Gradle + Toolchains to use this JBR
-          echo "GRADLE_OPTS=-Dorg.gradle.java.home=$JBR_HOME -Dorg.gradle.java.installations.paths=$JBR_HOME -Dorg.gradle.java.installations.auto-download=false" >> $GITHUB_ENV
 
       - name: Download JBR (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
@@ -84,23 +80,20 @@ jobs:
           $zipPath = "$env:RUNNER_TEMP\${{ matrix.jbr_archive }}"
           Invoke-WebRequest -Uri "${{ matrix.jbr_url }}" -OutFile $zipPath
           Expand-Archive -Path $zipPath -DestinationPath $jbrDir -Force
-          # Find extracted JBR directory
           $jbrHome = Get-ChildItem -Path $jbrDir -Directory | Where-Object { $_.Name -like 'jbrsdk*' } | Select-Object -First 1
           if (-not $jbrHome) {
-            Write-Error "Failed to locate extracted JBR directory. Contents:" 
-            Get-ChildItem -Path $jbrDir -Force -Recurse | Format-List
+            Write-Error "Failed to locate extracted JBR directory."
+            Get-ChildItem -Path $jbrDir -Force -Recurse
             exit 1
           }
           echo "JBR_HOME=$($jbrHome.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "JAVA_HOME=$($jbrHome.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "$($jbrHome.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          # Force Gradle + Toolchains to use this JBR
-          echo "GRADLE_OPTS=-Dorg.gradle.java.home=$($jbrHome.FullName) -Dorg.gradle.java.installations.paths=$($jbrHome.FullName) -Dorg.gradle.java.installations.auto-download=false" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Set build version from tag or branch
+      - name: Set build version from tag or manual run
         shell: bash
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
@@ -110,11 +103,27 @@ jobs:
           fi
           echo "Building version: ${APP_VERSION}"
 
-      - name: Build AppImage (all OS)
+      # Build on Linux/macOS (bash)
+      - name: Build AppImage (Linux/macOS)
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
         shell: bash
         run: |
           ./gradlew --no-daemon --stacktrace --info \
             -Pversion="${APP_VERSION}" \
+            -Dorg.gradle.java.installations.paths="${JBR_HOME}" \
+            -Dorg.gradle.java.installations.auto-download=false \
+            packageReleaseAppImage
+
+      # Build on Windows (PowerShell, use gradlew.bat and forward slashes)
+      - name: Build AppImage (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: pwsh
+        run: |
+          $JBR_FWD = $env:JBR_HOME -replace '\\','/'
+          .\gradlew.bat --no-daemon --stacktrace --info `
+            -Pversion="$env:APP_VERSION" `
+            -Dorg.gradle.java.installations.paths="$JBR_FWD" `
+            -Dorg.gradle.java.installations.auto-download=false `
             packageReleaseAppImage
 
       - name: Locate AppImage
@@ -139,27 +148,22 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
-          # -j to strip paths; include only the AppImage file
           (cd "$(dirname "${{ steps.find_artifact.outputs.file }}")" && zip -j "$GITHUB_WORKSPACE/dist/$zipname" "$(basename "${{ steps.find_artifact.outputs.file }}")")
-          echo "zippath=$GITHUB_WORKSPACE/dist/$zipname" >> $GITHUB_OUTPUT
 
       - name: Zip artifact (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
-        id: zipwin
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $zipname = "Silmaril-$env:APP_VERSION-${{ matrix.artifact_suffix }}.zip"
           $source = "${{ steps.find_artifact.outputs.file }}"
           Compress-Archive -Path $source -DestinationPath "dist\$zipname" -Force
-          echo "zippath=$pwd\dist\$zipname" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
           name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
-          path: |
-            dist/*.zip
+          path: dist/*.zip
           if-no-files-found: error
           compression-level: 6
 
