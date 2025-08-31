@@ -104,8 +104,6 @@ dependencies {
 
 /**
  * Reminder to self: to test a release build in IDE, runDistributable
- * To build MSI, uncomment targetFoamts with MSI
- * To build a portable release, uncomment targetFormats with AppImage
  * To debug an issue in release, uncomment console = true
   */
 compose.desktop {
