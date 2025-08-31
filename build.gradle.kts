@@ -15,8 +15,19 @@ plugins {
     id("com.google.devtools.ksp") version "2.1.21-2.0.2"
 }
 
+// This will version all classes with the version set in this file. Allows us to know the program version in the code.
+tasks.withType<Jar>().configureEach {
+    manifest {
+        attributes(
+            "Implementation-Title" to project.name,
+            "Implementation-Version" to project.version
+        )
+    }
+}
+
 group = "ru.adan"
-version = "1.0-SNAPSHOT"
+// Use -Pversion=... if provided
+version = providers.gradleProperty("version").orElse("1.0-SNAPSHOT")
 
 dependencies {
     // Add the kotlinx-coroutines-swing dependency for enabling Dispatchers.Main on Compose Desktop

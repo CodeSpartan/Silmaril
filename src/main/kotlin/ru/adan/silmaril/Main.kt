@@ -38,6 +38,7 @@ import org.jetbrains.jewel.intui.window.styling.dark
 import org.jetbrains.jewel.ui.ComponentStyling
 import org.jetbrains.jewel.window.DecoratedWindow
 import org.jetbrains.jewel.window.styling.TitleBarStyle
+import ru.adan.silmaril.misc.BuildInfo
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.RoomDataManager
@@ -54,6 +55,7 @@ fun main() {
     }
 
     val logger = KotlinLogging.logger {}
+    logger.info { "Starting program, version: ${BuildInfo.version}"}
 
     val themeDefinition = JewelTheme.darkThemeDefinition()
 

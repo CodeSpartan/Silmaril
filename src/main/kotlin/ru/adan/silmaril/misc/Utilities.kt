@@ -397,3 +397,8 @@ fun rememberIsAtBottom(state: LazyListState, fullyVisible: Boolean = false): Sta
         }
     }
 }
+
+object BuildInfo {
+    val version: String =
+        BuildInfo::class.java.`package`?.implementationVersion ?: "dev"
+}
