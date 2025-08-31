@@ -537,7 +537,10 @@ private fun TextColumn(
                                     Text(
                                         text = message.chunks[0].text,
                                         fontSize = currentFontSize.sp,
-                                        color = currentColorStyle.getAnsiColor(AnsiColor.None, false),
+                                        color = if (message.chunks[0].fg.isLiteral) message.chunks[0].fg.color!! else currentColorStyle.getAnsiColor(
+                                            message.chunks[0].fg.ansi,
+                                            message.chunks[0].fg.isBright
+                                        ),
                                         fontFamily = FontManager.getFont(currentFontFamily)
                                     )
 
@@ -579,7 +582,10 @@ private fun TextColumn(
                                         Text(
                                             text = message.chunks[1].text,
                                             modifier = Modifier.fillMaxWidth(),
-                                            color = currentColorStyle.getAnsiColor(AnsiColor.None, false),
+                                            color = if (message.chunks[1].fg.isLiteral) message.chunks[1].fg.color!! else currentColorStyle.getAnsiColor(
+                                                message.chunks[1].fg.ansi,
+                                                message.chunks[1].fg.isBright
+                                            ),
                                             fontSize = currentFontSize.sp,
                                             fontFamily = FontManager.getFont(currentFontFamily)
                                         )
