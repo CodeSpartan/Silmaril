@@ -1,0 +1,193 @@
+name: Build portable Compose Desktop
+
+on:
+  push:
+    branches: [ "master" ]
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x64
+          - os: ubuntu-latest
+            artifact_suffix: linux
+            # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef)
+            jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-linux-x64-b895.146.tar.gz"
+            jbr_archive: "jbr.tar.gz"
+          # macOS arm64 (macos-latest runners are Apple Silicon)
+          - os: macos-latest
+            artifact_suffix: macos
+            # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef)
+            jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-osx-x64-b895.146.tar.gz"
+            jbr_archive: "jbr.tar.gz"
+          # Windows x64
+          - os: windows-latest
+            artifact_suffix: windows
+            # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef)
+            jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-windows-x64-b895.146.zip"
+            jbr_archive: "jbr.zip"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v2
+
+      # Linux: install libfuse for AppImage runtime tooling
+      - name: Install dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      # Download and set up JBR 21.0.8 (SDK variant) per-OS
+      - name: Download JBR (Linux/macOS)
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/jbr"
+          echo "Downloading: ${{ matrix.jbr_url }}"
+          curl -fL "${{ matrix.jbr_url }}" -o "$RUNNER_TEMP/${{ matrix.jbr_archive }}"
+          tar -xzf "$RUNNER_TEMP/${{ matrix.jbr_archive }}" -C "$RUNNER_TEMP/jbr"
+          # Find extracted JBR directory
+          JBR_HOME=$(find "$RUNNER_TEMP/jbr" -maxdepth 1 -type d -name "jbrsdk*" | head -n1)
+          if [[ -z "$JBR_HOME" ]]; then
+            echo "Failed to locate extracted JBR directory" >&2
+            ls -la "$RUNNER_TEMP/jbr"
+            exit 1
+          fi
+          echo "JBR_HOME=$JBR_HOME" >> $GITHUB_ENV
+          echo "JAVA_HOME=$JBR_HOME" >> $GITHUB_ENV
+          echo "$JBR_HOME/bin" >> $GITHUB_PATH
+          # Force Gradle + Toolchains to use this JBR
+          echo "GRADLE_OPTS=-Dorg.gradle.java.home=$JBR_HOME -Dorg.gradle.java.installations.paths=$JBR_HOME -Dorg.gradle.java.installations.auto-download=false" >> $GITHUB_ENV
+
+      - name: Download JBR (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jbrDir = "$env:RUNNER_TEMP\jbr"
+          New-Item -ItemType Directory -Force -Path $jbrDir | Out-Null
+          Write-Host "Downloading: ${{ matrix.jbr_url }}"
+          $zipPath = "$env:RUNNER_TEMP\${{ matrix.jbr_archive }}"
+          Invoke-WebRequest -Uri "${{ matrix.jbr_url }}" -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $jbrDir -Force
+          # Find extracted JBR directory
+          $jbrHome = Get-ChildItem -Path $jbrDir -Directory | Where-Object { $_.Name -like 'jbrsdk*' } | Select-Object -First 1
+          if (-not $jbrHome) {
+            Write-Error "Failed to locate extracted JBR directory. Contents:" 
+            Get-ChildItem -Path $jbrDir -Force -Recurse | Format-List
+            exit 1
+          }
+          echo "JBR_HOME=$($jbrHome.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "JAVA_HOME=$($jbrHome.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "$($jbrHome.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          # Force Gradle + Toolchains to use this JBR
+          echo "GRADLE_OPTS=-Dorg.gradle.java.home=$($jbrHome.FullName) -Dorg.gradle.java.installations.paths=$($jbrHome.FullName) -Dorg.gradle.java.installations.auto-download=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set build version from tag or branch
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "APP_VERSION=0.0.0-SNAPSHOT+${GITHUB_SHA::7}" >> $GITHUB_ENV
+          fi
+          echo "Building version: ${APP_VERSION}"
+
+      - name: Build AppImage (all OS)
+        shell: bash
+        run: |
+          ./gradlew --no-daemon --stacktrace --info \
+            -Pversion="${APP_VERSION}" \
+            packageReleaseAppImage
+
+      - name: Locate AppImage
+        id: find_artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(find build -type f -name "*.AppImage" -maxdepth 8 2>/dev/null | sort || true)
+          echo "Found:"
+          echo "$files"
+          file=$(echo "$files" | head -n1)
+          if [[ -z "${file:-}" ]]; then
+            echo "No .AppImage found!" >&2
+            exit 1
+          fi
+          echo "file=$file" >> $GITHUB_OUTPUT
+
+      - name: Zip artifact (Linux/macOS)
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
+          # -j to strip paths; include only the AppImage file
+          (cd "$(dirname "${{ steps.find_artifact.outputs.file }}")" && zip -j "$GITHUB_WORKSPACE/dist/$zipname" "$(basename "${{ steps.find_artifact.outputs.file }}")")
+          echo "zippath=$GITHUB_WORKSPACE/dist/$zipname" >> $GITHUB_OUTPUT
+
+      - name: Zip artifact (Windows)
+        if: ${{ matrix.os == 'windows-latest' }}
+        id: zipwin
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $zipname = "Silmaril-$env:APP_VERSION-${{ matrix.artifact_suffix }}.zip"
+          $source = "${{ steps.find_artifact.outputs.file }}"
+          Compress-Archive -Path $source -DestinationPath "dist\$zipname" -Force
+          echo "zippath=$pwd\dist\$zipname" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
+          path: |
+            dist/*.zip
+          if-no-files-found: error
+          compression-level: 6
+
+  release:
+    name: Create GitHub Release
+    needs: [ build ]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Show artifacts
+        run: ls -R dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            Portable desktop builds (.zip of AppImage) for ${{ github.ref_name }}.
+            - Linux: AppImage zipped
+            - macOS: AppImage zipped
+            - Windows: AppImage zipped
+          files: |
+            dist/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
