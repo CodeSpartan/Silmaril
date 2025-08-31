@@ -10,7 +10,7 @@ MUD-клиент для игры на сервере adan.ru, используя
 * А* патфайндинг в любую зону/клетку мира
 * Углубленная мульти-оконность и интеграция с конкретным мадом ([подробнее](#Функционал))
 
-![Screenshot of the program](./docs/screenshot.png)
+![Screenshot of the program](https://res.cloudinary.com/dnmzmkffy/image/upload/v1756648642/okwwsvw2hy7jspts2ejg.png)
 
 ## Компиляция
 
