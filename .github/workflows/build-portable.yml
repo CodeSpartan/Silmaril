@@ -70,13 +70,13 @@ jobs:
             exit 1
           fi
           if [[ -d "$JBR_HOME/Contents/Home" ]]; then
-          JBR_HOME="$JBR_HOME/Contents/Home"
+            JBR_HOME="$JBR_HOME/Contents/Home"
           fi
           echo "Resolved JBR_HOME: $JBR_HOME"
           if [[ ! -x "$JBR_HOME/bin/java" ]]; then
-          echo "java not found at $JBR_HOME/bin/java" >&2
-          ls -la "$JBR_HOME/bin" || true
-          exit 1
+            echo "java not found at $JBR_HOME/bin/java" >&2
+            ls -la "$JBR_HOME/bin" || true
+            exit 1
           fi
           echo "JBR_HOME=$JBR_HOME" >> $GITHUB_ENV
           echo "JAVA_HOME=$JBR_HOME" >> $GITHUB_ENV
@@ -203,7 +203,8 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
-          (cd "$(dirname "${{ steps.find_dist.outputs.dir }}")" && zip -r "$GITHUB_WORKSPACE/dist/$zipname" "$(basename "${{ steps.find_dist.outputs.dir }}")")
+          distdir="${{ steps.find_dist.outputs.dir }}"
+          ( cd "$distdir" && zip -r "$GITHUB_WORKSPACE/dist/$zipname" . )
 
       # Zip (MacOs)
       - name: Zip artifact (macOS)
@@ -224,9 +225,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $zipname = "Silmaril-$env:APP_VERSION-${{ matrix.artifact_suffix }}.zip"
           $dir = "${{ steps.find_dist.outputs.dir }}"
-          Compress-Archive -Path $dir -DestinationPath "dist\$zipname" -Force
+          $items = Get-ChildItem -LiteralPath $dir -Force
+          Compress-Archive -LiteralPath $items.FullName -DestinationPath "dist\$zipname" -Force
 
-      # Upload ZIP (Linux/Windows)
+      # Upload ZIP artifact (Linux/Windows)
       - name: Upload ZIP artifact
         if: ${{ matrix.os != 'macos-latest' }}
         uses: actions/upload-artifact@v4
@@ -256,6 +258,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
+          merge-multiple: true
 
       - name: Show artifacts
         run: ls -R dist
@@ -266,11 +269,11 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body: |
-            Portable desktop builds (.zip of build/compose/binaries/main-release/app) for ${{ github.ref_name }}.
-            - Linux: zipped distributable directory
-            - macOS: zipped .app bundle
-            - Windows: zipped distributable directory
+            Portable desktop builds (zip of build/compose/binaries/main-release/app contents) for ${{ github.ref_name }}.
+            - Linux: zipped distributable contents
+            - Windows: zipped distributable contents
+            - macOS: .dmg bundle
           files: |
-            dist/**/*
+            dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
