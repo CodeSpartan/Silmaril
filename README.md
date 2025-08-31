@@ -31,7 +31,7 @@ MUD-клиент для игры на сервере adan.ru, используя
 *   Откройте проект в [IntelliJ IDEA](https://www.jetbrains.com/idea/download/other.html)
 *   После инициализации gradle, запустите gradle-таск `generateResourceAccessorsForMain` (меню gradle находится с правой стороны IDE)
 *   (Опционально) Чтобы IDE корректно работала с DSL скриптами, зайдите в File -> Settings -> Editor -> Languages & Framework -> Kotlin -> Kotlin Scripting и нажмите **Scan Classpath**. После перезапуска, в списке должен появиться MudScriptHost (.mud.kts). Отсортируйте его, чтобы он стал предпоследним в списке.
-*   (Опционально) Сделайте symlink таким образом, чтобы `Documents\Silmaril\triggers` как будто бы существовала в проекте по пути `src\main\resources\triggers`. Таким образом, вы сможете работать с DSL-скриптами в IDE, получая авто-комплит и подсветку синтаксиса.
+*   (Опционально) Сделайте symlink таким образом, чтобы папка `Documents\Silmaril\triggers` как будто бы существовала в проекте по пути `src\main\resources\triggers`. Таким образом, вы сможете работать с DSL-скриптами в IDE, получая авто-комплит и подсветку синтаксиса.
 *   Используйте таск `run` для запуска в IDE; таск `packageReleaseAppImage` для сборки.
 
 ### Знакомство с проектом

@@ -781,9 +781,9 @@ class MudConnection(
                 13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it.allCreatures }
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
             }
-            logger.debug { "- Custom message: $_customMessageType" }
-            logger.debug { msg }
-            logger.debug { "- End of custom message" }
+            //logger.debug { "- Custom message: $_customMessageType" }
+            //logger.debug { msg }
+            //logger.debug { "- End of custom message" }
         } else {
             processTextMessage(mainBuffer, mainBufferLastValidIndex, true)
         }
