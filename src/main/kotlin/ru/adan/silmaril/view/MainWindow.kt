@@ -37,6 +37,7 @@ import ru.adan.silmaril.misc.UiColor
 import ru.adan.silmaril.model.SettingsManager
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.key.Key
@@ -55,6 +56,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
@@ -121,7 +123,7 @@ fun MainWindow(
     }
 
     val focusRequester = remember { FocusRequester() }
-    var inputFieldReady by remember { mutableStateOf(false) }
+    val inputFieldReady = remember { mutableStateOf(false) }
     val listStateNoAutoScroll = rememberLazyListState()
     val listStateAutoScrollDown1 = rememberLazyListState()
     val listStateAutoScrollDown2 = rememberLazyListState()
@@ -267,8 +269,8 @@ fun MainWindow(
     }
 
     // When the window gets focused, give focus to input field
-    LaunchedEffect(isFocused, inputFieldReady) {
-        if (isFocused && inputFieldReady) {
+    LaunchedEffect(isFocused, inputFieldReady.value) {
+        if (isFocused && inputFieldReady.value) {
             focusRequester.requestFocus()
         }
     }
@@ -371,43 +373,13 @@ fun MainWindow(
                         .padding(bottom = 6.dp, top = 3.dp),
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
-                    BasicTextField(
-                        value = inputTextField,
-                        onValueChange = { inputTextField = it },
-                        modifier = Modifier
-                            .width(600.dp)
-                            //.height(40.dp)
-                            .focusRequester(focusRequester)
-                            .onGloballyPositioned { inputFieldReady = true }
-                            .background(
-                                currentColorStyle.getUiColor(UiColor.InputField),
-                                RoundedCornerShape(currentColorStyle.inputFieldCornerRoundness().dp)
-                            ) // Add background with clipping to the rounded shape
-                            .padding(8.dp), // Apply padding as necessary
-                        textStyle = TextStyle(
-                            color = currentColorStyle.getUiColor(UiColor.InputFieldText),
-                            fontSize = currentFontSize.sp,
-                            fontFamily = FontManager.getFont(currentFontFamily)
-                        ),
-                        cursorBrush = SolidColor(Color.White), // Change the caret (cursor) color to white
-                        singleLine = true, // Handle single line input
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                inputTextField = inputTextField.copy(
-                                    selection = TextRange(0, inputTextField.text.length) // Select all text
-                                )
-                                mainViewModel.treatUserInput(inputTextField.text)
-                            }
-                        ),
-                        decorationBox = { innerTextField ->
-                            Box(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 0.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                innerTextField() // This is where the actual text field content is drawn
-                            }
-                        }
+                    HistoryTextField(
+                        focusRequester = focusRequester,
+                        inputFieldReady = inputFieldReady,
+                        currentColorStyle = currentColorStyle,
+                        currentFontSize = currentFontSize,
+                        currentFontFamily = currentFontFamily,
+                        mainViewModel = mainViewModel,
                     )
                 }
             }
@@ -616,4 +588,105 @@ private fun TextColumn(
                 )
         }
     }
+}
+
+@Composable
+fun HistoryTextField(
+    focusRequester: FocusRequester,
+    inputFieldReady: MutableState<Boolean>,
+    currentColorStyle: ColorStyle,
+    currentFontSize: Int,
+    currentFontFamily: String,
+    mainViewModel: MainViewModel,
+) {
+    var inputTextField by remember { mutableStateOf(TextFieldValue("")) }
+
+    val history = remember { mutableStateListOf<String>() } // persist with Room/DataStore if needed
+    var historyIndex by rememberSaveable { mutableStateOf(-1) } // -1 means “editing new entry”
+
+    fun commit() {
+        val t = inputTextField.text.trim()
+        if (t.isNotEmpty()) {
+            // avoid duplicate consecutive entries; cap size
+            if (history.lastOrNull() != t) history.add(t)
+            if (history.size > 50) history.removeAt(0)
+
+            inputTextField = inputTextField.copy(
+                selection = TextRange(0, inputTextField.text.length) // Select all text
+            )
+            mainViewModel.treatUserInput(inputTextField.text)
+        }
+        historyIndex = -1
+    }
+
+    fun recallUp() {
+        if (history.isEmpty()) return
+        historyIndex = when {
+            historyIndex == -1 -> history.lastIndex
+            historyIndex > 0 -> historyIndex - 1
+            else -> 0
+        }
+        inputTextField = TextFieldValue(history[historyIndex], selection = TextRange(0, history[historyIndex].length))
+    }
+
+    fun recallDown() {
+        if (history.isEmpty()) return
+        when {
+            historyIndex == -1 -> Unit // nothing to do
+            historyIndex < history.lastIndex -> {
+                historyIndex++
+                inputTextField = TextFieldValue(history[historyIndex], selection = TextRange(0, history[historyIndex].length))
+            }
+            else -> { // past the most recent -> back to blank
+                historyIndex = -1
+            }
+        }
+    }
+
+    BasicTextField(
+        value = inputTextField,
+        onValueChange = {
+            inputTextField = it
+            // if the user edits, consider we're no longer at a specific history index
+            if (historyIndex != -1) historyIndex = -1
+        },
+        modifier = Modifier
+            .width(600.dp)
+            .onPreviewKeyEvent { e ->
+                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (e.key) {
+                    Key.DirectionUp -> { recallUp(); true }
+                    Key.DirectionDown -> { recallDown(); true }
+                    else -> false
+                }
+            }
+            .focusRequester(focusRequester)
+            .onGloballyPositioned { inputFieldReady.value = true }
+            .background(
+                currentColorStyle.getUiColor(UiColor.InputField),
+                RoundedCornerShape(currentColorStyle.inputFieldCornerRoundness().dp)
+            ) // Add background with clipping to the rounded shape
+            .padding(8.dp),
+        textStyle = TextStyle(
+            color = currentColorStyle.getUiColor(UiColor.InputFieldText),
+            fontSize = currentFontSize.sp,
+            fontFamily = FontManager.getFont(currentFontFamily)
+        ),
+        cursorBrush = SolidColor(Color.White), // Change the caret (cursor) color to white
+        singleLine = true,
+        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                commit()
+            }
+        ),
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 0.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                innerTextField() // This is where the actual text field content is drawn
+            }
+        }
+    )
 }
