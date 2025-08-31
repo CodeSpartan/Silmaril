@@ -35,6 +35,7 @@ class ModernDarkRedColorStyle : ColorStyle() {
             UiColor.Stamina -> Color(0xffe7dfd5)
             UiColor.WaitTime -> Color(0xffe98447)
             UiColor.AttackedInAnotherRoom -> Color(0xff330000)
+            UiColor.Link -> Color(0xff8db6ba)
             else -> Color.White
         }
     }

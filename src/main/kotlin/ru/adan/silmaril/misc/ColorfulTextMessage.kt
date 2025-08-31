@@ -6,7 +6,8 @@ import org.jetbrains.jewel.ui.util.fromRGBAHexStringOrNull
 
 @Immutable
 data class ColorfulTextMessage(
-    val chunks: Array<TextMessageChunk>
+    val chunks: Array<TextMessageChunk>,
+    val loreItem: String? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

@@ -11,6 +11,7 @@ import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.misc.TextMessageChunk
 import ru.adan.silmaril.misc.ColorfulTextMessage
+import ru.adan.silmaril.model.LoreManager
 
 // ViewModel that holds the list of strings and manages the TCP connection
 class MainViewModel(
@@ -20,6 +21,7 @@ class MainViewModel(
     val onProcessAliases: (String) -> Pair<Boolean, String?>,
     private val onMessageReceived: (String) -> Unit,
     private val onRunSubstitutes: (ColorfulTextMessage) -> ColorfulTextMessage?,
+    private val loreManager: LoreManager,
     private val settingsManager: SettingsManager
 ) {
 
@@ -38,9 +40,11 @@ class MainViewModel(
         viewModelScope.launch {
             // Collect the model's flow of received bytes
             client.colorfulTextMessages.collect { message ->
-                //val message = dataToString(data)  // Convert the data (bytes) to String
+
+                val afterLoreInserts = loreManager.insertLoreLinks(message)
+
                 // Append the received message to the list and expose it via StateFlow
-                val afterSubs = onRunSubstitutes(message)
+                val afterSubs = onRunSubstitutes(afterLoreInserts)
                 if (afterSubs != null) {
                     val originalText = message.chunks.joinToString(separator = "") { it.toString() }
                     val newText = afterSubs.chunks.joinToString(separator = "") { it.toString() }

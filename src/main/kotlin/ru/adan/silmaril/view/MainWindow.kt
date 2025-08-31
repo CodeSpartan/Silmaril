@@ -75,6 +75,8 @@ import org.jetbrains.jewel.ui.component.SplitLayoutState
 import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.VerticalSplitLayout
 import org.jetbrains.jewel.ui.component.separator
+import org.jetbrains.jewel.ui.component.styling.LinkColors
+import org.jetbrains.jewel.ui.component.styling.LinkStyle
 import org.jetbrains.jewel.ui.component.styling.LocalTooltipStyle
 import org.jetbrains.jewel.ui.component.styling.MenuColors
 import org.jetbrains.jewel.ui.component.styling.MenuStyle
@@ -519,66 +521,68 @@ private fun TextColumn(
                                 }
                             }
 
-                            // Make random choice stable per item
-                            val showDropdown by remember(messages[idx].id) {
-                                mutableStateOf(Random.nextInt(10) == 0)
-                            }
-
-                            val showPopupMenu = remember {mutableStateOf(false)}
-
-                            if (showDropdown) {
-                                Row(
-                                  modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(
-                                        text = annotatedText,
-                                        //modifier = Modifier.fillMaxWidth(), leave space for lore
-                                        fontSize = currentFontSize.sp,
-                                        fontFamily = FontManager.getFont(currentFontFamily)
-                                    )
-
-                                    DisableSelection {
-                                        Link(
-                                            text = "link",
-                                            textStyle = loreLinkTextStyle,
-                                            onClick = { showPopupMenu.value = !showPopupMenu.value }
-                                        )
-                                        if (showPopupMenu.value) {
-                                            PopupMenu(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                style = MenuStyle.dark(
-                                                    colors = MenuColors.dark(
-                                                        border = Color.Unspecified,
-                                                        background = currentColorStyle.getUiColor(UiColor.HoverBackground)
-                                                    )),
-                                                onDismissRequest = {
-                                                    showPopupMenu.value = false
-                                                    true
-                                                },
-                                                content = {
-                                                    passiveItem {
-                                                        LoreTooltip("кольцо насыщения", currentColorStyle)
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-//                                    DisableSelection {
-//                                        DropdownLink(text = "Лор", textStyle = loreLinkTextStyle) {
-//                                            passiveItem {
-//                                                Text("tedfs")
-//                                            }
-//                                        }
-//                                    }
-                                }
-                            }
-                            else {
+                            if (message.loreItem == null) {
                                 Text(
                                     text = annotatedText,
                                     modifier = Modifier.fillMaxWidth(), // This makes the whole line selectable
                                     fontSize = currentFontSize.sp,
                                     fontFamily = FontManager.getFont(currentFontFamily)
                                 )
+                            } else {
+                                val showPopupMenu = remember { mutableStateOf(false) }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        text = message.chunks[0].text,
+                                        fontSize = currentFontSize.sp,
+                                        color = currentColorStyle.getAnsiColor(AnsiColor.None, false),
+                                        fontFamily = FontManager.getFont(currentFontFamily)
+                                    )
+
+
+                                    Link(
+                                        text = message.loreItem,
+                                        textStyle = loreLinkTextStyle,
+                                        onClick = { showPopupMenu.value = !showPopupMenu.value },
+                                        style = LinkStyle.dark(colors = LinkColors.dark(
+                                            //content = currentColorStyle.getAnsiColor(AnsiColor.Cyan, true)
+                                            //content = currentColorStyle.getAnsiColor(AnsiColor.Cyan, false)
+                                            content = currentColorStyle.getUiColor(UiColor.Link)
+                                        )),
+                                    )
+                                    if (showPopupMenu.value) {
+                                        DisableSelection {
+                                            PopupMenu(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                style = MenuStyle.dark(
+                                                    colors = MenuColors.dark(
+                                                        border = Color.Unspecified,
+                                                        background = currentColorStyle.getUiColor(UiColor.HoverBackground)
+                                                    )
+                                                ),
+                                                onDismissRequest = {
+                                                    showPopupMenu.value = false
+                                                    true
+                                                },
+                                                content = {
+                                                    passiveItem {
+                                                        LoreTooltip(message.loreItem, currentColorStyle)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    if (message.chunks.size == 2)
+                                        Text(
+                                            text = message.chunks[1].text,
+                                            color = currentColorStyle.getAnsiColor(AnsiColor.None, false),
+                                            fontSize = currentFontSize.sp,
+                                            fontFamily = FontManager.getFont(currentFontFamily)
+                                        )
+                                }
                             }
                         }
                     }

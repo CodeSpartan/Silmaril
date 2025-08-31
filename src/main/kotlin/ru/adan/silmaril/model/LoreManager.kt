@@ -9,6 +9,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.adan.silmaril.misc.ColorfulTextMessage
+import ru.adan.silmaril.misc.TextMessageChunk
 import ru.adan.silmaril.misc.getLoresDirectory
 import ru.adan.silmaril.mud_messages.LoreMessage
 import java.io.File
@@ -131,5 +133,47 @@ class LoreManager() : KoinComponent {
         lastLoreMessage?.comment = comment
         saveLoreIfNew(lastLoreMessage!!, true)
         return true
+    }
+
+    fun insertLoreLinks(message: ColorfulTextMessage) : ColorfulTextMessage {
+        val marketRegex = """^\d+\s+\p{L}+\s+!?(.+?)(?:\.\.\.)?\s+(?:мало|средне|много)\s+\d+\s+\d+\s+(?:<|>)?\d+\p{L}+\s*\p{L}*.*""".toRegex()
+        val fullText = buildString { message.chunks.forEach { append(it.text) } }
+
+        val match1 = marketRegex.find(fullText)
+        if (match1 != null) {
+            val itemName = match1.groupValues[1]
+
+            // Indices of the raw captured substring in the full text
+            val start = match1.groups[1]!!.range.first
+            val endExclusive = match1.groups[1]!!.range.last + 1
+
+            // Assumption: exactly one chunk
+            val original = message.chunks.firstOrNull() ?: return message
+
+            val before = fullText.substring(0, start)
+            val after = fullText.substring(endExclusive)
+
+            val newChunks = arrayOf(
+                TextMessageChunk(
+                    text = before,
+                    fg = original.fg,
+                    bg = original.bg,
+                    textSize = original.textSize
+                ),
+                TextMessageChunk(
+                    text = after,
+                    fg = original.fg,
+                    bg = original.bg,
+                    textSize = original.textSize
+                )
+            )
+
+            return ColorfulTextMessage(
+                chunks = newChunks,
+                loreItem = itemName
+            )
+        }
+
+        return message
     }
 }

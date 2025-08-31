@@ -93,13 +93,16 @@ fun LoreTooltip(itemName: String, currentColorStyle: ColorStyle,) {
         }
         else {
             Text(
-                "Не найдено.",
+                modifier = Modifier.padding(10.dp),
+                text = "Не найдено.",
                 fontSize = currentFontSize.sp,
                 fontFamily = font
             )
         }
     } else {
-        Text("Ищу...",
+        Text(
+            modifier = Modifier.padding(10.dp),
+            text = "Ищу...",
             fontSize = currentFontSize.sp,
             fontFamily = font
         )

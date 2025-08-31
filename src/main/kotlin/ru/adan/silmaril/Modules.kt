@@ -58,6 +58,7 @@ val appModule = module {
             onProcessAliases = params[3],
             onMessageReceived = params[4],
             onRunSubstitutes = params[5],
+            loreManager = get(),
             settingsManager = get()
         )
     }

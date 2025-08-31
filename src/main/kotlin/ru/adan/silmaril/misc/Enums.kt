@@ -38,6 +38,7 @@ enum class UiColor {
     Stamina,
     WaitTime,
     AttackedInAnotherRoom,
+    Link,
 }
 
 enum class TextSize {
