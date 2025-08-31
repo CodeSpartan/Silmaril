@@ -104,8 +104,6 @@ dependencies {
 
 /**
  * Reminder to self: to test a release build in IDE, runDistributable
- * To build MSI, uncomment targetFoamts with MSI
- * To build a portable release, uncomment targetFormats with AppImage
  * To debug an issue in release, uncomment console = true
   */
 compose.desktop {
@@ -129,7 +127,7 @@ compose.desktop {
 //                "jdk.management",
             )
 
-//            windows { console = true } // adds --win-console for jpackage
+            windows { console = true } // adds --win-console for jpackage
 
             packageName = "Silmaril"
             packageVersion = "1.0.0"
