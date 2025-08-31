@@ -614,8 +614,8 @@ fun HistoryTextField(
             inputTextField = inputTextField.copy(
                 selection = TextRange(0, inputTextField.text.length) // Select all text
             )
-            mainViewModel.treatUserInput(inputTextField.text)
         }
+        mainViewModel.treatUserInput(inputTextField.text)
         historyIndex = -1
     }
 
