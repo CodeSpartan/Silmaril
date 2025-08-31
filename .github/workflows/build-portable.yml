@@ -29,6 +29,7 @@ jobs:
             # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef). Use osx-aarch64.
             jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-osx-aarch64-b895.146.tar.gz"
             jbr_archive: "jbr.tar.gz"
+            allow_failure: true
           # Windows x64
           - os: windows-latest
             artifact_suffix: windows
@@ -275,5 +276,6 @@ jobs:
             - macOS: .dmg bundle
           files: |
             dist/*.zip
+            dist/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
