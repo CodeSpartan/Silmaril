@@ -2,7 +2,7 @@ name: Build portable Compose Desktop
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "release" ]
     tags:
       - "v*"
 
