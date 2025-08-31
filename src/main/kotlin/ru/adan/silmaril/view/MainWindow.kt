@@ -578,6 +578,7 @@ private fun TextColumn(
                                     if (message.chunks.size == 2)
                                         Text(
                                             text = message.chunks[1].text,
+                                            modifier = Modifier.fillMaxWidth(),
                                             color = currentColorStyle.getAnsiColor(AnsiColor.None, false),
                                             fontSize = currentFontSize.sp,
                                             fontFamily = FontManager.getFont(currentFontFamily)

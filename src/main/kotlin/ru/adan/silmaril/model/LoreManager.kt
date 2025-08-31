@@ -36,7 +36,9 @@ class LoreManager() : KoinComponent {
             name.startsWith(sanitized, ignoreCase = true)
         }
         val files = directory.listFiles(filter)
-        val fileExactMatch = files.find { it.name == sanitized }
+        val fileExactMatch = files.find {
+            it.name.equals(sanitized, ignoreCase = true)
+        }
         if (files.size == 1 || fileExactMatch != null ) {
             val file = if (files.size == 1) files[0] else fileExactMatch
             true to (LoreMessage.fromXml(file!!.readText(Charsets.UTF_16LE))?.loreAsTaggedTexts() ?: emptyList())
@@ -136,44 +138,44 @@ class LoreManager() : KoinComponent {
     }
 
     fun insertLoreLinks(message: ColorfulTextMessage) : ColorfulTextMessage {
-        val marketRegex = """^\d+\s+\p{L}+\s+!?(.+?)(?:\.\.\.)?\s+(?:мало|средне|много)\s+\d+\s+\d+\s+(?:<|>)?\d+\p{L}+\s*\p{L}*.*""".toRegex()
         val fullText = buildString { message.chunks.forEach { append(it.text) } }
 
-        val match1 = marketRegex.find(fullText)
-        if (match1 != null) {
-            val itemName = match1.groupValues[1]
+        val marketRegex = """^\d+\s+\p{L}+\s+!?(.+?)(?:\.\.\.)?\s+(?:мало|средне|много)\s+\d+\s+\d+\s+(?:<|>)?\d+\p{L}+\s*\p{L}*.*""".toRegex()
+        val shopRegex = """^\s?\d+\. \[\s+\d*\s*\d+\] (.+)""".toRegex()
 
-            // Indices of the raw captured substring in the full text
-            val start = match1.groups[1]!!.range.first
-            val endExclusive = match1.groups[1]!!.range.last + 1
+        val match1 = marketRegex.find(fullText) ?: shopRegex.find(fullText) ?: return message
+        val group1 = match1.groups[1] ?: return message
+        val itemName = match1.groupValues[1].trim()
 
-            // Assumption: exactly one chunk
-            val original = message.chunks.firstOrNull() ?: return message
+        // Indices of the raw captured substring in the full text
+        val start = group1.range.first
+        val endExclusive = group1.range.last + 1
 
-            val before = fullText.substring(0, start)
-            val after = fullText.substring(endExclusive)
+        // Assumption: exactly one chunk
+        val original = message.chunks.firstOrNull() ?: return message
 
-            val newChunks = arrayOf(
-                TextMessageChunk(
-                    text = before,
-                    fg = original.fg,
-                    bg = original.bg,
-                    textSize = original.textSize
-                ),
-                TextMessageChunk(
-                    text = after,
-                    fg = original.fg,
-                    bg = original.bg,
-                    textSize = original.textSize
-                )
+        val before = fullText.substring(0, start)
+        val after = fullText.substring(endExclusive)
+
+        val newChunks = arrayOf(
+            TextMessageChunk(
+                text = before,
+                fg = original.fg,
+                bg = original.bg,
+                textSize = original.textSize
+            ),
+            TextMessageChunk(
+                text = after,
+                fg = original.fg,
+                bg = original.bg,
+                textSize = original.textSize
             )
+        )
 
-            return ColorfulTextMessage(
-                chunks = newChunks,
-                loreItem = itemName
-            )
-        }
-
-        return message
+        return ColorfulTextMessage(
+            chunks = newChunks,
+            loreItem = itemName
+        )
     }
+
 }
