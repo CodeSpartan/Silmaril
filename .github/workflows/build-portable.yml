@@ -1,7 +1,3 @@
-# macOS temporarily disabled by commenting out mac-specific matrix and steps.
-# To re-enable later, uncomment the macOS matrix entry and macOS steps below,
-# and re-add the DMG line in the release "files:" section.
-
 name: Build portable Compose Desktop
 
 on:
@@ -28,12 +24,11 @@ jobs:
             jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-linux-x64-b895.146.tar.gz"
             jbr_archive: "jbr.tar.gz"
           # macOS arm64 (macos-latest runners are Apple Silicon)
-          # - os: macos-latest
-          #   artifact_suffix: macos
-          #   # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef). Use osx-aarch64.
-          #   jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-osx-aarch64-b895.146.tar.gz"
-          #   jbr_archive: "jbr.tar.gz"
-          #   allow_failure: true
+          - os: macos-latest
+            artifact_suffix: macos
+            # REQUIRED: set to the JBR SDK 21.0.8 download URL (SDK variant, not jcef). Use osx-aarch64.
+            jbr_url: "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-osx-aarch64-b895.146.tar.gz"
+            jbr_archive: "jbr.tar.gz"
           # Windows x64
           - os: windows-latest
             artifact_suffix: windows
@@ -61,9 +56,13 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: chmod +x gradlew
 
+      - name: Make gradlew executable (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        run: chmod +x gradlew
+
       # Download and set up JBR 21.0.8 (SDK variant) per-OS
-      - name: Download JBR (Linux)
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: Download JBR (Linux and macOS)
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'}}
         shell: bash
         run: |
           set -euo pipefail
@@ -141,15 +140,15 @@ jobs:
             createReleaseDistributable
 
       # Build on macOS (bash)
-      # - name: Build Portable (macOS)
-      #   if: ${{ matrix.os == 'macos-latest' }}
-      #   shell: bash
-      #   run: |
-      #     ./gradlew --no-daemon --stacktrace --info \
-      #       -Pversion="${APP_VERSION}" \
-      #       -Dorg.gradle.java.installations.paths="${JBR_HOME}" \
-      #       -Dorg.gradle.java.installations.auto-download=false \
-      #       packageDmg
+      - name: Build Portable (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        shell: bash
+        run: |
+          ./gradlew --no-daemon --stacktrace --info \
+            -Pversion="${APP_VERSION}" \
+            -Dorg.gradle.java.installations.paths="${JBR_HOME}" \
+            -Dorg.gradle.java.installations.auto-download=false \
+            packageDmg
 
       # Build on Windows (PowerShell)
       - name: Build Portable (Windows)
@@ -161,29 +160,29 @@ jobs:
           .\gradlew.bat --no-daemon --stacktrace --info -Pversion="$env:APP_VERSION" createReleaseDistributable
 
       # Locate DMG (macOS)
-      # - name: Locate DMG (macOS)
-      #   if: ${{ matrix.os == 'macos-latest' }}
-      #   id: find_dmg
-      #   shell: bash
-      #   run: |
-      #     set -euo pipefail
-      #     file=$(find build/compose/binaries -type f -name "*.dmg" -maxdepth 8 2>/dev/null | sort | head -n1 || true)
-      #     echo "Found DMG: ${file:-<none>}"
-      #     if [[ -z "${file:-}" ]]; then
-      #       echo "No .dmg found!" >&2
-      #       ls -laR build/compose || true
-      #       exit 1
-      #     fi
-      #     echo "file=$file" >> $GITHUB_OUTPUT
+      - name: Locate DMG (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        id: find_dmg
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=$(find build/compose/binaries -type f -name "*.dmg" -maxdepth 8 2>/dev/null | sort | head -n1 || true)
+          echo "Found DMG: ${file:-<none>}"
+          if [[ -z "${file:-}" ]]; then
+            echo "No .dmg found!" >&2
+            ls -laR build/compose || true
+            exit 1
+          fi
+          echo "file=$file" >> $GITHUB_OUTPUT
 
-      # - name: Collect DMG (macOS)
-      #   if: ${{ matrix.os == 'macos-latest' }}
-      #   shell: bash
-      #   run: |
-      #     mkdir -p dist
-      #     cp "${{ steps.find_dmg.outputs.file }}" "dist/Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.dmg"
+      - name: Collect DMG (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "${{ steps.find_dmg.outputs.file }}" "dist/Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.dmg"
 
-      # Locate distributable folder (Linux/Windows only)
+      # Locate distributable folder (for zipping the "app" folder; used by all OS)
       - name: Locate distributable folder
         id: find_dist
         shell: bash
@@ -214,16 +213,15 @@ jobs:
           distdir="${{ steps.find_dist.outputs.dir }}"
           ( cd "$distdir" && zip -r "$GITHUB_WORKSPACE/dist/$zipname" . )
 
-      # Zip (macOS)
-      # - name: Zip artifact (macOS)
-      #   if: ${{ matrix.os == 'macos-latest' }}
-      #   shell: bash
-      #   run: |
-      #     set -euo pipefail
-      #     mkdir -p dist
-      #     zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
-      #     # ditto preserves bundle metadata for .app
-      #     ditto -c -k --sequesterRsrc --keepParent "${{ steps.find_dist.outputs.dir }}" "dist/$zipname"
+      # Zip (macOS): use ditto to preserve bundle metadata for .app
+      - name: Zip artifact (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "${{ steps.find_dist.outputs.dir }}" "dist/$zipname"
 
       # Zip (Windows)
       - name: Zip artifact (Windows)
@@ -236,7 +234,7 @@ jobs:
           $items = Get-ChildItem -LiteralPath $dir -Force
           Compress-Archive -LiteralPath $items.FullName -DestinationPath "dist\$zipname" -Force
 
-      # Upload ZIP artifact (Linux/Windows)
+      # Upload ZIP artifact (all OS that produced a .zip)
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
@@ -246,14 +244,14 @@ jobs:
           compression-level: 6
 
       # Upload DMG (macOS)
-      # - name: Upload DMG artifact (macOS)
-      #   if: ${{ matrix.os == 'macos-latest' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
-      #     path: dist/*.dmg
-      #     if-no-files-found: error
-      #     compression-level: 6
+      - name: Upload DMG artifact (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
+          path: dist/*.dmg
+          if-no-files-found: error
+          compression-level: 6
 
   release:
     name: Create GitHub Release
@@ -279,9 +277,10 @@ jobs:
             Portable desktop builds for ${{ github.ref_name }}.
             Platforms:
             - Linux x64
+            - macOS arm64
             - Windows x64
           files: |
             dist/*.zip
-            # dist/*.dmg  # enable when macOS is uncommented
+            dist/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
