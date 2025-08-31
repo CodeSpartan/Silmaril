@@ -1,0 +1,1 @@
+![Screenshot of the program](./docs/screenshot.png)
