@@ -3,6 +3,7 @@ package ru.adan.silmaril.view
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.ColorfulTextMessage
@@ -124,6 +126,7 @@ fun AdditionalOutputWindow(outputWindowModel: OutputWindowModel, logger: KLogger
         modifier = Modifier
             .fillMaxSize()
             .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
+            .border(1.dp, color = if (currentColorStyle.borderAroundFloatWidgets()) JewelTheme.globalColors.borders.normal else Color.Unspecified)
     ) {
         CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
             SelectionContainer(

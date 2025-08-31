@@ -30,7 +30,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.PointerMatcher
+import androidx.compose.foundation.border
 import androidx.compose.foundation.onClick
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -49,6 +52,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.oshai.kotlinlogging.KLogger
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.jewel.foundation.modifier.border
+import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.icon.IconKey
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
 import org.jetbrains.jewel.ui.painter.rememberResourcePainterProvider
@@ -79,7 +84,8 @@ fun MapWindow(
     val mapModel: MapModel = koinInject()
     val settingsManager: SettingsManager = koinInject()
     val settings by settingsManager.settings.collectAsState()
-    val currentColorStyle = settings.colorStyle
+    val currentColorStyleName = settings.colorStyle
+    val currentColorStyle = remember(currentColorStyleName) {StyleManager.getStyle(currentColorStyleName)}
 
     val robotoFont = remember {FontManager.getFont("RobotoClassic")}
 
@@ -126,7 +132,8 @@ fun MapWindow(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StyleManager.getStyle(currentColorStyle).getUiColor(UiColor.AdditionalWindowBackground))
+            .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
+            .border(1.dp, color = if (currentColorStyle.borderAroundFloatWidgets()) JewelTheme.globalColors.borders.normal else Color.Unspecified)
             .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
     ) {
         RoomsCanvas(
@@ -155,7 +162,7 @@ fun MapWindow(
                     500,
                     room.id,
                 ) {
-                    MapHoverTooltip(room, curZoneState.value, mapModel, StyleManager.getStyle(currentColorStyle))
+                    MapHoverTooltip(room, curZoneState.value, mapModel, currentColorStyle)
                 }
                 currentHoverRoom = room
             }
@@ -167,9 +174,7 @@ fun MapWindow(
                 .padding(start = 8.dp, bottom = 8.dp)
                 .align(Alignment.BottomStart)
                 .background(
-                    StyleManager.getStyle(currentColorStyle)
-                        .getUiColor(UiColor.AdditionalWindowBackground)
-                        .copy(alpha = 0.8f)
+                    currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground).copy(alpha = 0.8f)
                 )
         ) {
             Column {

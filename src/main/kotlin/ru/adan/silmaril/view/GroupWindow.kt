@@ -2,6 +2,7 @@ package ru.adan.silmaril.view
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.jewel.foundation.theme.JewelTheme
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.*
 import ru.adan.silmaril.misc.FontManager
@@ -180,6 +182,7 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
         modifier = Modifier
             .fillMaxSize()
             .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
+            .border(1.dp, color = if (currentColorStyle.borderAroundFloatWidgets()) JewelTheme.globalColors.borders.normal else Color.Unspecified)
             .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
     ) {
         Column() {

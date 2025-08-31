@@ -22,4 +22,5 @@ abstract class ColorStyle {
     abstract fun getUiColor(color: UiColor): Color
     abstract fun getUiColorList(color: UiColor): List<Color>
     abstract fun inputFieldCornerRoundness(): Float
+    abstract fun borderAroundFloatWidgets(): Boolean
 }

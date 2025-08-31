@@ -40,6 +40,10 @@ class ModernDarkRedColorStyle : ColorStyle() {
         }
     }
 
+    override fun borderAroundFloatWidgets(): Boolean {
+        return false
+    }
+
     override fun getUiColorList(color: UiColor): List<Color> {
         return when (color) {
             UiColor.MapRoomUnvisited -> listOf(
