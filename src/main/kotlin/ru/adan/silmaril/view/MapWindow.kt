@@ -471,6 +471,7 @@ fun RoomsCanvas(
 
                     val connectionColor =
                         if (exit.roomId == centerOnRoomId || room.id == centerOnRoomId) Color.White
+                        else if (pathToHighlight.contains(room.id) && pathToHighlight.contains(exit.roomId)) Color(0xff008700)
                         else Color.Gray
 
                     // avoid drawing the same connection twice, e.g. x->y and y->x
@@ -736,6 +737,7 @@ fun RoomsCanvas(
 
                         val connectionColor =
                             if (exit.roomId == centerOnRoomId || room.id == centerOnRoomId) Color.White
+                            else if (pathToHighlight.contains(room.id) && pathToHighlight.contains(exit.roomId)) Color(0xff008700)
                             else Color.Gray
 
                         // Draw the two vertical lines (the sides of the stairs).
