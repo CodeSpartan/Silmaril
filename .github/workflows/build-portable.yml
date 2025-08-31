@@ -44,6 +44,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
 
       - name: Validate Gradle Wrapper
         uses: gradle/wrapper-validation-action@v2
@@ -273,10 +276,10 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body: |
-            Portable desktop builds (zip of build/compose/binaries/main-release/app contents) for ${{ github.ref_name }}.
-            - Linux: zipped distributable contents
-            - Windows: zipped distributable contents
-            # - macOS: .dmg bundle  (enable when macOS is uncommented)
+            Portable desktop builds for ${{ github.ref_name }}.
+            Platforms:
+            - Linux x64
+            - Windows x64
           files: |
             dist/*.zip
             # dist/*.dmg  # enable when macOS is uncommented

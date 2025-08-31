@@ -127,7 +127,7 @@ compose.desktop {
 //                "jdk.management",
             )
 
-            windows { console = true } // adds --win-console for jpackage
+//            windows { console = true } // adds --win-console for jpackage
 
             packageName = "Silmaril"
             packageVersion = "1.0.0"
