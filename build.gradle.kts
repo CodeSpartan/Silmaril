@@ -131,19 +131,19 @@ compose.desktop {
 
 //            windows { console = true } // adds --win-console for jpackage
 
-            //targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            targetFormats(TargetFormat.AppImage)
-
             packageName = "Silmaril"
             packageVersion = "1.0.0"
             macOS {
                 iconFile.set(project.file("icons/icon.icns"))
+                targetFormats(TargetFormat.Dmg)
             }
             windows {
                 iconFile.set(project.file("icons/icon.ico"))
+                targetFormats(TargetFormat.Msi)
             }
             linux {
                 iconFile.set(project.file("icons/icon_256.png"))
+                targetFormats(TargetFormat.AppImage)
             }
         }
 
