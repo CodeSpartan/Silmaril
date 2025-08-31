@@ -782,7 +782,7 @@ class Profile(
     }
 
     fun parseCommentCommand(message: String) {
-        val commentRegex = """\#comment (.+)""".toRegex()
+        val commentRegex = """\#comment (.*)""".toRegex()
         val match = commentRegex.find(message)
         if (match == null) {
             mainViewModel.displayErrorMessage("Ошибка #comment - не смог распарсить. Правильный синтаксис: #comment ваш комментарий.")

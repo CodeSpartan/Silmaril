@@ -132,7 +132,10 @@ class LoreManager() : KoinComponent {
     fun commentLastLore(comment: String): Boolean {
         if (lastLoreMessage == null) return false
 
-        lastLoreMessage?.comment = comment
+        if (comment.isEmpty())
+            lastLoreMessage?.comment = null
+        else
+            lastLoreMessage?.comment = comment
         saveLoreIfNew(lastLoreMessage!!, true)
         return true
     }
