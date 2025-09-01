@@ -203,22 +203,6 @@ jobs:
           fi
           echo "dir=$DIST_DIR" >> $GITHUB_OUTPUT
 
-      # Locate .app bundle (macOS) for zipping
-      - name: Locate .app bundle (macOS)
-        if: ${{ matrix.os == 'macos-latest' }}
-        id: find_app
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP_DIR=$(find build/compose/binaries -type d -name "*.app" -path "*/main/*" | head -n1 || true)
-          echo "Found .app: ${APP_DIR:-<none>}"
-          if [[ -z "${APP_DIR:-}" || ! -d "$APP_DIR" ]]; then
-            echo ".app bundle not found" >&2
-            ls -laR build/compose || true
-            exit 1
-          fi
-          echo "app=$APP_DIR" >> $GITHUB_OUTPUT
-
       # Zip (Linux): zip the CONTENTS of the "app" folder (no extra parent folder)
       - name: Zip artifact (Linux)
         if: ${{ matrix.os == 'ubuntu-latest' }}
@@ -229,16 +213,6 @@ jobs:
           zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
           distdir="${{ steps.find_dist.outputs.dir }}"
           ( cd "$distdir" && zip -r "$GITHUB_WORKSPACE/dist/$zipname" . )
-
-      # Zip (macOS): zip the .app bundle (keep parent) for convenience alongside DMG
-      - name: Zip artifact (macOS)
-        if: ${{ matrix.os == 'macos-latest' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
-          ditto -c -k --sequesterRsrc --keepParent "${{ steps.find_app.outputs.app }}" "dist/$zipname"
 
       # Zip (Windows)
       - name: Zip artifact (Windows)
@@ -257,16 +231,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
-          path: dist/*.zip
-          if-no-files-found: error
-          compression-level: 6
-
-      # Upload ZIP artifact (macOS) — unique name to avoid 409 Conflict with DMG
-      - name: Upload ZIP artifact (macOS)
-        if: ${{ matrix.os == 'macos-latest' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}-zip
           path: dist/*.zip
           if-no-files-found: error
           compression-level: 6
