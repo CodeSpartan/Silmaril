@@ -155,4 +155,8 @@ class ProfileManager(
         }
         return false
     }
+
+    fun getWindowById(id: Int): Profile? {
+        return gameWindows.value.values.elementAtOrNull(id-1)
+    }
 }

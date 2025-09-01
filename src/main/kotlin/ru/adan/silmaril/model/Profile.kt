@@ -33,6 +33,7 @@ import ru.adan.silmaril.misc.getCorrectTransitionWord
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
+import ru.adan.silmaril.scripting.sendId
 import ru.adan.silmaril.viewmodel.MapViewModel
 
 class Profile(
@@ -181,7 +182,8 @@ class Profile(
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
-            "#sendWindow" -> parseSendWindowCommand(message)
+            "#send" -> parseSendWindowCommand(message)
+            "#sendId" -> parseSendIdCommand(message)
             "#sendAll" -> parseSendAllCommand(message)
             "#window" -> parseWindowCommand(message)
             "#output" -> parseOutputCommand(message)
@@ -722,16 +724,29 @@ class Profile(
     }
 
     fun parseSendWindowCommand(message: String) {
-        // matches #sendWindow {name} {command}
-        val sendWindowRegex = """\#sendWindow \{(.+?)} \{(.+)}$""".toRegex()
+        // matches #send {name} {command}
+        val sendWindowRegex = """\#send \{(.+?)} \{(.+)}$""".toRegex()
         val match = sendWindowRegex.find(message)
         if (match == null) {
-            mainViewModel.displayErrorMessage("Ошибка #sendWindow - не смог распарсить. Правильный синтаксис: #sendWindow {окно} {команда}.")
+            mainViewModel.displayErrorMessage("Ошибка #send - не смог распарсить. Правильный синтаксис: #send {окно} {команда}.")
             return
         }
         val windowName = match.groupValues[1]
         val command = match.groupValues[2]
         scriptingEngine.sendWindowCommand(windowName, command)
+    }
+
+    fun parseSendIdCommand(message: String) {
+        // matches #sendId {name} {command}
+        val sendWindowRegex = """\#sendId \{(\d+)} \{(.+)}$""".toRegex()
+        val match = sendWindowRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #sendId - не смог распарсить. Правильный синтаксис: #sendId {номер окна} {команда}.")
+            return
+        }
+        val windowId = match.groupValues[1].toInt()
+        val command = match.groupValues[2]
+        scriptingEngine.sendId(windowId, command)
     }
 
     fun parseSendAllCommand(message: String) {

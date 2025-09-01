@@ -93,8 +93,12 @@ fun ScriptingEngine.sendAll(command: String) {
     sendAllCommand(command)
 }
 
-fun ScriptingEngine.sendWindow(window: String, command: String) {
+fun ScriptingEngine.send(window: String, command: String) {
     sendWindowCommand(window, command)
+}
+
+fun ScriptingEngine.sendId(windowId: Int, command: String) {
+    getProfileManager().getWindowById(windowId)?.mainViewModel?.treatUserInput(command)
 }
 
 fun ScriptingEngine.getVar(varName: String): Variable? {
