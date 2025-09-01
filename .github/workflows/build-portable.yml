@@ -166,7 +166,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          file=$(find build/compose/binaries -type f -name "*.dmg" -maxdepth 8 2>/dev/null | sort | head -n1 || true)
+          file=$(find build/compose/binaries -type f -name "*.dmg" 2>/dev/null | sort | head -n1 || true)
           echo "Found DMG: ${file:-<none>}"
           if [[ -z "${file:-}" ]]; then
             echo "No .dmg found!" >&2
@@ -210,7 +210,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_DIR=$(find build/compose/binaries -type d -name "*.app" -path "*/main/*" -maxdepth 8 | head -n1 || true)
+          APP_DIR=$(find build/compose/binaries -type d -name "*.app" -path "*/main/*" | head -n1 || true)
           echo "Found .app: ${APP_DIR:-<none>}"
           if [[ -z "${APP_DIR:-}" || ! -d "$APP_DIR" ]]; then
             echo ".app bundle not found" >&2
@@ -245,14 +245,15 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' }}
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null          
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
           $zipname = "Silmaril-$env:APP_VERSION-${{ matrix.artifact_suffix }}.zip"
           $dir = "${{ steps.find_dist.outputs.dir }}"
           $items = Get-ChildItem -LiteralPath $dir -Force
           Compress-Archive -LiteralPath $items.FullName -DestinationPath "dist\$zipname" -Force
 
-      # Upload ZIP artifact (all OS that produced a .zip)
-      - name: Upload ZIP artifact
+      # Upload ZIP artifact (Linux/Windows) — single artifact per job
+      - name: Upload ZIP artifact (Linux/Windows)
+        if: ${{ matrix.os != 'macos-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
@@ -260,12 +261,22 @@ jobs:
           if-no-files-found: error
           compression-level: 6
 
-      # Upload DMG (macOS)
+      # Upload ZIP artifact (macOS) — unique name to avoid 409 Conflict with DMG
+      - name: Upload ZIP artifact (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}-zip
+          path: dist/*.zip
+          if-no-files-found: error
+          compression-level: 6
+
+      # Upload DMG (macOS) — unique name to avoid 409 Conflict with ZIP
       - name: Upload DMG artifact (macOS)
         if: ${{ matrix.os == 'macos-latest' }}
         uses: actions/upload-artifact@v4
         with:
-          name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}
+          name: Silmaril-${{ env.APP_VERSION }}-${{ matrix.artifact_suffix }}-dmg
           path: dist/*.dmg
           if-no-files-found: error
           compression-level: 6
