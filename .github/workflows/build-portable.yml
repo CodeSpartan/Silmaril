@@ -126,7 +126,7 @@ jobs:
       # (Optional) a diagnostic step to confirm the task name/path
       - name: Show packaging tasks
         shell: bash
-        run: ./gradlew -q tasks --all | (grep -iE "createReleaseDistributable|packageDmg" || true)
+        run: ./gradlew -q tasks --all | (grep -iE "createReleaseDistributable|packageReleaseDmg" || true)
 
       # Build on Linux (bash)
       - name: Build Portable (Linux)
@@ -148,7 +148,7 @@ jobs:
             -Pversion="${APP_VERSION}" \
             -Dorg.gradle.java.installations.paths="${JBR_HOME}" \
             -Dorg.gradle.java.installations.auto-download=false \
-            packageDmg
+            packageReleaseDmg
 
       # Build on Windows (PowerShell)
       - name: Build Portable (Windows)
