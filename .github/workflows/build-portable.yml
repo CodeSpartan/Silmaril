@@ -62,7 +62,7 @@ jobs:
 
       # Download and set up JBR 21.0.8 (SDK variant) per-OS
       - name: Download JBR (Linux and macOS)
-        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'}}
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -126,7 +126,7 @@ jobs:
       # (Optional) a diagnostic step to confirm the task name/path
       - name: Show packaging tasks
         shell: bash
-        run: ./gradlew -q tasks --all | grep -i createReleaseDistributable || true
+        run: ./gradlew -q tasks --all | (grep -iE "createReleaseDistributable|packageDmg" || true)
 
       # Build on Linux (bash)
       - name: Build Portable (Linux)
@@ -182,8 +182,9 @@ jobs:
           mkdir -p dist
           cp "${{ steps.find_dmg.outputs.file }}" "dist/Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.dmg"
 
-      # Locate distributable folder (for zipping the "app" folder; used by all OS)
+      # Locate distributable folder (Linux/Windows)
       - name: Locate distributable folder
+        if: ${{ matrix.os != 'macos-latest' }}
         id: find_dist
         shell: bash
         run: |
@@ -202,6 +203,22 @@ jobs:
           fi
           echo "dir=$DIST_DIR" >> $GITHUB_OUTPUT
 
+      # Locate .app bundle (macOS) for zipping
+      - name: Locate .app bundle (macOS)
+        if: ${{ matrix.os == 'macos-latest' }}
+        id: find_app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_DIR=$(find build/compose/binaries -type d -name "*.app" -path "*/main/*" -maxdepth 8 | head -n1 || true)
+          echo "Found .app: ${APP_DIR:-<none>}"
+          if [[ -z "${APP_DIR:-}" || ! -d "$APP_DIR" ]]; then
+            echo ".app bundle not found" >&2
+            ls -laR build/compose || true
+            exit 1
+          fi
+          echo "app=$APP_DIR" >> $GITHUB_OUTPUT
+
       # Zip (Linux): zip the CONTENTS of the "app" folder (no extra parent folder)
       - name: Zip artifact (Linux)
         if: ${{ matrix.os == 'ubuntu-latest' }}
@@ -213,7 +230,7 @@ jobs:
           distdir="${{ steps.find_dist.outputs.dir }}"
           ( cd "$distdir" && zip -r "$GITHUB_WORKSPACE/dist/$zipname" . )
 
-      # Zip (macOS): use ditto to preserve bundle metadata for .app
+      # Zip (macOS): zip the .app bundle (keep parent) for convenience alongside DMG
       - name: Zip artifact (macOS)
         if: ${{ matrix.os == 'macos-latest' }}
         shell: bash
@@ -221,14 +238,14 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           zipname="Silmaril-${APP_VERSION}-${{ matrix.artifact_suffix }}.zip"
-          ditto -c -k --sequesterRsrc --keepParent "${{ steps.find_dist.outputs.dir }}" "dist/$zipname"
+          ditto -c -k --sequesterRsrc --keepParent "${{ steps.find_app.outputs.app }}" "dist/$zipname"
 
       # Zip (Windows)
       - name: Zip artifact (Windows)
         if: ${{ matrix.os == 'windows-latest' }}
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          New-Item -ItemType Directory -Force -Path dist | Out-Null          
           $zipname = "Silmaril-$env:APP_VERSION-${{ matrix.artifact_suffix }}.zip"
           $dir = "${{ steps.find_dist.outputs.dir }}"
           $items = Get-ChildItem -LiteralPath $dir -Force
