@@ -124,7 +124,7 @@ fun getAliasesDirectory(): String {
 }
 
 fun getSubstitutesDirectory(): String {
-    val path = Paths.get(getProgramDirectory(), "subsitutes").toString()
+    val path = Paths.get(getProgramDirectory(), "substitutes").toString()
     val dir = File(path)
     if (!dir.exists())
         dir.mkdirs()

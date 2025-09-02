@@ -62,6 +62,17 @@ class MainViewModel(
             client.connect()
     }
 
+    fun isInputExemptFromVarInsertion(message: String): Boolean {
+        val prefixes = listOf("#act", "#grep", "#unact", "#ungrep", "#al", "#unal", "#alias", "#unalias", "#hot",
+            "#hotkey", "#unhot", "#unhotkey", "#sub", "#unsub")
+        for (prefix in prefixes) {
+            if (message.startsWith("$prefix ")) {
+                return true
+            }
+        }
+        return false
+    }
+
     // Function that reads user's text input
     fun treatUserInput(message: String, displayAsUserInput: Boolean = true) {
         //logger.info { "Sending: $message" }
@@ -82,7 +93,8 @@ class MainViewModel(
         if (message.startsWith("#")) {
             val displayFeedback = !message.startsWith("#output") && !message.startsWith("#window")
 
-            val withVariables = onInsertVariables(message)
+            // don't resolve variables inside #act and #grep statements, we need them as $vars
+            val withVariables = if (isInputExemptFromVarInsertion(message)) message else onInsertVariables(message)
             if (displayAsUserInput && displayFeedback) {
                 if (withVariables != message) {
                     emitMessage(ColorfulTextMessage(arrayOf(

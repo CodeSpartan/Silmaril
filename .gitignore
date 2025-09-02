@@ -11,6 +11,9 @@ build/
 ### Kotlin DSL scripts and yaml-serialized scripts (located elsewhere, but symlinked to the resource folder)
 src/main/resources/triggers
 src/main/resources/dsl
+src/main/resources/aliases
+src/main/resources/hotkeys
+src/main/resources/substitutes
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
