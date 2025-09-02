@@ -156,9 +156,10 @@ class Profile(
         mobsModel.cleanup()
     }
 
-    fun onSystemMessage(message: String) {
+    fun onSystemMessage(messageUntrimmed: String) {
+        val message = messageUntrimmed.trim()
         // get first word of the message
-        when (message.trim().substringBefore(" ")) {
+        when (messageUntrimmed.trim().substringBefore(" ")) {
             "#var"-> parseVarCommand(message)
             "#unvar" -> parseUnvarCommand(message)
             "#vars" -> printAllVarsCommand()
