@@ -144,8 +144,6 @@ class MudConnection(
             return
         }
 
-
-
         _connectionState.value = ConnectionState.CONNECTING
         connectionScope.launch {
             var success = false
@@ -220,6 +218,7 @@ class MudConnection(
             lastByte = ControlCharacters.NonControlCharacter
             headerFoundBytes = 0
             _connectionState.value = ConnectionState.DISCONNECTED
+            _isEchoOn.value = false
         }
     }
 
@@ -421,10 +420,7 @@ class MudConnection(
                 logger.error { "Error while receiving data" }
             } finally {
                 val textString = "Связь потеряна."
-                val colorfulTextMessage = yellowTextMessage(textString)
-                onMessageReceived(textString)
-                _unformattedTextMessages.emit(textString)
-                _colorfulTextMessages.emit(colorfulTextMessage)
+                printYellowMessage(textString)
                 _connectionState.value = ConnectionState.DISCONNECTED
                 if (settingsManager.settings.value.autoReconnect) {
                     reconnect()
@@ -442,8 +438,6 @@ class MudConnection(
     }
 
     private fun decompress(data: ByteArray): ByteArray {
-        val copyBuffer = ByteArray(data.size)
-        data.copyInto(destination = copyBuffer, startIndex = 0)
         inflater?.setInput(data)
         // This buffer will hold the decompressed output
         val outputBuffer = ByteArray(32767)
@@ -455,9 +449,11 @@ class MudConnection(
             if (err != JZlib.Z_OK) {
                 logger.warn { "Zlib inflation error: $err" }
                 stopDecompression()
-//                connectionScope.launch {
-//                    processData(copyBuffer)
-//                }
+                connectionScope.launch {
+                    printYellowMessage("Сервер отключил компрессию.")
+                    _isEchoOn.value = false
+                    //processData(data)
+                }
                 break
             }
             totalDecompressed += (inflater?.next_out_index ?: 0) - totalDecompressed
@@ -886,6 +882,13 @@ class MudConnection(
         onMessageReceived(text)
         _unformattedTextMessages.emit(text)
         _colorfulTextMessages.emit(colorfulText)
+    }
+
+    private suspend fun printYellowMessage(text : String) {
+        val colorfulTextMessage = yellowTextMessage(text)
+        onMessageReceived(text)
+        _unformattedTextMessages.emit(text)
+        _colorfulTextMessages.emit(colorfulTextMessage)
     }
 
     private fun yellowTextMessage(text : String) : ColorfulTextMessage {
