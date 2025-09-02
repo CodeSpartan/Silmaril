@@ -169,17 +169,17 @@ class Profile(
             "#grep" -> parseTextTrigger(message)
             "#unact" -> parseRemoveTrigger(message)
             "#ungrep" -> parseRemoveTrigger(message)
-            "#triggers" -> printAllTriggers()
+            "#triggers" -> printAllTriggers(message)
             "#al" -> parseTextAlias(message)
             "#alias" -> parseTextAlias(message)
             "#unal" -> parseRemoveAlias(message)
             "#unalias" -> parseRemoveAlias(message)
-            "#aliases" -> printAllAliases()
+            "#aliases" -> printAllAliases(message)
             "#hot" -> parseAddHotkey(message)
             "#hotkey" -> parseAddHotkey(message)
             "#unhot" -> parseRemoveHotkey(message)
             "#unhotkey" -> parseRemoveHotkey(message)
-            "#hotkeys" -> printAllHotkeys()
+            "#hotkeys" -> printAllHotkeys(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
@@ -198,7 +198,7 @@ class Profile(
             "#subreg" -> parseTextSubstitute(message)
             "#unsub" -> parseRemoveSubstitute(message)
             "#unsubreg" -> parseRemoveSubstitute(message)
-            "#subs" -> printAllSubstitutes()
+            "#subs" -> printAllSubstitutes(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -600,9 +600,24 @@ class Profile(
             mainViewModel.displaySystemMessage("Алиас не найден.")
     }
 
-    fun printAllTriggers() {
+    fun printAllTriggers(message: String) {
+        val triggersRegex = """\#triggers\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = triggersRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #triggers - не смог распарсить. Правильный синтаксис: #triggers {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, trigList) in scriptingEngine.getTriggers()) {
             if (trigList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
@@ -620,9 +635,24 @@ class Profile(
         }
     }
 
-    fun printAllAliases() {
+    fun printAllAliases(message: String) {
+        val aliasesRegex = """\#aliases\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = aliasesRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #aliases - не смог распарсить. Правильный синтаксис: #aliases {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, aliasList) in scriptingEngine.getAliases()) {
             if (aliasList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
@@ -924,9 +954,24 @@ class Profile(
             mainViewModel.displaySystemMessage("Хоткей не найден.")
     }
 
-    fun printAllHotkeys() {
+    fun printAllHotkeys(message: String) {
+        val aliasesRegex = """\#hotkeys\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = aliasesRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #hotkeys - не смог распарсить. Правильный синтаксис: #hotkeys {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, hotkeyList) in scriptingEngine.getHotkeys()) {
             if (hotkeyList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
@@ -1150,9 +1195,24 @@ class Profile(
             mainViewModel.displaySystemMessage("Замена не найдена.")
     }
 
-    private fun printAllSubstitutes() {
+    private fun printAllSubstitutes(message: String) {
+        val subsRegex = """\#subs\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = subsRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #subs - не смог распарсить. Правильный синтаксис: #subs {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, subsList) in scriptingEngine.getSubstitutes()) {
             if (subsList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
