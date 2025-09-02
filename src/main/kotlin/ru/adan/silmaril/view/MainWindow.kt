@@ -40,7 +40,6 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.graphics.copy
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -57,8 +56,6 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import io.github.oshai.kotlinlogging.KLogger
@@ -70,21 +67,16 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import org.jetbrains.jewel.intui.standalone.styling.dark
-import org.jetbrains.jewel.ui.component.DefaultButton
-import org.jetbrains.jewel.ui.component.DropdownLink
 import org.jetbrains.jewel.ui.component.Link
 import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.SplitLayoutState
-import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.VerticalSplitLayout
-import org.jetbrains.jewel.ui.component.separator
+import org.jetbrains.jewel.ui.component.styling.DividerMetrics
+import org.jetbrains.jewel.ui.component.styling.DividerStyle
 import org.jetbrains.jewel.ui.component.styling.LinkColors
 import org.jetbrains.jewel.ui.component.styling.LinkStyle
-import org.jetbrains.jewel.ui.component.styling.LocalTooltipStyle
 import org.jetbrains.jewel.ui.component.styling.MenuColors
 import org.jetbrains.jewel.ui.component.styling.MenuStyle
-import org.jetbrains.jewel.ui.component.styling.TooltipAutoHideBehavior
-import org.jetbrains.jewel.ui.component.styling.TooltipStyle
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.FontManager.getFontLineHeight
@@ -94,7 +86,6 @@ import ru.adan.silmaril.visual_styles.ColorStyle
 import ru.adan.silmaril.misc.rememberIsAtBottom
 import ru.adan.silmaril.view.hovertooltips.LoreTooltip
 import kotlin.collections.forEach
-import kotlin.random.Random
 
 @Composable
 fun MainWindow(
@@ -109,7 +100,7 @@ fun MainWindow(
     val messages = remember { mutableStateListOf<OutputItem>() }
     val settings by settingsManager.settings.collectAsState()
 
-    var splitState by remember { mutableStateOf(SplitLayoutState(0.5f)) }
+    var splitState by remember { mutableStateOf(SplitLayoutState(0.8f)) }
 
     val currentFontFamily = settings.font
     val currentFontSize = settings.fontSize
@@ -336,6 +327,10 @@ fun MainWindow(
                             .zIndex(if (showSplitScreen) 1f else 0f),
                         firstPaneMinWidth = 200.dp,
                         secondPaneMinWidth = 200.dp,
+                        dividerStyle = DividerStyle(
+                            color = Color(0xFF282a2e),
+                            metrics = DividerMetrics.defaults(thickness = 2.dp)
+                        ),
                         first = {
                             TextColumn(
                                 paddingLeft,
