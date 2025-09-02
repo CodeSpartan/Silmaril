@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
-import ru.adan.silmaril.misc.getTriggersDirectory
 import ru.adan.silmaril.misc.toVariable
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -30,6 +29,7 @@ import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getCorrectTransitionWord
+import ru.adan.silmaril.misc.getDslScriptsDirectory
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
@@ -131,10 +131,10 @@ class Profile(
     suspend fun compileTriggers() {
         // load triggers
         mainViewModel.displaySystemMessage("Компилирую скрипты...")
-        val triggersDir = File(getTriggersDirectory())
+        val dslDir = File(getDslScriptsDirectory())
         var triggersLoaded = 0
-        if (triggersDir.exists() && triggersDir.isDirectory) {
-            triggersDir.listFiles()?.forEach { file ->
+        if (dslDir.exists() && dslDir.isDirectory) {
+            dslDir.listFiles()?.forEach { file ->
                 if (file.isFile && file.extension == "kts") {
                     triggersLoaded += scriptingEngine.loadScript(file)
                 }

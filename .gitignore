@@ -8,8 +8,9 @@ build/
 .salive
 .kotlin/
 
-### Kotlin DSL scripts (located elsewhere, but symlinked to the resource folder)
+### Kotlin DSL scripts and yaml-serialized scripts (located elsewhere, but symlinked to the resource folder)
 src/main/resources/triggers
+src/main/resources/dsl
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

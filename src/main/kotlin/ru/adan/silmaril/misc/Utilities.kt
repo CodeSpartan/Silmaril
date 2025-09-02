@@ -107,6 +107,14 @@ fun getTriggersDirectory(): String {
     return path
 }
 
+fun getDslScriptsDirectory(): String {
+    val path = Paths.get(getProgramDirectory(), "dsl").toString()
+    val dir = File(path)
+    if (!dir.exists())
+        dir.mkdirs()
+    return path
+}
+
 fun getAliasesDirectory(): String {
     val path = Paths.get(getProgramDirectory(), "aliases").toString()
     val dir = File(path)
