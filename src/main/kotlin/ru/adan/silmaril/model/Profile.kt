@@ -1,5 +1,6 @@
 package ru.adan.silmaril.model
 
+import androidx.compose.runtime.mutableStateOf
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -109,6 +110,8 @@ class Profile(
 
     val logger = KotlinLogging.logger {}
 
+    var isReadyToConnect = mutableStateOf(false)
+
     init {
         if (!settingsManager.settings.value.gameWindows.contains(profileName)) {
             settingsManager.addGameWindow(profileName)
@@ -123,6 +126,7 @@ class Profile(
             groupModel.init()
             // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
+            isReadyToConnect.value = true
         }
 
         debounceSaveProfile()

@@ -275,10 +275,16 @@ internal fun DecoratedWindowScope.TitleBarView(
 
                         selectableItem(
                             selected = false,
-                            enabled = currentWindowConnectionState != ConnectionState.CONNECTED && currentWindowConnectionState != ConnectionState.CONNECTING,
+                            enabled =
+                                currentWindowConnectionState != ConnectionState.CONNECTED
+                                        && currentWindowConnectionState != ConnectionState.CONNECTING
+                                        && profileManager.getCurrentProfile()?.isReadyToConnect?.value == true,
                             iconKey = AllIconsKeys.CodeWithMe.CwmEnableCall,
                             keybinding = setOf("Ctrl", "Alt", "C"),
-                            onClick = { profileManager.currentClient.value.connect() },
+                            onClick = {
+                                if (profileManager.getCurrentProfile()?.isReadyToConnect?.value == true)
+                                    profileManager.currentClient.value.connect()
+                            },
                         ) {
                             Text("Подключиться")
                         }
