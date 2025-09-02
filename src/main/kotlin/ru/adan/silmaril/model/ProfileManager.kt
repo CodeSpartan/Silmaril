@@ -4,6 +4,9 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +20,7 @@ import ru.adan.silmaril.viewmodel.MapInfoSource
 import ru.adan.silmaril.viewmodel.MapViewModel
 import ru.adan.silmaril.viewmodel.ProfileCreatureSource
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
+import androidx.compose.ui.input.key.Key
 
 class ProfileManager(
     private val unifiedMapsViewModel: UnifiedMapsViewModel,
@@ -150,6 +154,18 @@ class ProfileManager(
     //@TODO: move this to a separate class
     // Return true to consume the event
     fun onHotkeyKey(onPreviewKeyEvent: KeyEvent): Boolean {
+        if (onPreviewKeyEvent.key == Key.C && onPreviewKeyEvent.isAltPressed && onPreviewKeyEvent.isCtrlPressed) {
+            if (currentClient.value.connectionState.value != ConnectionState.CONNECTED && currentClient.value.connectionState.value != ConnectionState.CONNECTING)
+                currentClient.value.connect()
+            return true
+        }
+
+        if (onPreviewKeyEvent.key == Key.Z && onPreviewKeyEvent.isAltPressed && onPreviewKeyEvent.isCtrlPressed) {
+            if (currentClient.value.connectionState.value == ConnectionState.CONNECTED || currentClient.value.connectionState.value == ConnectionState.CONNECTING)
+                currentClient.value.forceDisconnect()
+            return true
+        }
+
         if (onPreviewKeyEvent.type == KeyEventType.KeyDown) {
             return getCurrentProfile()?.scriptingEngine?.processHotkey(onPreviewKeyEvent) ?: false
         }
