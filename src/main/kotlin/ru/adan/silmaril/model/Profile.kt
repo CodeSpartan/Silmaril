@@ -811,7 +811,7 @@ class Profile(
     }
 
     fun parseLoreCommand(message: String) {
-        val loreRegex = """\#lore ([\p{L}\p{N}_\-\s]+)$""".toRegex()
+        val loreRegex = """\#lore ([\p{L}\p{N}_,\-\s]+)$""".toRegex()
         val match = loreRegex.find(message)
         if (match == null) {
             mainViewModel.displayErrorMessage("Ошибка #lore - не смог распарсить. Правильный синтаксис: #lore имя предмета.")
