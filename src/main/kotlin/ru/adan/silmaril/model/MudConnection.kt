@@ -51,13 +51,13 @@ class MudConnection(
     private val gameEventsLogger = KotlinLogging.logger("GameEvents")
 
     private var socket: Socket? = null
-    private var readChannel: ByteReadChannel? = null
-    private var writeChannel: ByteWriteChannel? = null
+    private var tcpReadChannel: ByteReadChannel? = null
+    private var tcpWriteChannel: ByteWriteChannel? = null
     private val sendChannel = Channel<ByteArray>(Channel.UNLIMITED)
     val isConnected: Boolean
         get() { // The connection is alive if both channels are non-null and not closed.
-            return readChannel?.isClosedForRead == false &&
-                    writeChannel?.isClosedForWrite == false
+            return tcpReadChannel?.isClosedForRead == false &&
+                    tcpWriteChannel?.isClosedForWrite == false
         }
 
     // Private mutable state that the class can change
@@ -102,8 +102,8 @@ class MudConnection(
     private val charset = Charset.forName("Windows-1251")
 
     private var _compressionEnabled = false
-    private var _customProtocolEnabled = false
     private var _compressionInProgress = false
+    private var _customProtocolEnabled = false
     private var inflater: Inflater? = null
 
     private var clientJob: Job? = null
@@ -182,8 +182,8 @@ class MudConnection(
             }
 
             // Get the read and write channels from the socket
-            readChannel = socket?.openReadChannel()
-            writeChannel = socket?.openWriteChannel(autoFlush = true)
+            tcpReadChannel = socket?.openReadChannel()
+            tcpWriteChannel = socket?.openWriteChannel()
 
             true  // Connection successful, return true
         }
@@ -287,7 +287,7 @@ class MudConnection(
         }
     }
 
-    fun sendMessage(message: String) {
+    fun enqueueString(message: String) {
         // Don't try to send if not connected
         if (_connectionState.value != ConnectionState.CONNECTED) return
 
@@ -302,22 +302,29 @@ class MudConnection(
         }
     }
 
-    private fun sendBytes(messageBytes : ByteArray) {
+    private suspend fun enqueueBytes(messageBytes : ByteArray) {
+        // Don't try to send if not connected
+        if (_connectionState.value != ConnectionState.CONNECTED) return
+
         try {
-            sendChannel.trySendBlocking(messageBytes)
+            sendChannel.send(messageBytes)
         } catch (e: Exception) {
             logger.warn(e) { "Error sending string message: ${e.message}" }
         }
     }
 
-    // send raw bytes, don't duplicate IAC bytes - don't call directly, because writeChannel isn't thread-safe
+    // send raw bytes, don't duplicate IAC bytes
+    // don't call directly, because writeChannel isn't thread-safe
     // call sendBytes or sendMessage from the main thread instead
     private suspend fun sendRaw(messageBytes : ByteArray) {
+        logger.info { "Compression: ${_compressionEnabled}, ${_compressionInProgress}"}
         lastSendTimestamp.set(System.currentTimeMillis())
         try {
-            writeChannel?.writeByteArray(messageBytes)
+            tcpWriteChannel?.writeByteArray(messageBytes)
+            tcpWriteChannel?.flush()
         } catch (e: Exception) {
             logger.warn(e) { "Error sending raw message: ${e.message}" }
+            forceReconnect()
         }
     }
 
@@ -353,7 +360,7 @@ class MudConnection(
                 val timeSinceLastSend = System.currentTimeMillis() - lastSendTimestamp.get()
                 if (timeSinceLastSend >= keepAliveIntervalMilliseconds && isConnected) {
                     withContext(Dispatchers.Main) {
-                        sendBytes(byteArrayOf(ControlCharacters.LineFeed))
+                        enqueueBytes(byteArrayOf(ControlCharacters.LineFeed))
                     }
                 }
             }
@@ -376,17 +383,17 @@ class MudConnection(
                     // adan always sends IAC_GA at the end of text messages, while other muds may not do that
                     // so in their case, we time out after 50ms of inactivity and flush the buffer if there's anything on it
                     if (host == "adan.ru") {
-                        bytesRead = readChannel?.readAvailable(socketBuffer) ?: -1
+                        bytesRead = tcpReadChannel?.readAvailable(socketBuffer) ?: -1
                         if (bytesRead == -1)  {
                             logger.info { "Connection closed by peer." }
                             break
                         }
                     } else {
                         bytesRead = withTimeoutOrNull(50) {
-                            readChannel?.readAvailable(socketBuffer)
+                            tcpReadChannel?.readAvailable(socketBuffer)
                         }
                         if (bytesRead == null) {
-                            if (readChannel?.isClosedForRead == true) {
+                            if (tcpReadChannel?.isClosedForRead == true) {
                                 logger.info { "Connection closed by peer." }
                                 break
                             }
@@ -435,6 +442,8 @@ class MudConnection(
     }
 
     private fun decompress(data: ByteArray): ByteArray {
+        val copyBuffer = ByteArray(data.size)
+        data.copyInto(destination = copyBuffer, startIndex = 0)
         inflater?.setInput(data)
         // This buffer will hold the decompressed output
         val outputBuffer = ByteArray(32767)
@@ -445,6 +454,10 @@ class MudConnection(
             val err = inflater?.inflate(JZlib.Z_SYNC_FLUSH)
             if (err != JZlib.Z_OK) {
                 logger.warn { "Zlib inflation error: $err" }
+                stopDecompression()
+//                connectionScope.launch {
+//                    processData(copyBuffer)
+//                }
                 break
             }
             totalDecompressed += (inflater?.next_out_index ?: 0) - totalDecompressed
@@ -526,7 +539,7 @@ class MudConnection(
                             logger.debug { "Detected command: IAC WILL COMPRESS" }
                             _compressionEnabled = true
                             withContext(Dispatchers.Main) {
-                                sendBytes(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
+                                enqueueBytes(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.Compress))
                             }
                             lastByte = ControlCharacters.NonControlCharacter
                         }
@@ -541,7 +554,7 @@ class MudConnection(
                             logger.debug { "Detected command: IAC WILL CUSTOM" }
                             _customProtocolEnabled = true
                             withContext(Dispatchers.Main) {
-                                sendBytes(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
+                                enqueueBytes(byteArrayOf(TelnetConstants.InterpretAsCommand, TelnetConstants.Do, TelnetConstants.CustomProtocol))
                             }
                             lastByte = ControlCharacters.NonControlCharacter
                         }

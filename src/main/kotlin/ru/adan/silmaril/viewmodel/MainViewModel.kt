@@ -3,7 +3,6 @@ package ru.adan.silmaril.viewmodel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import ru.adan.silmaril.misc.AnsiColor
@@ -138,7 +137,7 @@ class MainViewModel(
             if (wasThereAnAlias && msgAfterAliasProcess != null) {
                 treatUserInput(withVariables, false)
             } else {
-                client.sendMessage(withVariables)
+                client.enqueueString(withVariables)
             }
             if (!client.isConnected) {
                 emitMessage(ColorfulTextMessage(arrayOf(
