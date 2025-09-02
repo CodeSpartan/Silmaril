@@ -40,6 +40,7 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.copy
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -374,6 +375,7 @@ fun MainWindow(
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
                     HistoryTextField(
+                        isFocused = isFocused,
                         focusRequester = focusRequester,
                         inputFieldReady = inputFieldReady,
                         currentColorStyle = currentColorStyle,
@@ -592,6 +594,7 @@ private fun TextColumn(
 
 @Composable
 fun HistoryTextField(
+    isFocused: Boolean,
     focusRequester: FocusRequester,
     inputFieldReady: MutableState<Boolean>,
     currentColorStyle: ColorStyle,
@@ -603,6 +606,15 @@ fun HistoryTextField(
 
     val history = remember { mutableStateListOf<String>() } // persist with Room/DataStore if needed
     var historyIndex by rememberSaveable { mutableStateOf(-1) } // -1 means “editing new entry”
+
+    // When the window gets focused, select already existing text in the text field
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            inputTextField = inputTextField.copy(
+                selection = TextRange(0, inputTextField.text.length) // Select all text
+            )
+        }
+    }
 
     fun commit() {
         val t = inputTextField.text.trim()
