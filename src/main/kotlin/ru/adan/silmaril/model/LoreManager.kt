@@ -143,10 +143,10 @@ class LoreManager() : KoinComponent {
     fun insertLoreLinks(message: ColorfulTextMessage) : ColorfulTextMessage {
         val fullText = buildString { message.chunks.forEach { append(it.text) } }
 
-        val marketRegex = """^\d+\s+\p{L}+\s+!?(.+?)(?: \(x\d\))?(?:\.\.\.)?\s+(?:мало|средне|много)\s+\d+\s+\d+\s+(?:<|>)?\d+\p{L}+\s*\p{L}*.*""".toRegex()
-        val marketRegex2 = """^Рынок: Лот #\d+: Новая вещь - '(.*?)(?: \(x\d\))?',.*""".toRegex()
+        val marketRegex = """^\d+\s+\p{L}+\s+!?(.+?)(?: \(x\d+\))?(?:\.\.\.)?\s+(?:мало|средне|много)\s+\d+\s+\d+\s+(?:<|>)?\d+\p{L}+\s*\p{L}*.*""".toRegex()
+        val marketRegex2 = """^Рынок: Лот #\d+: Новая вещь - '(.*?)(?: \(x\d+\))?',.*""".toRegex()
         val shopRegex = """^\s?\d+\. \[\s+\d*\s*\d+\] !?(.+?)(?= \((?:x\d+)\)\s*$|\s*$)""".toRegex()
-        val auctionRegex = """^(?:Аукцион: )?Лот #\d: (?:Новая )?[вВ]ещь (?:- )?'(.*?)(?: \(x\d\))?',?.*""".toRegex()
+        val auctionRegex = """^(?:Аукцион: )?Лот #\d: (?:Новая )?[вВ]ещь (?:- )?'(.*?)(?: \(x\d+\))?',?.*""".toRegex()
 
         val match1 = marketRegex.find(fullText)
                 ?: marketRegex2.find(fullText)
