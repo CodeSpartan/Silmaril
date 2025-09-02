@@ -20,12 +20,12 @@ MUD-клиент для игры на сервере adan.ru с использо
 Программа написана на Kotlin Compose, в большинстве кода использует Material. Однако для кастомного тайтл бара, был использован [Jewel](https://github.com/JetBrains/intellij-community/tree/master/platform/jewel). 
 
 > [!IMPORTANT]
-> В связи с этим, компиляция возможна только на [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases) (21.0.8), т.к. обычная JDK не экспоузит манипуляцию тайтл баром.
+> Из-за Jewel, компиляция возможна только на [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases) (21.0.8), т.к. обычная JDK не экспоузит манипуляцию тайтл баром.
 
 > [!IMPORTANT]
 > DSL-скрипты корректно распознаются только в [IntelliJ IDEA 2025.1.4.1 (Ultimate Edition)](https://www.jetbrains.com/idea/download/other.html)
 
-Автор не является экспертом в Java, поэтому некоторые инструкции могут быть необязательными. 
+Автор не является экспертом в Kotlin, поэтому некоторые инструкции могут быть необязательными. 
 
 *   Установите [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases), чтобы `where java` в консоли указывала на JBR.
 *   Откройте проект в [IntelliJ IDEA](https://www.jetbrains.com/idea/download/other.html)

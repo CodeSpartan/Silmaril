@@ -416,7 +416,7 @@ class Profile(
 
     fun addSingleAliasToWindow(shorthand: String, action: String, groupName: String, priority: Int) {
         val newAlias = Trigger.createAlias(shorthand, action, priority, false)
-        scriptingEngine.addTriggerToGroup(groupName, newAlias)
+        scriptingEngine.addAliasToGroup(groupName, newAlias)
     }
 
     fun addSingleSubToWindow(shorthand: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
