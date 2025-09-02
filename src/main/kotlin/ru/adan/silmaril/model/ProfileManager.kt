@@ -94,6 +94,11 @@ class ProfileManager(
     }
 
     fun removeWindow(windowName: String) {
+        // don't close when there's only one tab left
+        if (gameWindows.value.values.size <= 1) {
+            currentMainViewModel.value.displayErrorMessage("Нельзя закрыть единственное окно. Откройте другое, затем закройте это.")
+            return
+        }
         gameWindows.value[windowName]?.onCloseWindow()
         _gameWindows.value = gameWindows.value.filterKeys { it != windowName }.toMap()
         updateUnifiedMapViewModel()
@@ -102,6 +107,9 @@ class ProfileManager(
     init {
         settingsManager.settings.value.gameWindows.forEach { gameWindow ->
             addProfile(gameWindow)
+        }
+        if (gameWindows.value.values.isEmpty()) {
+            addProfile("Default")
         }
         currentClient = mutableStateOf(gameWindows.value.values.first().client)
         currentMainViewModel = mutableStateOf(gameWindows.value.values.first().mainViewModel)
