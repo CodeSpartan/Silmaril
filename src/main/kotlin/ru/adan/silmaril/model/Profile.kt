@@ -66,20 +66,21 @@ class Profile(
         }
     }
 
-    val mapViewModel : MapViewModel by lazy {
-        get {
-            parametersOf(
-                client,
-                { msg: String -> mainViewModel.displayTaggedText(msg, false) },
-                { msg: String -> mainViewModel.treatUserInput(msg) },
-            )
-        }
-    }
-
     val groupModel: GroupModel by lazy {
         get {
             parametersOf(
                 client
+            )
+        }
+    }
+
+    val mapViewModel : MapViewModel by lazy {
+        get {
+            parametersOf(
+                client,
+                groupModel,
+                { msg: String -> mainViewModel.displayTaggedText(msg, false) },
+                { msg: String -> mainViewModel.treatUserInput(msg) },
             )
         }
     }

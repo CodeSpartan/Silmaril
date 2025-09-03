@@ -105,4 +105,17 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
     fun cleanup() {
         scopeDefault.cancel()
     }
+
+    // Return null if we're uncertain
+    fun isLeader() : Boolean? {
+        if (groupMates.value.isEmpty()) return null
+        if (myName == "") return null
+        return groupMates.value.first().name == myName
+    }
+
+    fun getMyStamina() : Int? {
+        if (groupMates.value.isEmpty()) return null
+        if (myName == "") return null
+        return groupMates.value.first().movesPercent.toInt()
+    }
 }

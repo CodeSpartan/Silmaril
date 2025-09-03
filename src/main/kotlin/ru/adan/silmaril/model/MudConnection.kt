@@ -316,7 +316,6 @@ class MudConnection(
     // don't call directly, because writeChannel isn't thread-safe
     // call sendBytes or sendMessage from the main thread instead
     private suspend fun sendRaw(messageBytes : ByteArray) {
-        logger.info { "Compression: ${_compressionEnabled}, ${_compressionInProgress}"}
         lastSendTimestamp.set(System.currentTimeMillis())
         try {
             tcpWriteChannel?.writeByteArray(messageBytes)
