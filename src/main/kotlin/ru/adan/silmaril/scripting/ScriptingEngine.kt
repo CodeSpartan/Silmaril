@@ -100,6 +100,7 @@ open class ScriptingEngineImpl(
     private val regexContainsPercentPatterns = Regex("""%\d+""")
 
     override fun addTriggerToGroup(group: String, trigger: Trigger) {
+        settingsManager.addGroup(group)
         if (!triggers.containsKey(group)) {
             triggers[group] = CopyOnWriteArrayList<Trigger>()
         }
@@ -107,11 +108,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun addTrigger(trigger: Trigger) {
-        val group = currentlyLoadingScript
-        if (!triggers.containsKey(group)) {
-            triggers[group] = CopyOnWriteArrayList<Trigger>()
-        }
-        triggers[group]!!.add(trigger)
+        addTriggerToGroup(currentlyLoadingScript, trigger)
     }
 
     override fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean {
@@ -141,14 +138,11 @@ open class ScriptingEngineImpl(
     }
 
     override fun addAlias(alias: Trigger) {
-        val group = currentlyLoadingScript
-        if (!aliases.containsKey(group)) {
-            aliases[group] = CopyOnWriteArrayList<Trigger>()
-        }
-        aliases[group]!!.add(alias)
+        addSubstituteToGroup(currentlyLoadingScript, alias)
     }
 
     override fun addSubstituteToGroup(group: String, sub: Trigger) {
+        settingsManager.addGroup(group)
         if (!substitutes.containsKey(group)) {
             substitutes[group] = CopyOnWriteArrayList<Trigger>()
         }
@@ -156,14 +150,11 @@ open class ScriptingEngineImpl(
     }
 
     override fun addSubstitute(sub: Trigger) {
-        val group = currentlyLoadingScript
-        if (!substitutes.containsKey(group)) {
-            substitutes[group] = CopyOnWriteArrayList<Trigger>()
-        }
-        substitutes[group]!!.add(sub)
+        addAliasToGroup(currentlyLoadingScript, sub)
     }
 
     override fun addAliasToGroup(group: String, alias: Trigger) {
+        settingsManager.addGroup(group)
         if (!aliases.containsKey(group)) {
             aliases[group] = CopyOnWriteArrayList<Trigger>()
         }
@@ -180,6 +171,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun addHotkeyToGroup(group: String, hotkey: Hotkey) {
+        settingsManager.addGroup(group)
         if (!hotkeys.containsKey(group)) {
             hotkeys[group] = CopyOnWriteArrayList<Hotkey>()
         }

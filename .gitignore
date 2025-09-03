@@ -14,6 +14,7 @@ src/main/resources/dsl
 src/main/resources/aliases
 src/main/resources/hotkeys
 src/main/resources/substitutes
+src/main/resources/profiles
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

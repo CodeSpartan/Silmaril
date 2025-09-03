@@ -475,8 +475,6 @@ class Profile(
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
 
-        settingsManager.addGroup(groupName)
-
         val newTrigger =
             if (isRegex) Trigger.regCreate(condition, action, priority, false)
             else Trigger.create(condition, action, priority, false)
@@ -701,8 +699,6 @@ class Profile(
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
 
-        settingsManager.addGroup(groupName)
-
         val newAlias = Trigger.createAlias(shorthand, action, priority, false)
 
         // SESSION is the magic keyword. SESSION triggers only apply to current window, not to all windows.
@@ -873,8 +869,6 @@ class Profile(
         logger.debug { "Action: $action" }
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
-
-        settingsManager.addGroup(groupName)
 
         val newHotkey = Hotkey.create(hotkeyString, action, priority)
 
@@ -1119,8 +1113,6 @@ class Profile(
         logger.debug { "Action: $action" }
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
-
-        settingsManager.addGroup(groupName)
 
         val newSub =
             if (isRegex) Trigger.subRegCreate(condition, action, priority, false)
