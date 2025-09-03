@@ -116,10 +116,7 @@ class MainViewModel(
             val (wasThereAnAlias, msgAfterAliasProcess) = onProcessAliases(message)
             var withVariables : String
             if (wasThereAnAlias) {
-                withVariables = if (msgAfterAliasProcess != null)
-                    onInsertVariables(msgAfterAliasProcess)
-                else
-                    "lambda"
+                withVariables = if (msgAfterAliasProcess != null) onInsertVariables(msgAfterAliasProcess) else "lambda"
             } else {
                 withVariables = onInsertVariables(message)
             }
@@ -148,7 +145,7 @@ class MainViewModel(
             }
             if (wasThereAnAlias && msgAfterAliasProcess != null) {
                 treatUserInput(withVariables, false)
-            } else {
+            } else if (!wasThereAnAlias) {
                 client.enqueueString(withVariables)
             }
             if (!client.isConnected) {
