@@ -1,5 +1,6 @@
 package ru.adan.silmaril.scripting
 import ru.adan.silmaril.misc.*
+import ru.adan.silmaril.mud_messages.*
 
 /**
  * All functions in this file are API that can be called from DSL scripts
@@ -78,6 +79,14 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         val newSub = Trigger.subCreate(this, textAction, 5, true)
         this@MudScriptHost.addSubstitute(newSub)
         logger.debug { "Added text substitute for pattern: $this" }
+    }
+
+    infix fun Int.onNewRound(roundInfo: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit) {
+        logger.debug {"Added lambda round trigger"}
+    }
+
+    infix fun Int.onOldRound(roundInfo: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit) {
+        logger.debug {"Added lambda round trigger"}
     }
 }
 
