@@ -138,7 +138,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun addAlias(alias: Trigger) {
-        addSubstituteToGroup(currentlyLoadingScript, alias)
+        addAliasToGroup(currentlyLoadingScript, alias)
     }
 
     override fun addSubstituteToGroup(group: String, sub: Trigger) {
@@ -150,7 +150,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun addSubstitute(sub: Trigger) {
-        addAliasToGroup(currentlyLoadingScript, sub)
+        addSubstituteToGroup(currentlyLoadingScript, sub)
     }
 
     override fun addAliasToGroup(group: String, alias: Trigger) {
