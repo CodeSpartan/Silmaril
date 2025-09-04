@@ -38,12 +38,13 @@
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${SYSTEM_LOG_PATH}/app.log</file>
         <encoder>
-            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{16} %X{profile:-GLOBAL} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{16} %X{profile:-GLOBAL} - %msg%n</pattern>
         </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- daily rollover -->
-            <fileNamePattern>${SYSTEM_LOG_PATH}/archived/silmaril.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- keep 5 days' worth of history -->
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- Daily rollover, start a new file when size exceeds 50MB -->
+            <fileNamePattern>${SYSTEM_LOG_PATH}/archived/silmaril.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
             <maxHistory>5</maxHistory>
             <totalSizeCap>50MB</totalSizeCap>
         </rollingPolicy>
