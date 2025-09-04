@@ -106,7 +106,8 @@ class MudConnection(
     private var _customProtocolEnabled = false
     private var inflater: Inflater? = null
 
-    private var clientJob: Job? = null
+    private var readJob: Job? = null
+    private var sendJob: Job? = null
     private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val keepAliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -151,12 +152,8 @@ class MudConnection(
                 success = performConnect() // Call the internal suspend function
                 if (success) {
                     _connectionState.value = ConnectionState.CONNECTED
-                    launch {
-                        readDataLoop()
-                    }
-                    launch {
-                        sendDataLoop()
-                    }
+                    readDataLoop()
+                    sendDataLoop()
                 } else {
                     _connectionState.value = ConnectionState.FAILED
                 }
@@ -206,6 +203,8 @@ class MudConnection(
     private fun cleanupOnDisconnect() {
         try {
             socket?.close()
+            readJob?.cancel()
+            sendJob?.cancel()
         } catch (e: Exception) {
             logger.warn(e) { "Error while closing connection" }
         } finally {
@@ -225,12 +224,11 @@ class MudConnection(
     // Close the connection
     private fun closeClientJob() {
         try {
-            clientJob?.cancel()
             cleanupOnDisconnect()
         } catch (e: Exception) {
             logger.warn(e) { "Error while closing connection" }
         } finally {
-            clientJob = null
+            readJob = null
         }
     }
 
@@ -241,6 +239,7 @@ class MudConnection(
     fun forceReconnect() {
         val waitForDisconnect = isConnected
         socket?.close()
+
         connectionScope.launch {
             // wait until the cleanup is done
             if (waitForDisconnect)
@@ -263,8 +262,13 @@ class MudConnection(
     /************** SEND *************/
 
     private suspend fun sendDataLoop() {
-        for (messageBytes in sendChannel) {
-            sendRaw(messageBytes)
+        sendJob = connectionScope.launch (
+            // this provides the "profile" to the SLF4J logger
+            MDCContext(mapOf("profile" to profileName))
+        ) {
+            for (messageBytes in sendChannel) {
+                sendRaw(messageBytes)
+            }
         }
     }
 
@@ -368,8 +372,8 @@ class MudConnection(
     /**************** RECEIVE ****************/
 
     // Start receiving messages asynchronously using a coroutine
-    private fun readDataLoop() {
-        clientJob = connectionScope.launch (
+    private suspend fun readDataLoop() {
+        readJob = connectionScope.launch (
             // this provides the "profile" to the SLF4J logger
             MDCContext(mapOf("profile" to profileName))
         ){
