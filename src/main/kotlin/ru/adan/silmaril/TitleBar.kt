@@ -280,7 +280,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                                         && currentWindowConnectionState != ConnectionState.CONNECTING
                                         && profileManager.getCurrentProfile()?.isReadyToConnect?.value == true,
                             iconKey = AllIconsKeys.CodeWithMe.CwmEnableCall,
-                            keybinding = setOf("Ctrl", "Alt", "C"),
+                            keybinding = setOf("Alt", "C"),
                             onClick = {
                                 if (profileManager.getCurrentProfile()?.isReadyToConnect?.value == true)
                                     profileManager.currentClient.value.connect()
@@ -292,7 +292,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                             selected = false,
                             enabled = currentWindowConnectionState == ConnectionState.CONNECTED || currentWindowConnectionState == ConnectionState.CONNECTING,
                             iconKey = AllIconsKeys.CodeWithMe.CwmDisableCall,
-                            keybinding = setOf("Ctrl", "Alt", "Z"),
+                            keybinding = setOf("Alt", "Z"),
                             onClick = { profileManager.currentClient.value.forceDisconnect() },
                         ) {
                             Text("Отключиться")

@@ -162,13 +162,13 @@ class ProfileManager(
     //@TODO: move this to a separate class
     // Return true to consume the event
     fun onHotkeyKey(onPreviewKeyEvent: KeyEvent): Boolean {
-        if (onPreviewKeyEvent.key == Key.C && onPreviewKeyEvent.isAltPressed && onPreviewKeyEvent.isCtrlPressed) {
+        if (onPreviewKeyEvent.type == KeyEventType.KeyDown && onPreviewKeyEvent.key == Key.C && onPreviewKeyEvent.isAltPressed) {
             if (currentClient.value.connectionState.value != ConnectionState.CONNECTED && currentClient.value.connectionState.value != ConnectionState.CONNECTING)
                 currentClient.value.connect()
             return true
         }
 
-        if (onPreviewKeyEvent.key == Key.Z && onPreviewKeyEvent.isAltPressed && onPreviewKeyEvent.isCtrlPressed) {
+        if (onPreviewKeyEvent.type == KeyEventType.KeyDown && onPreviewKeyEvent.key == Key.Z && onPreviewKeyEvent.isAltPressed) {
             if (currentClient.value.connectionState.value == ConnectionState.CONNECTED || currentClient.value.connectionState.value == ConnectionState.CONNECTING)
                 currentClient.value.forceDisconnect()
             return true
