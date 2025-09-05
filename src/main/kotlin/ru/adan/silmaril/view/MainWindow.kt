@@ -137,12 +137,14 @@ fun MainWindow(
                     if (listStateAutoScrollDown1.layoutInfo.totalItemsCount > 0)
                         listStateAutoScrollDown1.scrollToItem(listStateAutoScrollDown1.layoutInfo.totalItemsCount - 1)
 
-                    if (listStateAutoScrollDown2.layoutInfo.totalItemsCount > 0)
-                        listStateAutoScrollDown2.scrollToItem(listStateAutoScrollDown2.layoutInfo.totalItemsCount - 1)
+                    if (isFocused) {
+                        if (listStateAutoScrollDown2.layoutInfo.totalItemsCount > 0)
+                            listStateAutoScrollDown2.scrollToItem(listStateAutoScrollDown2.layoutInfo.totalItemsCount - 1)
 
-                    if (!showSplitScreen) {
-                        if (listStateNoAutoScroll.layoutInfo.totalItemsCount > 0)
-                            listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - 1)
+                        if (!showSplitScreen) {
+                            if (listStateNoAutoScroll.layoutInfo.totalItemsCount > 0)
+                                listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - 1)
+                        }
                     }
                 }
                 else {
@@ -265,6 +267,8 @@ fun MainWindow(
         if (isFocused && inputFieldReady.value) {
             focusRequester.requestFocus()
         }
+        // since we don't render the splitscreen of a non-focused window, now that we're focused, scroll it down
+        scrollDown()
     }
 
     // Scroll when lastId changes (i.e., on each new message)
@@ -319,6 +323,7 @@ fun MainWindow(
                         )
                     }
 
+                    if (isFocused)
                     VerticalSplitLayout(
                         state = splitState,
                         modifier = Modifier
