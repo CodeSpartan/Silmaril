@@ -69,8 +69,8 @@ class Hotkey(
             "NumPad6" to Key.NumPad6, "NumPad7" to Key.NumPad7, "NumPad8" to Key.NumPad8,
             "NumPad9" to Key.NumPad9,
 
-            "Insert" to Key.Insert, "Home" to Key.Home, "PageUp" to Key.PageUp,
-            "Delete" to Key.Delete, "MoveEnd" to Key.MoveEnd, "PageDown" to Key.PageDown,
+            "Insert" to Key.Insert, "Home" to Key.Home,
+            "Delete" to Key.Delete, "MoveEnd" to Key.MoveEnd,
         )
     }
 }

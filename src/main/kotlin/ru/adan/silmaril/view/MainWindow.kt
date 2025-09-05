@@ -56,8 +56,6 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import io.github.oshai.kotlinlogging.KLogger
@@ -69,21 +67,16 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import org.jetbrains.jewel.intui.standalone.styling.dark
-import org.jetbrains.jewel.ui.component.DefaultButton
-import org.jetbrains.jewel.ui.component.DropdownLink
 import org.jetbrains.jewel.ui.component.Link
 import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.SplitLayoutState
-import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.VerticalSplitLayout
-import org.jetbrains.jewel.ui.component.separator
+import org.jetbrains.jewel.ui.component.styling.DividerMetrics
+import org.jetbrains.jewel.ui.component.styling.DividerStyle
 import org.jetbrains.jewel.ui.component.styling.LinkColors
 import org.jetbrains.jewel.ui.component.styling.LinkStyle
-import org.jetbrains.jewel.ui.component.styling.LocalTooltipStyle
 import org.jetbrains.jewel.ui.component.styling.MenuColors
 import org.jetbrains.jewel.ui.component.styling.MenuStyle
-import org.jetbrains.jewel.ui.component.styling.TooltipAutoHideBehavior
-import org.jetbrains.jewel.ui.component.styling.TooltipStyle
 import org.koin.compose.koinInject
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.FontManager.getFontLineHeight
@@ -93,7 +86,6 @@ import ru.adan.silmaril.visual_styles.ColorStyle
 import ru.adan.silmaril.misc.rememberIsAtBottom
 import ru.adan.silmaril.view.hovertooltips.LoreTooltip
 import kotlin.collections.forEach
-import kotlin.random.Random
 
 @Composable
 fun MainWindow(
@@ -108,7 +100,7 @@ fun MainWindow(
     val messages = remember { mutableStateListOf<OutputItem>() }
     val settings by settingsManager.settings.collectAsState()
 
-    var splitState by remember { mutableStateOf(SplitLayoutState(0.5f)) }
+    var splitState by remember { mutableStateOf(SplitLayoutState(0.8f)) }
 
     val currentFontFamily = settings.font
     val currentFontSize = settings.fontSize
@@ -145,12 +137,14 @@ fun MainWindow(
                     if (listStateAutoScrollDown1.layoutInfo.totalItemsCount > 0)
                         listStateAutoScrollDown1.scrollToItem(listStateAutoScrollDown1.layoutInfo.totalItemsCount - 1)
 
-                    if (listStateAutoScrollDown2.layoutInfo.totalItemsCount > 0)
-                        listStateAutoScrollDown2.scrollToItem(listStateAutoScrollDown2.layoutInfo.totalItemsCount - 1)
+                    if (isFocused) {
+                        if (listStateAutoScrollDown2.layoutInfo.totalItemsCount > 0)
+                            listStateAutoScrollDown2.scrollToItem(listStateAutoScrollDown2.layoutInfo.totalItemsCount - 1)
 
-                    if (!showSplitScreen) {
-                        if (listStateNoAutoScroll.layoutInfo.totalItemsCount > 0)
-                            listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - 1)
+                        if (!showSplitScreen) {
+                            if (listStateNoAutoScroll.layoutInfo.totalItemsCount > 0)
+                                listStateNoAutoScroll.scrollToItem(listStateNoAutoScroll.layoutInfo.totalItemsCount - 1)
+                        }
                     }
                 }
                 else {
@@ -180,7 +174,7 @@ fun MainWindow(
     }
 
     fun handleKey(event: KeyEvent): Boolean {
-        if (event.type != KeyEventType.KeyUp) return false
+        if (event.type != KeyEventType.KeyDown) return false
         when (event.key) {
             Key.PageUp -> {
                 scope.launch {
@@ -273,6 +267,8 @@ fun MainWindow(
         if (isFocused && inputFieldReady.value) {
             focusRequester.requestFocus()
         }
+        // since we don't render the splitscreen of a non-focused window, now that we're focused, scroll it down
+        scrollDown()
     }
 
     // Scroll when lastId changes (i.e., on each new message)
@@ -327,6 +323,7 @@ fun MainWindow(
                         )
                     }
 
+                    if (isFocused)
                     VerticalSplitLayout(
                         state = splitState,
                         modifier = Modifier
@@ -335,6 +332,10 @@ fun MainWindow(
                             .zIndex(if (showSplitScreen) 1f else 0f),
                         firstPaneMinWidth = 200.dp,
                         secondPaneMinWidth = 200.dp,
+                        dividerStyle = DividerStyle(
+                            color = Color(0xFF282a2e),
+                            metrics = DividerMetrics.defaults(thickness = 2.dp)
+                        ),
                         first = {
                             TextColumn(
                                 paddingLeft,
@@ -374,6 +375,7 @@ fun MainWindow(
                     contentAlignment = Alignment.BottomCenter // Center TextField horizontally
                 ) {
                     HistoryTextField(
+                        isFocused = isFocused,
                         focusRequester = focusRequester,
                         inputFieldReady = inputFieldReady,
                         currentColorStyle = currentColorStyle,
@@ -592,6 +594,7 @@ private fun TextColumn(
 
 @Composable
 fun HistoryTextField(
+    isFocused: Boolean,
     focusRequester: FocusRequester,
     inputFieldReady: MutableState<Boolean>,
     currentColorStyle: ColorStyle,
@@ -603,6 +606,15 @@ fun HistoryTextField(
 
     val history = remember { mutableStateListOf<String>() } // persist with Room/DataStore if needed
     var historyIndex by rememberSaveable { mutableStateOf(-1) } // -1 means “editing new entry”
+
+    // When the window gets focused, select already existing text in the text field
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            inputTextField = inputTextField.copy(
+                selection = TextRange(0, inputTextField.text.length) // Select all text
+            )
+        }
+    }
 
     fun commit() {
         val t = inputTextField.text.trim()

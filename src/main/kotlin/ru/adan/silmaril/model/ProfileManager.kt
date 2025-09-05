@@ -4,6 +4,9 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +20,7 @@ import ru.adan.silmaril.viewmodel.MapInfoSource
 import ru.adan.silmaril.viewmodel.MapViewModel
 import ru.adan.silmaril.viewmodel.ProfileCreatureSource
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
+import androidx.compose.ui.input.key.Key
 
 class ProfileManager(
     private val unifiedMapsViewModel: UnifiedMapsViewModel,
@@ -90,6 +94,11 @@ class ProfileManager(
     }
 
     fun removeWindow(windowName: String) {
+        // don't close when there's only one tab left
+        if (gameWindows.value.values.size <= 1) {
+            currentMainViewModel.value.displayErrorMessage("Нельзя закрыть единственное окно. Откройте другое, затем закройте это.")
+            return
+        }
         gameWindows.value[windowName]?.onCloseWindow()
         _gameWindows.value = gameWindows.value.filterKeys { it != windowName }.toMap()
         updateUnifiedMapViewModel()
@@ -98,6 +107,9 @@ class ProfileManager(
     init {
         settingsManager.settings.value.gameWindows.forEach { gameWindow ->
             addProfile(gameWindow)
+        }
+        if (gameWindows.value.values.isEmpty()) {
+            addProfile("Default")
         }
         currentClient = mutableStateOf(gameWindows.value.values.first().client)
         currentMainViewModel = mutableStateOf(gameWindows.value.values.first().mainViewModel)
@@ -150,9 +162,25 @@ class ProfileManager(
     //@TODO: move this to a separate class
     // Return true to consume the event
     fun onHotkeyKey(onPreviewKeyEvent: KeyEvent): Boolean {
+        if (onPreviewKeyEvent.type == KeyEventType.KeyDown && onPreviewKeyEvent.key == Key.C && onPreviewKeyEvent.isAltPressed) {
+            if (currentClient.value.connectionState.value != ConnectionState.CONNECTED && currentClient.value.connectionState.value != ConnectionState.CONNECTING)
+                currentClient.value.connect()
+            return true
+        }
+
+        if (onPreviewKeyEvent.type == KeyEventType.KeyDown && onPreviewKeyEvent.key == Key.Z && onPreviewKeyEvent.isAltPressed) {
+            if (currentClient.value.connectionState.value == ConnectionState.CONNECTED || currentClient.value.connectionState.value == ConnectionState.CONNECTING)
+                currentClient.value.forceDisconnect()
+            return true
+        }
+
         if (onPreviewKeyEvent.type == KeyEventType.KeyDown) {
             return getCurrentProfile()?.scriptingEngine?.processHotkey(onPreviewKeyEvent) ?: false
         }
         return false
+    }
+
+    fun getWindowById(id: Int): Profile? {
+        return gameWindows.value.values.elementAtOrNull(id-1)
     }
 }

@@ -20,21 +20,21 @@ MUD-клиент для игры на сервере adan.ru с использо
 Программа написана на Kotlin Compose, в большинстве кода использует Material. Однако для кастомного тайтл бара, был использован [Jewel](https://github.com/JetBrains/intellij-community/tree/master/platform/jewel). 
 
 > [!IMPORTANT]
-> В связи с этим, компиляция возможна только на [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases) (21.0.8), т.к. обычная JDK не экспоузит манипуляцию тайтл баром.
+> Из-за Jewel, компиляция возможна только на [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases) (21.0.8), т.к. обычная JDK не экспоузит манипуляцию тайтл баром.
 
 > [!IMPORTANT]
 > DSL-скрипты корректно распознаются только в [IntelliJ IDEA 2025.1.4.1 (Ultimate Edition)](https://www.jetbrains.com/idea/download/other.html)
 
-Автор не является экспертом в Java, поэтому некоторые инструкции могут быть необязательными. 
+Автор не является экспертом в Kotlin, поэтому некоторые инструкции могут быть необязательными. 
 
 *   Установите [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases), чтобы `where java` в консоли указывала на JBR.
 *   Откройте проект в [IntelliJ IDEA](https://www.jetbrains.com/idea/download/other.html)
 *   После инициализации gradle, запустите gradle-таск `generateResourceAccessorsForMain` (меню gradle находится с правой стороны IDE)
 *   (Опционально) Чтобы IDE корректно работала с DSL скриптами, зайдите в File -> Settings -> Editor -> Languages & Framework -> Kotlin -> Kotlin Scripting и нажмите **Scan Classpath**. После перезапуска, в списке должен появиться MudScriptHost (.mud.kts). Отсортируйте его, чтобы он стал предпоследним в списке.
-*   (Опционально) Сделайте symlink таким образом, чтобы папка `Documents\Silmaril\triggers` как будто бы существовала в проекте по пути `src\main\resources\triggers`. Таким образом, вы сможете работать с DSL-скриптами в IDE, получая авто-комплит и подсветку синтаксиса.
+*   (Опционально) Сделайте junction `mklink /J "<путь к проекту>\src\main\resources\dsl" "C:\Users\<имя пользователя>\Documents\Silmaril\dsl"`. Таким образом, DSL-скрипты будут как будто лежать в проекте, получая авто-комплит и подсветку синтаксиса в IDE.
 *   Используйте таск `run` для запуска в IDE; таск `createReleaseDistributable` для портабельной сборки.
 
-### Знакомство с проектом
+### Знакомство с кодовой базой
 * Проект использует архитектуру MVVM, поэтому почти все Composable лежат в папке `view`, модели в `model`, а прокладки между ними в `viewmodel`.
 * Используется библиотека Koin для Dependency Injection. Все factory лежат в `Modules.kt`
 * Логгирование настраивается в `\src\main\resources\logback.xml` - это библиотека logback.

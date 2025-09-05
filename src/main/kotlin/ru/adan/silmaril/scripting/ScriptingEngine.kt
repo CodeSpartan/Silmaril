@@ -7,6 +7,9 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Variable
@@ -67,6 +70,7 @@ interface ScriptingEngine {
     fun loreCommand(loreName: String)
     fun commentCommand(comment: String): Boolean
     fun getProfileManager(): ProfileManager
+    fun cleanup()
 }
 
 open class ScriptingEngineImpl(
@@ -100,6 +104,7 @@ open class ScriptingEngineImpl(
     private val regexContainsPercentPatterns = Regex("""%\d+""")
 
     override fun addTriggerToGroup(group: String, trigger: Trigger) {
+        settingsManager.addGroup(group)
         if (!triggers.containsKey(group)) {
             triggers[group] = CopyOnWriteArrayList<Trigger>()
         }
@@ -107,11 +112,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun addTrigger(trigger: Trigger) {
-        val group = currentlyLoadingScript
-        if (!triggers.containsKey(group)) {
-            triggers[group] = CopyOnWriteArrayList<Trigger>()
-        }
-        triggers[group]!!.add(trigger)
+        addTriggerToGroup(currentlyLoadingScript, trigger)
     }
 
     override fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean {
@@ -141,14 +142,11 @@ open class ScriptingEngineImpl(
     }
 
     override fun addAlias(alias: Trigger) {
-        val group = currentlyLoadingScript
-        if (!aliases.containsKey(group)) {
-            aliases[group] = CopyOnWriteArrayList<Trigger>()
-        }
-        aliases[group]!!.add(alias)
+        addAliasToGroup(currentlyLoadingScript, alias)
     }
 
     override fun addSubstituteToGroup(group: String, sub: Trigger) {
+        settingsManager.addGroup(group)
         if (!substitutes.containsKey(group)) {
             substitutes[group] = CopyOnWriteArrayList<Trigger>()
         }
@@ -156,14 +154,11 @@ open class ScriptingEngineImpl(
     }
 
     override fun addSubstitute(sub: Trigger) {
-        val group = currentlyLoadingScript
-        if (!substitutes.containsKey(group)) {
-            substitutes[group] = CopyOnWriteArrayList<Trigger>()
-        }
-        substitutes[group]!!.add(sub)
+        addSubstituteToGroup(currentlyLoadingScript, sub)
     }
 
     override fun addAliasToGroup(group: String, alias: Trigger) {
+        settingsManager.addGroup(group)
         if (!aliases.containsKey(group)) {
             aliases[group] = CopyOnWriteArrayList<Trigger>()
         }
@@ -180,6 +175,7 @@ open class ScriptingEngineImpl(
     }
 
     override fun addHotkeyToGroup(group: String, hotkey: Hotkey) {
+        settingsManager.addGroup(group)
         if (!hotkeys.containsKey(group)) {
             hotkeys[group] = CopyOnWriteArrayList<Hotkey>()
         }
@@ -222,6 +218,10 @@ open class ScriptingEngineImpl(
 
     override fun getVarCommand(varName: String): Variable? =
         profileManager.gameWindows.value[profileName]?.getVariable(varName)
+
+    override fun cleanup() {
+        cleanupCoroutine()
+    }
 
     override fun setVarCommand(varName: String, varValue: Any) {
         profileManager.gameWindows.value[profileName]?.setVariable(varName, varValue)

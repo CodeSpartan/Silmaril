@@ -1,5 +1,6 @@
 package ru.adan.silmaril.model
 
+import androidx.compose.runtime.mutableStateOf
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,6 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
-import ru.adan.silmaril.misc.getTriggersDirectory
 import ru.adan.silmaril.misc.toVariable
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.viewmodel.MainViewModel
@@ -30,9 +30,11 @@ import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getCorrectTransitionWord
+import ru.adan.silmaril.misc.getDslScriptsDirectory
 import ru.adan.silmaril.misc.getOrNull
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
+import ru.adan.silmaril.scripting.sendId
 import ru.adan.silmaril.viewmodel.MapViewModel
 
 class Profile(
@@ -64,20 +66,21 @@ class Profile(
         }
     }
 
-    val mapViewModel : MapViewModel by lazy {
-        get {
-            parametersOf(
-                client,
-                { msg: String -> mainViewModel.displayTaggedText(msg, false) },
-                { msg: String -> mainViewModel.treatUserInput(msg) },
-            )
-        }
-    }
-
     val groupModel: GroupModel by lazy {
         get {
             parametersOf(
                 client
+            )
+        }
+    }
+
+    val mapViewModel : MapViewModel by lazy {
+        get {
+            parametersOf(
+                client,
+                groupModel,
+                { msg: String -> mainViewModel.displayTaggedText(msg, false) },
+                { msg: String -> mainViewModel.treatUserInput(msg) },
             )
         }
     }
@@ -108,6 +111,8 @@ class Profile(
 
     val logger = KotlinLogging.logger {}
 
+    var isReadyToConnect = mutableStateOf(false)
+
     init {
         if (!settingsManager.settings.value.gameWindows.contains(profileName)) {
             settingsManager.addGameWindow(profileName)
@@ -122,6 +127,7 @@ class Profile(
             groupModel.init()
             // connect after triggers are compiled and maps are ready
             mainViewModel.initAndConnect()
+            isReadyToConnect.value = true
         }
 
         debounceSaveProfile()
@@ -130,10 +136,10 @@ class Profile(
     suspend fun compileTriggers() {
         // load triggers
         mainViewModel.displaySystemMessage("Компилирую скрипты...")
-        val triggersDir = File(getTriggersDirectory())
+        val dslDir = File(getDslScriptsDirectory())
         var triggersLoaded = 0
-        if (triggersDir.exists() && triggersDir.isDirectory) {
-            triggersDir.listFiles()?.forEach { file ->
+        if (dslDir.exists() && dslDir.isDirectory) {
+            dslDir.listFiles()?.forEach { file ->
                 if (file.isFile && file.extension == "kts") {
                     triggersLoaded += scriptingEngine.loadScript(file)
                 }
@@ -153,11 +159,13 @@ class Profile(
         mapViewModel.cleanup()
         groupModel.cleanup()
         mobsModel.cleanup()
+        scriptingEngine.cleanup()
     }
 
-    fun onSystemMessage(message: String) {
+    fun onSystemMessage(messageUntrimmed: String) {
+        val message = messageUntrimmed.trim()
         // get first word of the message
-        when (message.trim().substringBefore(" ")) {
+        when (messageUntrimmed.trim().substringBefore(" ")) {
             "#var"-> parseVarCommand(message)
             "#unvar" -> parseUnvarCommand(message)
             "#vars" -> printAllVarsCommand()
@@ -167,21 +175,22 @@ class Profile(
             "#grep" -> parseTextTrigger(message)
             "#unact" -> parseRemoveTrigger(message)
             "#ungrep" -> parseRemoveTrigger(message)
-            "#triggers" -> printAllTriggers()
+            "#triggers" -> printAllTriggers(message)
             "#al" -> parseTextAlias(message)
             "#alias" -> parseTextAlias(message)
             "#unal" -> parseRemoveAlias(message)
             "#unalias" -> parseRemoveAlias(message)
-            "#aliases" -> printAllAliases()
+            "#aliases" -> printAllAliases(message)
             "#hot" -> parseAddHotkey(message)
             "#hotkey" -> parseAddHotkey(message)
             "#unhot" -> parseRemoveHotkey(message)
             "#unhotkey" -> parseRemoveHotkey(message)
-            "#hotkeys" -> printAllHotkeys()
+            "#hotkeys" -> printAllHotkeys(message)
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
-            "#sendWindow" -> parseSendWindowCommand(message)
+            "#send" -> parseSendWindowCommand(message)
+            "#sendId" -> parseSendIdCommand(message)
             "#sendAll" -> parseSendAllCommand(message)
             "#window" -> parseWindowCommand(message)
             "#output" -> parseOutputCommand(message)
@@ -195,7 +204,7 @@ class Profile(
             "#subreg" -> parseTextSubstitute(message)
             "#unsub" -> parseRemoveSubstitute(message)
             "#unsubreg" -> parseRemoveSubstitute(message)
-            "#subs" -> printAllSubstitutes()
+            "#subs" -> printAllSubstitutes(message)
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -409,7 +418,7 @@ class Profile(
 
     fun addSingleAliasToWindow(shorthand: String, action: String, groupName: String, priority: Int) {
         val newAlias = Trigger.createAlias(shorthand, action, priority, false)
-        scriptingEngine.addTriggerToGroup(groupName, newAlias)
+        scriptingEngine.addAliasToGroup(groupName, newAlias)
     }
 
     fun addSingleSubToWindow(shorthand: String, action: String, groupName: String, priority: Int, isRegex: Boolean) {
@@ -466,8 +475,6 @@ class Profile(
         logger.debug { "Action: $action" }
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
-
-        settingsManager.addGroup(groupName)
 
         val newTrigger =
             if (isRegex) Trigger.regCreate(condition, action, priority, false)
@@ -597,9 +604,24 @@ class Profile(
             mainViewModel.displaySystemMessage("Алиас не найден.")
     }
 
-    fun printAllTriggers() {
+    fun printAllTriggers(message: String) {
+        val triggersRegex = """\#triggers\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = triggersRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #triggers - не смог распарсить. Правильный синтаксис: #triggers {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, trigList) in scriptingEngine.getTriggers()) {
             if (trigList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
@@ -617,9 +639,24 @@ class Profile(
         }
     }
 
-    fun printAllAliases() {
+    fun printAllAliases(message: String) {
+        val aliasesRegex = """\#aliases\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = aliasesRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #aliases - не смог распарсить. Правильный синтаксис: #aliases {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, aliasList) in scriptingEngine.getAliases()) {
             if (aliasList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
@@ -662,8 +699,6 @@ class Profile(
         logger.debug { "Action: $action" }
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
-
-        settingsManager.addGroup(groupName)
 
         val newAlias = Trigger.createAlias(shorthand, action, priority, false)
 
@@ -722,16 +757,29 @@ class Profile(
     }
 
     fun parseSendWindowCommand(message: String) {
-        // matches #sendWindow {name} {command}
-        val sendWindowRegex = """\#sendWindow \{(.+?)} \{(.+)}$""".toRegex()
+        // matches #send {name} {command}
+        val sendWindowRegex = """\#send \{(.+?)} \{(.+)}$""".toRegex()
         val match = sendWindowRegex.find(message)
         if (match == null) {
-            mainViewModel.displayErrorMessage("Ошибка #sendWindow - не смог распарсить. Правильный синтаксис: #sendWindow {окно} {команда}.")
+            mainViewModel.displayErrorMessage("Ошибка #send - не смог распарсить. Правильный синтаксис: #send {окно} {команда}.")
             return
         }
         val windowName = match.groupValues[1]
         val command = match.groupValues[2]
         scriptingEngine.sendWindowCommand(windowName, command)
+    }
+
+    fun parseSendIdCommand(message: String) {
+        // matches #sendId {name} {command}
+        val sendWindowRegex = """\#sendId \{(\d+)} \{(.+)}$""".toRegex()
+        val match = sendWindowRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #sendId - не смог распарсить. Правильный синтаксис: #sendId {номер окна} {команда}.")
+            return
+        }
+        val windowId = match.groupValues[1].toInt()
+        val command = match.groupValues[2]
+        scriptingEngine.sendId(windowId, command)
     }
 
     fun parseSendAllCommand(message: String) {
@@ -761,7 +809,7 @@ class Profile(
     }
 
     fun parseLoreCommand(message: String) {
-        val loreRegex = """\#lore ([\p{L}\p{N}_\-\s]+)$""".toRegex()
+        val loreRegex = """\#lore ([\p{L}\p{N}_",\-\s]+)$""".toRegex()
         val match = loreRegex.find(message)
         if (match == null) {
             mainViewModel.displayErrorMessage("Ошибка #lore - не смог распарсить. Правильный синтаксис: #lore имя предмета.")
@@ -822,8 +870,6 @@ class Profile(
         logger.debug { "Action: $action" }
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
-
-        settingsManager.addGroup(groupName)
 
         val newHotkey = Hotkey.create(hotkeyString, action, priority)
 
@@ -908,9 +954,24 @@ class Profile(
             mainViewModel.displaySystemMessage("Хоткей не найден.")
     }
 
-    fun printAllHotkeys() {
+    fun printAllHotkeys(message: String) {
+        val aliasesRegex = """\#hotkeys\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = aliasesRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #hotkeys - не смог распарсить. Правильный синтаксис: #hotkeys {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, hotkeyList) in scriptingEngine.getHotkeys()) {
             if (hotkeyList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else
@@ -969,8 +1030,13 @@ class Profile(
                 mainViewModel.displayTaggedText("Похожих локаций на карте несколько: ${foundZones.joinToString { it.name }}", false)
                 return
             } else {
-                targetZoneId = foundZones.first().id
-                targetRoomId = foundZones.first().roomsList.first().id
+                val zone = foundZones.first()
+                targetZoneId = zone.id
+                targetRoomId = when (zone.id) {
+                    372 -> 5413 // деревенский колодец у НГ недоступен напрямую, но можно подойти к нему
+                    65 -> 6501 // фириен начинается с невалидной комнаты 6500
+                    else -> zone.roomsList.first().id
+                }
             }
         }
 
@@ -1054,8 +1120,6 @@ class Profile(
         logger.debug { "Priority: $priority" }
         logger.debug { "Group: $groupName" }
 
-        settingsManager.addGroup(groupName)
-
         val newSub =
             if (isRegex) Trigger.subRegCreate(condition, action, priority, false)
             else Trigger.subCreate(condition, action, priority, false)
@@ -1134,9 +1198,24 @@ class Profile(
             mainViewModel.displaySystemMessage("Замена не найдена.")
     }
 
-    private fun printAllSubstitutes() {
+    private fun printAllSubstitutes(message: String) {
+        val subsRegex = """\#subs\s*[{]?([\p{L}\p{N}_]+)?[}]?""".toRegex()
+        val match = subsRegex.find(message)
+        var printAllGroups = true
+        var groupToPrint = ""
+        if (match != null) {
+            if (match.groupValues.size > 1) {
+                groupToPrint = match.groupValues[1]
+                printAllGroups = false
+            }
+        } else {
+            mainViewModel.displayErrorMessage("Ошибка #subs - не смог распарсить. Правильный синтаксис: #subs {имя группы} (опционально).")
+            return
+        }
+
         for ((groupName, subsList) in scriptingEngine.getSubstitutes()) {
             if (subsList.isEmpty()) continue
+            if (!printAllGroups && groupToPrint.isNotEmpty() && !groupName.equals(groupToPrint, true)) continue
             if (isGroupActive(groupName))
                 mainViewModel.displayTaggedText("Группа: <color=green>$groupName</color>")
             else

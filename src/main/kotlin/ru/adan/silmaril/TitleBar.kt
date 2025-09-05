@@ -140,6 +140,18 @@ internal fun DecoratedWindowScope.TitleBarView(
 
                         separator()
 
+                        selectableItem(
+                            selected = false,
+                            iconKey = AllIconsKeys.Gutter.ReadAccess,
+                            onClick = {
+                                roomDataManager.loadAdanRoomData()
+                            },
+                        ) {
+                            Text("Импортировать карты из AMC")
+                        }
+
+                        separator()
+
                         passiveItem {
                             Row (Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                                 Text(
@@ -210,7 +222,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                             submenu = {
                                 passiveItem {
                                     // Tweak margins after a bit of testing
-                                    SubmenuGuard(safeTopMarginPx = 228, safeBottomMarginPx = 252, menuWidth = 200)
+                                    SubmenuGuard(safeTopMarginPx = 262, safeBottomMarginPx = 285, menuWidth = 283)
                                 }
                                 FontManager.fontFamilies.keys.filter { it != "RobotoClassic" && it != "SourceCodePro" }
                                     .forEach { fontName ->
@@ -234,7 +246,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                             submenu = {
                                 passiveItem {
                                     // Tweak margins after a bit of testing
-                                    SubmenuGuard(safeTopMarginPx = 253, safeBottomMarginPx = 279, menuWidth = 200)
+                                    SubmenuGuard(safeTopMarginPx = 285, safeBottomMarginPx = 310, menuWidth = 283)
                                 }
                                 StyleManager.styles.keys.forEach { styleName ->
                                         selectableItem(
@@ -263,21 +275,27 @@ internal fun DecoratedWindowScope.TitleBarView(
 
                         selectableItem(
                             selected = false,
-                            iconKey = AllIconsKeys.Gutter.ReadAccess,
+                            enabled =
+                                currentWindowConnectionState != ConnectionState.CONNECTED
+                                        && currentWindowConnectionState != ConnectionState.CONNECTING
+                                        && profileManager.getCurrentProfile()?.isReadyToConnect?.value == true,
+                            iconKey = AllIconsKeys.CodeWithMe.CwmEnableCall,
+                            keybinding = setOf("Alt", "C"),
                             onClick = {
-                                roomDataManager.loadAdanRoomData()
+                                if (profileManager.getCurrentProfile()?.isReadyToConnect?.value == true)
+                                    profileManager.currentClient.value.connect()
                             },
                         ) {
-                            Text("Импортировать карты из AMC")
+                            Text("Подключиться")
                         }
-
                         selectableItem(
                             selected = false,
-                            enabled = currentWindowConnectionState != ConnectionState.CONNECTED && currentWindowConnectionState != ConnectionState.CONNECTING,
-                            iconKey = AllIconsKeys.CodeWithMe.CwmEnableCall,
-                            onClick = { profileManager.currentClient.value.connect() },
+                            enabled = currentWindowConnectionState == ConnectionState.CONNECTED || currentWindowConnectionState == ConnectionState.CONNECTING,
+                            iconKey = AllIconsKeys.CodeWithMe.CwmDisableCall,
+                            keybinding = setOf("Alt", "Z"),
+                            onClick = { profileManager.currentClient.value.forceDisconnect() },
                         ) {
-                            Text("Подключиться")
+                            Text("Отключиться")
                         }
                         selectableItem(
                             selected = false,

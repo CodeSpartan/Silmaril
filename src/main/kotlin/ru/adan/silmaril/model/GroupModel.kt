@@ -27,7 +27,7 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
     private var myName = ""
     private var myMaxHp = -1
 
-    val myNameRegex = """^Вы [\p{L}-]+ (\p{L}+), (\p{L})+ \d+ уровня\.$""".toRegex()
+    val myNameRegex = """^Вы [\p{L}-\s]+ (\p{L}+), (\p{L})+ \d+ уровня\.$""".toRegex()
     val myNameRegex2 = """^Аккaунт \[\p{L}+\] Персонаж \[(\p{L}+)\]$""".toRegex()
     val myMaxHpRegex = """^Вы имеете \d+\((\d+)\) единиц здоровья, \d+\(\d+\) энергетических единиц\.$""".toRegex()
     val othersMaxHpRegex = """^(\p{L}+) сообщи(?:л|ла|ло|ли) группе: \d+\/(\d+)H, \d+\/\d+V$""".toRegex()
@@ -104,5 +104,18 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
 
     fun cleanup() {
         scopeDefault.cancel()
+    }
+
+    // Return null if we're uncertain
+    fun isLeader() : Boolean? {
+        if (groupMates.value.isEmpty()) return null
+        if (myName == "") return null
+        return groupMates.value.first().name == myName
+    }
+
+    fun getMyStamina() : Int? {
+        if (groupMates.value.isEmpty()) return null
+        if (myName == "") return null
+        return groupMates.value.first().movesPercent.toInt()
     }
 }

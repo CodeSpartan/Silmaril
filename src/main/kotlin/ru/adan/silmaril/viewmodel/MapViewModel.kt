@@ -15,15 +15,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import ru.adan.silmaril.model.GroupModel
 import ru.adan.silmaril.model.MapModel
 import ru.adan.silmaril.model.MudConnection
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.mud_messages.CurrentRoomMessage
+import ru.adan.silmaril.mud_messages.Position
 import kotlin.getValue
 
 class MapViewModel(
     private val client: MudConnection,
+    private val groupModel: GroupModel,
     private val onDisplayTaggedString: (String) -> Unit,
     private val onSendMessageToServer: (String) -> Unit,
     private val mapModel: MapModel,
@@ -33,17 +36,21 @@ class MapViewModel(
     private val viewModelScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val logger = KotlinLogging.logger {}
 
+    /** Pathfinding related */
     var targetRoomId: Int = -1
     var targetZoneId: Int = -1
     var pathToFollow: List<Int> = emptyList()
     private val _pathToHighlight = MutableStateFlow<Set<Int>>(emptySet())
     val pathToHighlight: StateFlow<Set<Int>> = _pathToHighlight.asStateFlow()
+    private var cachedGroupMatesInSameRoom = 0 // this var holds real values only during path walking
+    private var ignoreGroupMates = false
 
+    /** Zone-preview related */
     var lastValidRoomBeforePreview = CurrentRoomMessage.EMPTY
     var previewZoneMsg = CurrentRoomMessage.EMPTY
 
     // don't take currentRoom and assume it's always a source of truth
-    // if we're in preview mode, it's not a source of truth, use getCurrentRoom() instead
+    // if we're in preview mode, it's not a source of truth, so use getCurrentRoom() instead
     val currentRoom: StateFlow<CurrentRoomMessage> =
         client.currentRoomMessages
             // hijack messages to insert custom zone, which we want to preview through #previewZone
@@ -62,7 +69,12 @@ class MapViewModel(
                 }
             }
             .distinctUntilChanged()
-            .onEach { msg -> onNewRoom(msg) } // side-effect
+            .onEach {
+                msg -> onNewRoom(msg)
+                if (targetRoomId != -1) {
+                    cachedGroupMatesInSameRoom = groupModel.getGroupMates().filter { it.isPlayerCharacter && it.inSameRoom }.size
+                }
+            } // side-effect
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.Eagerly,
@@ -74,6 +86,35 @@ class MapViewModel(
         tryMoveAlongPath(roomMsg)
     }
 
+    fun canMoveForward() : Boolean {
+        // we can forego checking party members if we're not a leader, but we should check our own stamina
+        if (groupModel.isLeader() == false) {
+            onDisplayTaggedString("Вы устали.")
+            return groupModel.getMyStamina()?.let { it > 5 } ?: false
+        }
+
+        if (ignoreGroupMates) return true
+
+        groupModel.getGroupMates().forEach { groupMate ->
+            if (groupMate.isPlayerCharacter && groupMate.movesPercent <= 7) {
+                onDisplayTaggedString("Ваша группа устала.")
+                return false
+            }
+            if (groupMate.isPlayerCharacter && groupMate.inSameRoom && groupMate.position != Position.Standing && groupMate.position != Position.Riding) {
+                onDisplayTaggedString("Согруппник расселся и не готов идти.")
+                return false
+            }
+        }
+
+        val newGroupMatesInSameRoom = groupModel.getGroupMates().filter { it.isPlayerCharacter && it.inSameRoom }.size
+        if (newGroupMatesInSameRoom < cachedGroupMatesInSameRoom) {
+            onDisplayTaggedString("Согруппник отстал от вас.")
+            return false
+        }
+
+        return true
+    }
+
     fun tryMoveAlongPath(roomMsg: CurrentRoomMessage) {
         if (targetRoomId == -1) return
 
@@ -83,7 +124,11 @@ class MapViewModel(
             return
         }
 
-        val curIndex = pathToFollow.indexOf(roomMsg.roomId)
+        if (!canMoveForward()) {
+            return
+        }
+
+        val curIndex = pathToFollow.lastIndexOf(roomMsg.roomId)
         if (curIndex == -1) return // we're off path
         val nextRoomId = pathToFollow[curIndex+1]
         val currentRoom = mapModel.roomById[roomMsg.roomId]
@@ -98,18 +143,21 @@ class MapViewModel(
         targetZoneId = -1
         pathToFollow = emptyList()
         _pathToHighlight.value = emptySet()
+        ignoreGroupMates = false
     }
 
     fun cleanup() {
         viewModelScope.cancel()
     }
 
-    fun setPathTarget(inTargetRoomId: Int, inTargetZoneId: Int, inPath: List<Int>) {
+    fun setPathTarget(inTargetRoomId: Int, inTargetZoneId: Int, inPath: List<Int>, ignoreGroup: Boolean = false) {
         targetRoomId = inTargetRoomId
         targetZoneId = inTargetZoneId
         pathToFollow = inPath
+        ignoreGroupMates = ignoreGroup
         _pathToHighlight.value = pathToFollow.toSet()
         val curRoomId = getCurrentRoom()
+        cachedGroupMatesInSameRoom = groupModel.getGroupMates().filter { it.inSameRoom }.size
         tryMoveAlongPath(curRoomId)
     }
 

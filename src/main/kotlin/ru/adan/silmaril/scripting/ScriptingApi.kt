@@ -1,5 +1,8 @@
 package ru.adan.silmaril.scripting
+import kotlinx.coroutines.*
 import ru.adan.silmaril.misc.*
+import ru.adan.silmaril.mud_messages.*
+import kotlin.random.Random
 
 /**
  * All functions in this file are API that can be called from DSL scripts
@@ -79,6 +82,14 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
         this@MudScriptHost.addSubstitute(newSub)
         logger.debug { "Added text substitute for pattern: $this" }
     }
+
+    infix fun Int.onNewRound(roundInfo: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit) {
+        logger.debug {"Added lambda round trigger"}
+    }
+
+    infix fun Int.onOldRound(roundInfo: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit) {
+        logger.debug {"Added lambda round trigger"}
+    }
 }
 
 fun ScriptingEngine.send(command: String) {
@@ -93,8 +104,12 @@ fun ScriptingEngine.sendAll(command: String) {
     sendAllCommand(command)
 }
 
-fun ScriptingEngine.sendWindow(window: String, command: String) {
+fun ScriptingEngine.send(window: String, command: String) {
     sendWindowCommand(window, command)
+}
+
+fun ScriptingEngine.sendId(windowId: Int, command: String) {
+    getProfileManager().getWindowById(windowId)?.mainViewModel?.treatUserInput(command)
 }
 
 fun ScriptingEngine.getVar(varName: String): Variable? {
@@ -121,6 +136,10 @@ fun ScriptingEngine.out(message: String) {
     send("#output $message")
 }
 
+fun ScriptingEngine.cleanupCoroutine() {
+    backgroundScope.cancel()
+}
+
 fun ScriptingEngine.getProfileName() = profileName
 
 fun ScriptingEngine.getCurrentProfile() = getProfileManager().getCurrentProfile()
@@ -128,3 +147,5 @@ fun ScriptingEngine.getCurrentProfile() = getProfileManager().getCurrentProfile(
 fun ScriptingEngine.getThisProfile() = getProfileManager().getProfileByName(profileName)
 
 fun ScriptingEngine.formattedTime() = "<color=dark-grey><size=small>\$time </size></color>"
+
+val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

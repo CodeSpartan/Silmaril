@@ -305,6 +305,7 @@ class RoomDataManager() : KoinComponent {
 
     fun fixTyposInZones(zonesMap: HashMap<Int, Zone>) {
         zonesMap.values.forEach { zone ->
+            // fix accidental latin letters in cyrillic names
             if (CyrillicFixer.containsLatinInCyrillicContext(zone.name)) {
                 val fixed = CyrillicFixer.fixLatinHomoglyphsInRussian(zone.name)
                 if (fixed != zone.name) {
@@ -312,6 +313,10 @@ class RoomDataManager() : KoinComponent {
                     zone.name = fixed
                 }
             }
+            if (zone.name == "Деревенский колодец")
+                zone.name = "Деревенский Колодец-НГ"
+            if (zone.name == "Деревенский Колодец")
+                zone.name = "Деревенский Колодец-МХ"
         }
     }
 

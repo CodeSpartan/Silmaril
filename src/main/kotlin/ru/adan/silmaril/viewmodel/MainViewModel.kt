@@ -3,7 +3,6 @@ package ru.adan.silmaril.viewmodel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import ru.adan.silmaril.misc.AnsiColor
@@ -63,6 +62,17 @@ class MainViewModel(
             client.connect()
     }
 
+    fun isInputExemptFromVarInsertion(message: String): Boolean {
+        val prefixes = listOf("#act", "#grep", "#unact", "#ungrep", "#al", "#unal", "#alias", "#unalias", "#hot",
+            "#hotkey", "#unhot", "#unhotkey", "#sub", "#unsub")
+        for (prefix in prefixes) {
+            if (message.startsWith("$prefix ")) {
+                return true
+            }
+        }
+        return false
+    }
+
     // Function that reads user's text input
     fun treatUserInput(message: String, displayAsUserInput: Boolean = true) {
         //logger.info { "Sending: $message" }
@@ -83,7 +93,8 @@ class MainViewModel(
         if (message.startsWith("#")) {
             val displayFeedback = !message.startsWith("#output") && !message.startsWith("#window")
 
-            val withVariables = onInsertVariables(message)
+            // don't resolve variables inside #act and #grep statements, we need them as $vars
+            val withVariables = if (isInputExemptFromVarInsertion(message)) message else onInsertVariables(message)
             if (displayAsUserInput && displayFeedback) {
                 if (withVariables != message) {
                     emitMessage(ColorfulTextMessage(arrayOf(
@@ -105,10 +116,7 @@ class MainViewModel(
             val (wasThereAnAlias, msgAfterAliasProcess) = onProcessAliases(message)
             var withVariables : String
             if (wasThereAnAlias) {
-                withVariables = if (msgAfterAliasProcess != null)
-                    onInsertVariables(msgAfterAliasProcess)
-                else
-                    "lambda"
+                withVariables = if (msgAfterAliasProcess != null) onInsertVariables(msgAfterAliasProcess) else "lambda"
             } else {
                 withVariables = onInsertVariables(message)
             }
@@ -137,8 +145,8 @@ class MainViewModel(
             }
             if (wasThereAnAlias && msgAfterAliasProcess != null) {
                 treatUserInput(withVariables, false)
-            } else {
-                client.sendMessage(withVariables)
+            } else if (!wasThereAnAlias) {
+                client.enqueueString(withVariables)
             }
             if (!client.isConnected) {
                 emitMessage(ColorfulTextMessage(arrayOf(

@@ -66,8 +66,9 @@ val appModule = module {
     factory { params ->
         MapViewModel(
             client = params[0],
-            onDisplayTaggedString = params[1],
-            onSendMessageToServer = params[2],
+            groupModel = params[1],
+            onDisplayTaggedString = params[2],
+            onSendMessageToServer = params[3],
             mapModel = get(),
             settingsManager = get(),
         )

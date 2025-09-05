@@ -59,9 +59,6 @@ dependencies {
     implementation("io.insert-koin:koin-compose-viewmodel-navigation")
     // The Koin compiler that KSP will use
     ksp("io.insert-koin:koin-ksp-compiler:2.1.0")
-    // Koin for Ktor
-    // not needed?
-    // implementation("io.insert-koin:koin-ktor")
     // SLF4J Logger for Koin
     implementation("io.insert-koin:koin-logger-slf4j")
     // SLF4J Backend (Logback)
