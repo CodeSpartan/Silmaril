@@ -1030,8 +1030,13 @@ class Profile(
                 mainViewModel.displayTaggedText("Похожих локаций на карте несколько: ${foundZones.joinToString { it.name }}", false)
                 return
             } else {
-                targetZoneId = foundZones.first().id
-                targetRoomId = foundZones.first().roomsList.first().id
+                val zone = foundZones.first()
+                targetZoneId = zone.id
+                targetRoomId = when (zone.id) {
+                    372 -> 5413 // деревенский колодец у НГ недоступен напрямую, но можно подойти к нему
+                    65 -> 6501 // фириен начинается с невалидной комнаты 6500
+                    else -> zone.roomsList.first().id
+                }
             }
         }
 

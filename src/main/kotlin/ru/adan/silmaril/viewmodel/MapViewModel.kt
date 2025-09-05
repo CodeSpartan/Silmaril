@@ -128,7 +128,7 @@ class MapViewModel(
             return
         }
 
-        val curIndex = pathToFollow.indexOf(roomMsg.roomId)
+        val curIndex = pathToFollow.lastIndexOf(roomMsg.roomId)
         if (curIndex == -1) return // we're off path
         val nextRoomId = pathToFollow[curIndex+1]
         val currentRoom = mapModel.roomById[roomMsg.roomId]
