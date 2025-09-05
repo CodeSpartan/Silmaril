@@ -23,6 +23,9 @@ object MudScriptDefinition : ScriptCompilationConfiguration({
         "ru.adan.silmaril.scripting.*",
         "ru.adan.silmaril.misc.*",
         "kotlin.text.MatchResult",
+        "ru.adan.silmaril.mud_messages.*",
+        "kotlinx.coroutines.*",
+        "kotlin.random.Random"
     )
 
     jvm {

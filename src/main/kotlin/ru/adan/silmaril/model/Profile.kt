@@ -159,6 +159,7 @@ class Profile(
         mapViewModel.cleanup()
         groupModel.cleanup()
         mobsModel.cleanup()
+        scriptingEngine.cleanup()
     }
 
     fun onSystemMessage(messageUntrimmed: String) {

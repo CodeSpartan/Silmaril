@@ -172,7 +172,7 @@ fun MainWindow(
     }
 
     fun handleKey(event: KeyEvent): Boolean {
-        if (event.type != KeyEventType.KeyUp) return false
+        if (event.type != KeyEventType.KeyDown) return false
         when (event.key) {
             Key.PageUp -> {
                 scope.launch {

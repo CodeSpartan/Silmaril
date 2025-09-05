@@ -7,6 +7,9 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Variable
@@ -67,6 +70,7 @@ interface ScriptingEngine {
     fun loreCommand(loreName: String)
     fun commentCommand(comment: String): Boolean
     fun getProfileManager(): ProfileManager
+    fun cleanup()
 }
 
 open class ScriptingEngineImpl(
@@ -214,6 +218,10 @@ open class ScriptingEngineImpl(
 
     override fun getVarCommand(varName: String): Variable? =
         profileManager.gameWindows.value[profileName]?.getVariable(varName)
+
+    override fun cleanup() {
+        cleanupCoroutine()
+    }
 
     override fun setVarCommand(varName: String, varValue: Any) {
         profileManager.gameWindows.value[profileName]?.setVariable(varName, varValue)

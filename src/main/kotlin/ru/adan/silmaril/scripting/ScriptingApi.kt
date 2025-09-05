@@ -1,6 +1,8 @@
 package ru.adan.silmaril.scripting
+import kotlinx.coroutines.*
 import ru.adan.silmaril.misc.*
 import ru.adan.silmaril.mud_messages.*
+import kotlin.random.Random
 
 /**
  * All functions in this file are API that can be called from DSL scripts
@@ -134,6 +136,10 @@ fun ScriptingEngine.out(message: String) {
     send("#output $message")
 }
 
+fun ScriptingEngine.cleanupCoroutine() {
+    backgroundScope.cancel()
+}
+
 fun ScriptingEngine.getProfileName() = profileName
 
 fun ScriptingEngine.getCurrentProfile() = getProfileManager().getCurrentProfile()
@@ -141,3 +147,5 @@ fun ScriptingEngine.getCurrentProfile() = getProfileManager().getCurrentProfile(
 fun ScriptingEngine.getThisProfile() = getProfileManager().getProfileByName(profileName)
 
 fun ScriptingEngine.formattedTime() = "<color=dark-grey><size=small>\$time </size></color>"
+
+val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
