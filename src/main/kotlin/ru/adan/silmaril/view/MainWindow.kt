@@ -295,8 +295,8 @@ fun MainWindow(
         ) {
             val width = maxWidth
             textWindowHeight = maxHeight.value - 40f // minus input field, more or less
-            val paddingLeft = ((width - 680.dp) / density).coerceAtLeast(0.dp)
-            val paddingRight = ((width - 680.dp) / density - 300.dp).coerceAtLeast(0.dp)
+            val paddingLeft = ((width - 680.dp) / 2).coerceAtLeast(0.dp)
+            val paddingRight = ((width - 680.dp) / 2 - 300.dp).coerceAtLeast(0.dp)
 
             LaunchedEffect(maxHeight) {
                 scrollDown()
