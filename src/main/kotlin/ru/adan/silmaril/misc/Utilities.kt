@@ -64,7 +64,7 @@ fun getProgramDirectory(): String {
     val programPath: String = when {
         // for Windows, we're in user's Documents\Silmaril -- C:\Users\<YourUsername>\Documents\Silmaril\
         // for macOS, we're in ~/Documents/Silmaril -- /Users/<YourUsername>/Documents/Silmaril/
-        // for Linux, we're in ~/.Silmaril -- /home/<YourUsername>/Documents/Silmaril/
+        // for Linux, we're in ~/Documents/Silmaril -- /home/<YourUsername>/Documents/Silmaril/
         os == "Windows" || os == "MacOS" || os == "Linux" -> Paths.get(userHome, "Documents", "Silmaril").toString()
         else -> Paths.get(userHome, "Silmaril").toString()
     }

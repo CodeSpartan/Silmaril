@@ -248,7 +248,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                                     // Tweak margins after a bit of testing
                                     SubmenuGuard(safeTopMarginPx = 285, safeBottomMarginPx = 310, menuWidth = 283)
                                 }
-                                StyleManager.styles.keys.forEach { styleName ->
+                                StyleManager.styles.keys.filter{it != "ModernDarkRed"}.forEach { styleName ->
                                         selectableItem(
                                             selected = false,
                                             iconKey = if (settings.colorStyle == styleName) AllIconsKeys.Actions.Checked else null,
