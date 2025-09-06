@@ -118,10 +118,10 @@ open class ScriptingEngineImpl(
     override fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean {
         return triggers[group]?.removeIf {
             !it.withDsl
-            && (it.condition is RegexCondition) == isRegex
-            && it.priority == priority
-            && it.action.originalCommand == action
-            && it.condition.originalPattern == condition
+                    && (it.condition is RegexCondition) == isRegex
+                    && it.priority == priority
+                    && it.action.originalCommand == action
+                    && it.condition.originalPattern == condition
         } == true
     }
 
@@ -168,9 +168,9 @@ open class ScriptingEngineImpl(
     override fun removeAliasFromGroup(condition: String, action: String, priority: Int, group: String): Boolean {
         return aliases[group]?.removeIf {
             !it.withDsl
-            && it.priority == priority
-            && it.action.originalCommand == action
-            && it.condition.originalPattern == condition
+                    && it.priority == priority
+                    && it.action.originalCommand == action
+                    && it.condition.originalPattern == condition
         } == true
     }
 
@@ -185,8 +185,8 @@ open class ScriptingEngineImpl(
     override fun removeHotkeyFromGroup(keyString: String, actionText: String, priority: Int, group: String) : Boolean {
         return hotkeys[group]?.removeIf {
             it.priority == priority
-                && it.actionText == actionText
-                && it.keyString == keyString
+                    && it.actionText == actionText
+                    && it.keyString == keyString
         } == true
     }
 
@@ -259,7 +259,17 @@ open class ScriptingEngineImpl(
             val match = trigger.condition.check(line)
             if (match != null) {
                 // Execute the trigger's action if it matches
-                trigger.action.lambda.invoke(this, match)
+                try {
+                    trigger.action.lambda.invoke(this, match)
+                } catch (e: Exception) {
+                    echo("Ошибка DSL триггера.", color = AnsiColor.Red, true)
+                    echo("Профиль: $profileName, триггер: ${trigger.condition.originalPattern}", color = AnsiColor.Red, true)
+                    echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                    logger.warn { "Ошибка DSL триггера." }
+                    logger.warn { "Профиль: $profileName, триггер: ${trigger.condition.originalPattern}" }
+                    logger.warn { e.stackTraceToString() }
+                }
             }
         }
     }
@@ -269,7 +279,19 @@ open class ScriptingEngineImpl(
             val match = alias.condition.check(line.trim())
             if (match != null) {
                 if (alias.action.commandToSend != null) {
-                    val returnStr = alias.action.commandToSend.invoke(this, match)
+                    var returnStr = ""
+                    try {
+                        returnStr = alias.action.commandToSend.invoke(this, match)
+                    } catch (e: Exception) {
+                        echo("Ошибка алиаса.", color = AnsiColor.Red, true)
+                        echo("Профиль: $profileName, алиас: ${alias.condition.originalPattern}", color = AnsiColor.Red, true)
+                        echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                        logger.warn { "Ошибка алиаса." }
+                        logger.warn { "Профиль: $profileName, алиас: ${alias.condition.originalPattern}" }
+                        logger.warn { e.stackTraceToString() }
+                    }
+
 
                     // When it's a normal alias (not DSL) without any matching patterns such as %0, %1, etc,
                     // then there's an automatically added (.+) at the end of the condition (see AliasCondition::parsePattern).
@@ -283,7 +305,17 @@ open class ScriptingEngineImpl(
                     return true to returnStr
                 } else {
                     // In DSL, don't return any string. The lambda is supposed to issue its own "sends".
-                    alias.action.lambda.invoke(this, match)
+                    try {
+                        alias.action.lambda.invoke(this, match)
+                    } catch (e: Exception) {
+                        echo("Ошибка алиаса.", color = AnsiColor.Red, true)
+                        echo("Профиль: $profileName, алиас: ${alias.condition.originalPattern}", color = AnsiColor.Red, true)
+                        echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                        logger.warn { "Ошибка алиаса." }
+                        logger.warn { "Профиль: $profileName, алиас: ${alias.condition.originalPattern}" }
+                        logger.warn { e.stackTraceToString() }
+                    }
                     return true to null
                 }
             }
@@ -323,7 +355,17 @@ open class ScriptingEngineImpl(
             if (trigger.action.commandToSend == null) {
                 val m = trigger.condition.check(fullText)
                 if (m != null) {
-                    trigger.action.lambda.invoke(this, m)
+                    try {
+                        trigger.action.lambda.invoke(this, m)
+                    } catch (e: Exception) {
+                        echo("Ошибка замены.", color = AnsiColor.Red, true)
+                        echo("Профиль: $profileName, замена: ${trigger.condition.originalPattern}", color = AnsiColor.Red, true)
+                        echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                        logger.warn { "Ошибка замены." }
+                        logger.warn { "Профиль: $profileName, замена: ${trigger.condition.originalPattern}" }
+                        logger.warn { e.stackTraceToString() }
+                    }
                     return null
                 }
                 continue
@@ -350,7 +392,18 @@ open class ScriptingEngineImpl(
                 val defaultBright = startLoc.ic.chunk.fg.isBright
                 val defaultAnsi = startLoc.ic.chunk.fg.ansi
 
-                val replacementText = trigger.action.commandToSend!!.invoke(this, occ.match)
+                var replacementText = " "
+                try {
+                    replacementText = trigger.action.commandToSend.invoke(this, occ.match)
+                } catch (e: Exception) {
+                    echo("Ошибка замены.", color = AnsiColor.Red, true)
+                    echo("Профиль: $profileName, замена: ${trigger.condition.originalPattern}", color = AnsiColor.Red, true)
+                    echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                    logger.warn { "Ошибка замены." }
+                    logger.warn { "Профиль: $profileName, замена: ${trigger.condition.originalPattern}" }
+                    logger.warn { e.stackTraceToString() }
+                }
                 val replacementChunks: Array<TextMessageChunk> =
                     ColorfulTextMessage.makeColoredChunksFromTaggedText(
                         taggedText = replacementText,

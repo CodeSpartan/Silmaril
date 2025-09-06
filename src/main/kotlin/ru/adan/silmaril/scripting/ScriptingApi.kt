@@ -100,6 +100,19 @@ fun ScriptingEngine.echo(message: String, color: AnsiColor = AnsiColor.None, isB
     echoCommand(message, color, isBright)
 }
 
+fun ScriptingEngine.echoDslException(message: String?, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
+    if (message != null) {
+        val lines = message.lines()
+        val lastIndex = lines.indexOfLast { it.contains(".mud.kts") }
+
+        // Take all lines up to and including that index
+        // If no such line is found, take all lines
+        val result = if (lastIndex != -1) lines.take(lastIndex + 1) else lines
+
+        result.forEach { echo(it, color, isBright) }
+    }
+}
+
 fun ScriptingEngine.sendAll(command: String) {
     sendAllCommand(command)
 }
