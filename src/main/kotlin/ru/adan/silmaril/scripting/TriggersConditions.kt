@@ -3,6 +3,7 @@ package ru.adan.silmaril.scripting
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.compose.koinInject
 import org.koin.core.component.KoinComponent
+import ru.adan.silmaril.mud_messages.Creature
 import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 import kotlin.text.toRegex
@@ -223,6 +224,24 @@ class Trigger(
         }
     }
 }
+
+class RoundTrigger (
+    val isNewRound: Boolean,
+    val action: RoundTriggerAction,
+    val priority: Int,
+) {
+    companion object {
+        public fun create(newRound: Boolean, action: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit, priority: Int) : RoundTrigger {
+            return RoundTrigger(newRound, RoundTriggerAction(lambda = { itGroupMates, itMobs ->
+                action(itGroupMates, itMobs)
+            }), priority)
+        }
+    }
+}
+
+class RoundTriggerAction(
+    val lambda: ScriptingEngine.(groupMates: List<Creature>, mobs: List<Creature>) -> Unit,
+)
 
 class TriggerAction(
     val lambda: ScriptingEngine.(match: MatchResult) -> Unit,

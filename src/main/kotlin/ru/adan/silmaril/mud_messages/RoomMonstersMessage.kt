@@ -64,3 +64,12 @@ data class Monster(
     @field:JacksonXmlProperty(localName = "Affect")
     val affects: List<Affect> = emptyList()
 )
+
+data class RoomMobs(
+    val newRound: Boolean = false,
+    val mobs: List<Creature> = emptyList()
+) {
+    companion object {
+        val EMPTY = RoomMobs(newRound = false, mobs = emptyList())
+    }
+}

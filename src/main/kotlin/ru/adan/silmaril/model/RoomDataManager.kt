@@ -12,7 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -31,6 +33,7 @@ import ru.adan.silmaril.xml_schemas.Zone
 import java.util.concurrent.ConcurrentHashMap
 import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.misc.CyrillicFixer
+import ru.adan.silmaril.xml_schemas.RoomExit
 import ru.adan.silmaril.xml_schemas.ZoneType
 import ru.adan.silmaril.xml_schemas.ZonesYaml
 
@@ -40,16 +43,26 @@ class RoomDataManager() : KoinComponent {
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // In-memory state
+    // Because they can't be observed, we have a "kick" below to force map widget to redraw on changes
     val visitedRooms: ConcurrentHashMap<Int, MutableSet<Int>> = ConcurrentHashMap()
     val customColors: ConcurrentHashMap<Int, RoomColor> = ConcurrentHashMap()
     val roomComments: ConcurrentHashMap<Int, String> = ConcurrentHashMap()
     val roomIcons: ConcurrentHashMap<Int, RoomIcon> = ConcurrentHashMap()
+    val roomTriggers: ConcurrentHashMap<Int, String> = ConcurrentHashMap()
+
+    val kick = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    fun kickRedraw() { kick.tryEmit(Unit) }
 
     private val xml = XmlMapper()
         .registerKotlinModule()
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    fun loadAdanRoomData() {
+    // loads room data from AMC
+    fun importRoomDataFromAMC() {
         coroutineScope.launch {
             profileManager.displaySystemMessage("Импортирую...")
             try {
@@ -154,7 +167,7 @@ class RoomDataManager() : KoinComponent {
     }
 
     // Set or clear a custom color. Pass RoomColor.Default or null to clear.
-    fun setCustomColor(roomId: Int, color: RoomColor) {
+    fun setRoomColor(roomId: Int, color: RoomColor) {
         val shouldRemove = color == RoomColor.Default
         val changed = if (shouldRemove) {
             customColors.remove(roomId) != null
@@ -164,7 +177,10 @@ class RoomDataManager() : KoinComponent {
         if (!shouldRemove && changed) {
             customColors[roomId] = color
         }
-        if (changed) scheduleDebouncedSave()
+        if (changed) {
+            kickRedraw()
+            scheduleDebouncedSave()
+        }
     }
 
     // Set or clear a comment. Empty or blank string clears.
@@ -179,7 +195,10 @@ class RoomDataManager() : KoinComponent {
         if (!shouldRemove && changed) {
             roomComments[roomId] = normalized
         }
-        if (changed) scheduleDebouncedSave()
+        if (changed) {
+            kickRedraw()
+            scheduleDebouncedSave()
+        }
     }
 
     // Set or clear an icon. Pass RoomIcon.None or null to clear.
@@ -191,7 +210,25 @@ class RoomDataManager() : KoinComponent {
             roomIcons[roomId] != icon
         }
         if (!shouldRemove && changed) {
-            roomIcons[roomId] = icon!!
+            roomIcons[roomId] = icon
+        }
+        if (changed) {
+            kickRedraw()
+            scheduleDebouncedSave()
+        }
+    }
+
+    // Set or clear a comment. Empty or blank string clears.
+    fun setRoomTrigger(roomId: Int, trigger: String?) {
+        val normalized = trigger?.trim().orEmpty()
+        val shouldRemove = normalized.isEmpty()
+        val changed = if (shouldRemove) {
+            roomTriggers.remove(roomId) != null
+        } else {
+            roomTriggers[roomId] != normalized
+        }
+        if (!shouldRemove && changed) {
+            roomTriggers[roomId] = normalized
         }
         if (changed) scheduleDebouncedSave()
     }
@@ -203,6 +240,7 @@ class RoomDataManager() : KoinComponent {
     private val customColorsFileName = "customColors.yaml"
     private val roomCommentsFileName = "roomComments.yaml"
     private val roomIconsFileName = "roomIcons.yaml"
+    private val roomTriggersFileName = "roomTriggers.yaml"
 
     private val yaml = Yaml(
         configuration = YamlConfiguration(
@@ -220,6 +258,8 @@ class RoomDataManager() : KoinComponent {
         MapSerializer(Int.serializer(), String.serializer())
     private val roomIconsSer =
         MapSerializer(Int.serializer(), RoomIcon.serializer())
+    private val roomTriggersSer =
+        MapSerializer(Int.serializer(), String.serializer())
 
     // Debounce state
     private var saveJob: Job? = null
@@ -280,7 +320,14 @@ class RoomDataManager() : KoinComponent {
             logger.info { "Loaded roomIcons: ${parsed.size} entries" }
         }
 
-        profileManager.displaySystemMessage("Посещенные зоны: $addedZones, клетки: $addedRooms, комменты: ${roomComments.keys.size}")
+        // roomTriggers
+        loadYamlFile(dir, roomTriggersFileName) { text ->
+            val parsed = yaml.decodeFromString(roomTriggersSer, text)
+            roomTriggers.putAll(parsed.filterValues { it.isNotBlank() })
+            logger.info { "Loaded roomTriggers: ${parsed.size} entries" }
+        }
+
+        profileManager.displaySystemMessage("Посещенные зоны: $addedZones, клетки: $addedRooms, комменты: ${roomComments.keys.size}, триггеры: ${roomTriggers.keys.size}")
     }
 
     // Load whether zones are solo or group oriented, plus what levels they're intended for
@@ -320,6 +367,15 @@ class RoomDataManager() : KoinComponent {
         }
     }
 
+    fun fixZonesMisc(zonesMap: HashMap<Int, Zone>) {
+        // connect two rooms that get connected by the quest, otherwise any pathfinding will go through Huorns and RIP the party
+        val fangorn = zonesMap[400]
+        if (fangorn != null) {
+            fangorn.roomsList.find { it.id == 40027 }?.exitsList?.add(RoomExit("North", 40020))
+            fangorn.roomsList.find { it.id == 40020 }?.exitsList?.add(RoomExit("South", 40027))
+        }
+    }
+
     private fun saveAllYamlInternal() {
         val dir = File(getSilmarilMapDataDirectory()).apply { mkdirs() }
 
@@ -330,14 +386,16 @@ class RoomDataManager() : KoinComponent {
         val colorsStr = yaml.encodeToString(customColorsSer, customColors.toMap())
         val commentsStr = yaml.encodeToString(roomCommentsSer, roomComments.toMap())
         val iconsStr = yaml.encodeToString(roomIconsSer, roomIcons.toMap())
+        val triggersStr = yaml.encodeToString(roomTriggersSer, roomTriggers.toMap())
 
         val savedVisited = writeIfChangedAtomic(File(dir, visitedRoomsFileName), visitedStr)
         val savedColors = writeIfChangedAtomic(File(dir, customColorsFileName), colorsStr)
         val savedComments = writeIfChangedAtomic(File(dir, roomCommentsFileName), commentsStr)
         val savedIcons = writeIfChangedAtomic(File(dir, roomIconsFileName), iconsStr)
+        val savedTriggers = writeIfChangedAtomic(File(dir, roomTriggersFileName), triggersStr)
 
         logger.info {
-            "Saved YAML to ${dir.absolutePath} (visited=$savedVisited, colors=$savedColors, comments=$savedComments, icons=$savedIcons)"
+            "Saved YAML to ${dir.absolutePath} (visited=$savedVisited, colors=$savedColors, comments=$savedComments, icons=$savedIcons, triggers=$savedTriggers)"
         }
     }
 
@@ -394,6 +452,9 @@ class RoomDataManager() : KoinComponent {
 
     fun getRoomCustomColor(roomId: Int): RoomColor? =
         customColors[roomId]
+
+    fun getRoomTrigger(roomId: Int): String? =
+        roomTriggers[roomId]
 
     fun hasComment(roomId: Int): Boolean = roomComments.containsKey(roomId)
 

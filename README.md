@@ -71,7 +71,7 @@ MUD-клиент для игры на сервере adan.ru с использо
 
 <img src="docs/hp.png" alt="img" width="316">
 
-### Интеграция лоров в аукцион/магазин/рынок
+### Интеграция лоров в аукцион/магазин/рынок/экипировку
 Предметы в этих системах превращены в кликабельные ссылки, открывающие подсказку с лором. Лоры берутся из вашей базы предметов. В дальнейшем планируется обращаться к телеграмм-боту.
 
 <img src="docs/lores1.png" alt="img" width="802">
@@ -188,7 +188,7 @@ MUD-клиент для игры на сервере adan.ru с использо
 
 Удаление через **#unalias** или **#unal**.
 
-## Переменные
+### Переменные
 Установка переменной:
 ```
 #var {название переменной} {значение переменной}
@@ -313,6 +313,10 @@ https://github.com/CodeSpartan/Silmaril/blob/982d396c23676ad047ea3f37aae71bcfd19
 #window {название профиля} -- переключает текущее окно. Скобки опциональны.
 ```
 
+```
+#windowId цифра -- переключает на окно по номеру. Отсчет окон начинается с 1. 
+```
+
 ### Лоры
 ```
 #lore название предмета -- отображает лор.
@@ -324,7 +328,7 @@ https://github.com/CodeSpartan/Silmaril/blob/982d396c23676ad047ea3f37aae71bcfd19
 #conn сервер порт -- подключиться к серверу.
 #zap -- разорвать связь с сервером.
 ```
-Поддерживаются мады, не отсылающие GA.
+Подключение к адану и разрыв завязаны на хоткеи Alt+C и Alt+Z, соответственно.
 
 ```
 #previewZone название зоны -- откроет зону на карте.
@@ -336,6 +340,10 @@ https://github.com/CodeSpartan/Silmaril/blob/982d396c23676ad047ea3f37aae71bcfd19
 #zones уровень -- напечатает зоны для уровня.
 ```
 То же самое, что команда "зоны" в игре, но в отличие от мадовской команды, может отображать зоны для 0 уровня.
+
+```
+#version -- напечатает версию клиента
+```
 
 ## DSL-скрипты
 Вместо использования стандартных команд #act и пр., вы можете писать скрипты на Котлине. Это весьма удобно и экспрессивно.
@@ -387,6 +395,7 @@ https://github.com/CodeSpartan/Silmaril/blob/982d396c23676ad047ea3f37aae71bcfd19
 ```kts
 fun send(command: String)
 fun echo(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false)
+fun echoCurrentWindow(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false)
 fun sendAll(command: String)
 fun send(window: String, command: String)
 fun sendId(windowId: Int, command: String)
@@ -397,7 +406,8 @@ variable.IntValue
 variable.FloatValue
 fun setVar(varName: String, varValue: Any) // принимает параметры Int, Float, String
 fun unVar(varName: String)
-fun window(windowName: String) // переключает окно
+fun window(windowName: String) // переключает окно по названию окна
+fun windowId(windowId: Int) // переключает по номеру окна
 fun isCurrentWindow(): Boolean // активное ли окно у этого профиля?
 fun out(message: String)
 fun getProfileName(): String // как зовут этот профиль
@@ -407,7 +417,7 @@ fun formattedTime(): String // возвращает время в маленьк
 DSL-скрипты всегда имеют приоритет 5.
 
 Использование `getVar` и `setVat` имеет смысл, если этим переменным нужно пережить перезапуск клиента.
-Для временных переменных, просто декларируйте их в котлине, вне скрипта.
+Для временных переменных, просто декларируйте их в котлине вне функций.
 
 Приведу пример скрипта (с использованием глагола alias), который получает все квесты в заданном диапазоне уровней, напр. команда "квест 10" получит все квесты 10 уровня, а "квест 10-15" – все квесты от 10 до 15.
 ```kts
@@ -441,7 +451,7 @@ var collectQuests = false
     collectQuests = true
     send("список")
     // Обратите внимание на асинк-код. Мы легко задаем что нужно выполнить через 2.5 секунды в скрипте.
-    backgroundScope.launch {
+    scriptData.backgroundScope.launch {
         delay(2500)
         collectQuests = false
     }

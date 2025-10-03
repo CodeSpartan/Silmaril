@@ -21,6 +21,9 @@ import ru.adan.silmaril.viewmodel.MapViewModel
 import ru.adan.silmaril.viewmodel.ProfileCreatureSource
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.nativeKeyLocation
+import sun.awt.resources.awt
 
 class ProfileManager(
     private val unifiedMapsViewModel: UnifiedMapsViewModel,
@@ -129,8 +132,10 @@ class ProfileManager(
         currentMainViewModel.value.displaySystemMessage(msg)
     }
 
-    fun switchWindow(index: Int) {
+    fun switchWindow(index: Int) : Boolean {
+        if (index >= gameWindows.value.size) return false
         switchWindow(gameWindows.value.values.toList()[index].profileName)
+        return true
     }
 
     fun switchWindow(windowName: String): Boolean {
@@ -159,6 +164,10 @@ class ProfileManager(
         return gameWindows.value.entries.firstOrNull { (key, value) -> key.equals(name, ignoreCase = true) }?.value
     }
 
+    // AWT sends 3 keycodes: Down, TYPED, Up.
+    // So when we've caught our hotkey, we need to handle Typed and Up that will follow, otherwise the input field will type the letter
+    var suppressTextInput = false
+
     //@TODO: move this to a separate class
     // Return true to consume the event
     fun onHotkeyKey(onPreviewKeyEvent: KeyEvent): Boolean {
@@ -174,10 +183,28 @@ class ProfileManager(
             return true
         }
 
+        // Explanation: AWT sends Down, Typed and Up events, but in Compose we only have Down and Up
+        // Compose receives the Typed event as Up & Key.Unknown
+        // Compose receives no useful information about this event, no keycode, so we just suppress it if it follows a bound hotkey
+        // If we don't suppress it, the key gets typed into the input field
         if (onPreviewKeyEvent.type == KeyEventType.KeyDown) {
-            return getCurrentProfile()?.scriptingEngine?.processHotkey(onPreviewKeyEvent) ?: false
+            val handled = getCurrentProfile()?.scriptingEngine?.processHotkey(onPreviewKeyEvent)
+            if (handled == true) {
+                suppressTextInput = true
+            }
+            return handled ?: false
+        } else {
+            val handled = getCurrentProfile()?.scriptingEngine?.isBoundHotkeyEvent(onPreviewKeyEvent)
+            if (handled == true) {
+                suppressTextInput = false
+                return true
+            }
+            // this is how Typed is sent
+            if (onPreviewKeyEvent.key == Key.Unknown) {
+                return suppressTextInput
+            }
+            return false
         }
-        return false
     }
 
     fun getWindowById(id: Int): Profile? {

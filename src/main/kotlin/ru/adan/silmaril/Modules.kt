@@ -16,6 +16,7 @@ import ru.adan.silmaril.model.SettingsManager
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.scripting.ScriptingEngine
 import ru.adan.silmaril.scripting.ScriptingEngineImpl
+import ru.adan.silmaril.scripting.TransientScriptData
 import ru.adan.silmaril.viewmodel.MainViewModel
 import ru.adan.silmaril.viewmodel.MapViewModel
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
@@ -84,7 +85,8 @@ val appModule = module {
     factory { params ->
         MobsModel(
             client = params[0],
-            settingsManager = get()
+            settingsManager = get(),
+            onMobsReceived = params[1]
         )
     }
 
@@ -93,6 +95,7 @@ val appModule = module {
             profileName = params.get(),
             mainViewModel = params.get(),
             isGroupActive = params.get(),
+            scriptData = TransientScriptData(),
             settingsManager = get(),
             profileManager = get(),
             loreManager = get(),

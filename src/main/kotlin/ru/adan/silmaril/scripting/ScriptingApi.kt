@@ -2,7 +2,6 @@ package ru.adan.silmaril.scripting
 import kotlinx.coroutines.*
 import ru.adan.silmaril.misc.*
 import ru.adan.silmaril.mud_messages.*
-import kotlin.random.Random
 
 /**
  * All functions in this file are API that can be called from DSL scripts
@@ -84,11 +83,11 @@ abstract class MudScriptHost(engine: ScriptingEngine) : ScriptingEngine by engin
     }
 
     infix fun Int.onNewRound(roundInfo: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit) {
-        logger.debug {"Added lambda round trigger"}
+
     }
 
     infix fun Int.onOldRound(roundInfo: (groupMates: List<Creature>, mobs: List<Creature>) -> Unit) {
-        logger.debug {"Added lambda round trigger"}
+
     }
 }
 
@@ -113,6 +112,10 @@ fun ScriptingEngine.echoDslException(message: String?, color: AnsiColor = AnsiCo
     }
 }
 
+fun ScriptingEngine.echoCurrentWindow(message: String, color: AnsiColor = AnsiColor.None, isBright: Boolean = false) {
+    getProfileManager().currentMainViewModel.value.displayChunks(ColorfulTextMessage.makeColoredChunksFromTaggedText(message, isBright, color))
+}
+
 fun ScriptingEngine.sendAll(command: String) {
     sendAllCommand(command)
 }
@@ -121,8 +124,9 @@ fun ScriptingEngine.send(window: String, command: String) {
     sendWindowCommand(window, command)
 }
 
-fun ScriptingEngine.sendId(windowId: Int, command: String) {
-    getProfileManager().getWindowById(windowId)?.mainViewModel?.treatUserInput(command)
+/** WindowId: starts with 1 */
+fun ScriptingEngine.sendId(windowId: Int, command: String, recursionLevel: Int = 0) {
+    getProfileManager().getWindowById(windowId)?.mainViewModel?.treatUserInput(command, true, recursionLevel)
 }
 
 fun ScriptingEngine.getVar(varName: String): Variable? {
@@ -131,6 +135,10 @@ fun ScriptingEngine.getVar(varName: String): Variable? {
 
 fun ScriptingEngine.setVar(varName: String, varValue: Any) {
     setVarCommand(varName, varValue)
+}
+
+fun ScriptingEngine.windowId(windowId: Int) : Boolean {
+    return getProfileManager().switchWindow(windowId - 1)
 }
 
 fun ScriptingEngine.unVar(varName: String) {
@@ -150,7 +158,7 @@ fun ScriptingEngine.out(message: String) {
 }
 
 fun ScriptingEngine.cleanupCoroutine() {
-    backgroundScope.cancel()
+    scriptData.backgroundScope.cancel()
 }
 
 fun ScriptingEngine.getProfileName() = profileName
@@ -161,4 +169,6 @@ fun ScriptingEngine.getThisProfile() = getProfileManager().getProfileByName(prof
 
 fun ScriptingEngine.formattedTime() = "<color=dark-grey><size=small>\$time </size></color>"
 
-val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+/** Gameplay API */
+
+fun ScriptingEngine.getScriptData() = scriptData

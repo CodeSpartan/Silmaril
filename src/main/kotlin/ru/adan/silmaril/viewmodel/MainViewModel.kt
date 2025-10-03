@@ -1,5 +1,6 @@
 package ru.adan.silmaril.viewmodel
 
+import androidx.compose.ui.focus.FocusRequester
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -15,7 +16,7 @@ import ru.adan.silmaril.model.LoreManager
 // ViewModel that holds the list of strings and manages the TCP connection
 class MainViewModel(
     private val client: MudConnection,
-    val onSystemMessage: (String) -> Unit,
+    val onSystemMessage: (String, Int) -> Unit,
     val onInsertVariables: (String) -> String,
     val onProcessAliases: (String) -> Pair<Boolean, String?>,
     private val onMessageReceived: (String) -> Unit,
@@ -29,6 +30,9 @@ class MainViewModel(
     // Expose the list of messages as a StateFlow for UI to observe
     private val _messages = MutableSharedFlow<ColorfulTextMessage>()
     val messages = _messages.asSharedFlow()
+
+    // a flow, to which MapWindow emits and then MainWindow brings itself to front and focuses the input field
+    val focusTarget = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     val isEnteringPassword: StateFlow<Boolean> = client.isEchoOn
 
@@ -74,7 +78,7 @@ class MainViewModel(
     }
 
     // Function that reads user's text input
-    fun treatUserInput(message: String, displayAsUserInput: Boolean = true) {
+    fun treatUserInput(message: String, displayAsUserInput: Boolean = true, recursionLevel: Int = 0) {
         //logger.info { "Sending: $message" }
         val playerCommands = splitOnTopLevelSemicolon(message)
         val splitCommands = settingsManager.settings.value.splitCommands
@@ -109,7 +113,11 @@ class MainViewModel(
                     client.logGameplayTextSynchronously(">> $withVariables")
                 }
             }
-            onSystemMessage(withVariables)
+            if (recursionLevel >= 10) {
+                displayTaggedText("<color=yellow>Рекурсивный алиас остановлен (больше 10 уровней вложения.)</color>")
+                return
+            }
+            onSystemMessage(withVariables, recursionLevel+1)
         }
         else {
             // Apply Aliases and Variable substitutions
@@ -143,9 +151,13 @@ class MainViewModel(
                     client.logGameplayTextSynchronously("> $withVariables")
                 }
             }
-            if (wasThereAnAlias && msgAfterAliasProcess != null) {
-                treatUserInput(withVariables, false)
-            } else if (!wasThereAnAlias) {
+            if (recursionLevel >= 10) {
+                displayTaggedText("<color=yellow>Рекурсивный алиас остановлен (больше 10 уровней вложения.)</color>")
+            }
+            if (wasThereAnAlias && msgAfterAliasProcess != null && recursionLevel < 10) {
+                treatUserInput(withVariables, false, recursionLevel+1)
+            }
+            else if (!wasThereAnAlias || recursionLevel >= 10) {
                 client.enqueueString(withVariables)
             }
             if (!client.isConnected) {

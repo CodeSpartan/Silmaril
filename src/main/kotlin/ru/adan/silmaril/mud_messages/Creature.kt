@@ -19,8 +19,22 @@ data class Creature(
     val owner: String? = null,
     // Groupmate-specific properties (nullable)
     val memTime: Int? = null,
-    val waitState: Double? = null
-)
+    var waitState: Double? = null
+) {
+    fun getTargetingName(): String {
+        return targetName.replace(' ', '.')
+    }
+}
+
+fun List<Creature>.targetName(targetCreature: Creature): String {
+    val creaturesWithSameName = this.filter { it.name == targetCreature.name }
+    val index = creaturesWithSameName.indexOfFirst { it === targetCreature } + 1
+    if (index == 1) {
+        return targetCreature.getTargetingName()
+    } else {
+        return "$index.${targetCreature.getTargetingName()}"
+    }
+}
 
 fun GroupMate.toCreature(): Creature {
     return Creature(

@@ -147,42 +147,87 @@ class LoreManager() : KoinComponent {
         val marketRegex2 = """^Рынок: Лот #\d+: Новая вещь - '(.*?)(?: \(x\d+\))?',.*""".toRegex()
         val shopRegex = """^\s?\d+\. \[\s+\d*\s*\d+\] !?(.+?)(?= \((?:x\d+)\)\s*$|\s*$)""".toRegex()
         val auctionRegex = """^(?:Аукцион: )?Лот #\d: (?:Новая )?[вВ]ещь (?:- )?'(.*?)(?: \(x\d+\))?',?.*""".toRegex()
+        //val equipmentRegex = """^<[\p{L}\s]+>\s+([^\[.]+)(?:\s\[[\p{L}\s]+\])?(?:\s\.\.\.[\p{L}\s]+)*$""".toRegex()
+        val equipmentRegex = """^<[\p{L}\s\.\d]+>\s+([^\[.]+)(?:\s\[[\p{L}\s]+\])?(?:\s\.\.\.[\p{L}\s]+)*(?:\s\(невидим\p{L}+\))?$""".toRegex()
 
-        val match1 = marketRegex.find(fullText)
-                ?: marketRegex2.find(fullText)
-                ?: shopRegex.find(fullText)
-                ?: auctionRegex.find(fullText)
-                ?: return message
-        val group1 = match1.groups[1] ?: return message
-        val itemName = match1.groupValues[1].trim()
+        val match = marketRegex.find(fullText)
+            ?: marketRegex2.find(fullText)
+            ?: shopRegex.find(fullText)
+            ?: auctionRegex.find(fullText)
+            ?: equipmentRegex.find(fullText)
+            ?: return message
 
-        // Indices of the raw captured substring in the full text
-        val start = group1.range.first
-        val endExclusive = group1.range.last + 1
+        val g1 = match.groups[1] ?: return message
 
-        // Assumption: exactly one chunk
-        val original = message.chunks.firstOrNull() ?: return message
+        val raw = g1.value
+        val firstNonWs = raw.indexOfFirst { !it.isWhitespace() }
+        if (firstNonWs == -1) return message
+        val lastNonWs = raw.indexOfLast { !it.isWhitespace() }
+        val trimStartInGroup = firstNonWs
+        val trimEndExclusiveInGroup = lastNonWs + 1
 
-        val before = fullText.substring(0, start)
-        val after = fullText.substring(endExclusive)
+        val itemName = raw.substring(trimStartInGroup, trimEndExclusiveInGroup)
+        if (itemName == "пустая ячейка") return message
 
-        val newChunks = arrayOf(
-            TextMessageChunk(
-                text = before,
-                fg = original.fg,
-                bg = original.bg,
-                textSize = original.textSize
-            ),
-            TextMessageChunk(
-                text = after,
-                fg = original.fg,
-                bg = original.bg,
-                textSize = original.textSize
-            )
-        )
+        // Adjusted indices of the non-space captured substring in the full text
+        val adjStart = g1.range.first + trimStartInGroup
+        val adjEndExclusive = g1.range.first + trimEndExclusiveInGroup
+        if (adjStart >= adjEndExclusive) return message
+
+        // Rebuild chunks by removing [adjStart, adjEndExclusive) across potentially many chunks, preserving styles
+        val rebuilt = ArrayList<TextMessageChunk>(message.chunks.size)
+        var cursor = 0 // global index into fullText
+
+        for (chunk in message.chunks) {
+            val chunkText = chunk.text
+            val chunkStart = cursor
+            val chunkEnd = cursor + chunkText.length
+
+            // No overlap with removal range: keep chunk as-is
+            if (chunkEnd <= adjStart || chunkStart >= adjEndExclusive) {
+                if (chunkText.isNotEmpty()) {
+                    rebuilt.add(
+                        TextMessageChunk(
+                            text = chunkText,
+                            fg = chunk.fg,
+                            bg = chunk.bg,
+                            textSize = chunk.textSize
+                        )
+                    )
+                }
+            } else {
+                // Overlap: keep left part before adjStart
+                val leftLen = (adjStart - chunkStart).coerceIn(0, chunkText.length)
+                if (leftLen > 0) {
+                    rebuilt.add(
+                        TextMessageChunk(
+                            text = chunkText.substring(0, leftLen),
+                            fg = chunk.fg,
+                            bg = chunk.bg,
+                            textSize = chunk.textSize
+                        )
+                    )
+                }
+
+                // Keep right part after adjEndExclusive
+                val rightStartInChunk = (adjEndExclusive - chunkStart).coerceIn(0, chunkText.length)
+                if (rightStartInChunk < chunkText.length) {
+                    rebuilt.add(
+                        TextMessageChunk(
+                            text = chunkText.substring(rightStartInChunk),
+                            fg = chunk.fg,
+                            bg = chunk.bg,
+                            textSize = chunk.textSize
+                        )
+                    )
+                }
+            }
+
+            cursor = chunkEnd
+        }
 
         return ColorfulTextMessage(
-            chunks = newChunks,
+            chunks = rebuilt.toTypedArray(),
             loreItem = itemName
         )
     }

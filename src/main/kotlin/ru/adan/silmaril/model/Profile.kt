@@ -26,15 +26,19 @@ import java.io.File
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
+import ru.adan.silmaril.misc.BuildInfo
 import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.currentTime
 import ru.adan.silmaril.misc.getCorrectTransitionWord
 import ru.adan.silmaril.misc.getDslScriptsDirectory
 import ru.adan.silmaril.misc.getOrNull
+import ru.adan.silmaril.mud_messages.Creature
 import ru.adan.silmaril.scripting.RegexCondition
 import ru.adan.silmaril.scripting.Trigger
+import ru.adan.silmaril.view.CreatureEffect
 import ru.adan.silmaril.scripting.sendId
+import ru.adan.silmaril.scripting.windowId
 import ru.adan.silmaril.viewmodel.MapViewModel
 
 class Profile(
@@ -88,13 +92,14 @@ class Profile(
     val mobsModel: MobsModel by lazy {
         get {
             parametersOf(
-                client
+                client,
+                { newRound: Boolean, mobs: List<Creature> -> scriptingEngine.processRound(newRound, groupModel.getGroupMates(), mobs) },
             )
         }
     }
 
     val scriptingEngine: ScriptingEngine  by lazy {
-        get<ScriptingEngine > { parametersOf(profileName, mainViewModel, ::isGroupActive) }
+        get<ScriptingEngine> { parametersOf(profileName, mainViewModel, ::isGroupActive) }
     }
 
     // lazy injection
@@ -119,9 +124,10 @@ class Profile(
         }
 
         scopeDefault.launch {
-            compileTriggers()
+            compileDslScripts()
             // only one profile will initialize triggerManager, others will not be able to
             // @TODO: move this to ProfileManager or somewhere that it can't be cancelled
+            logger.info { "Profile (${profileName}): Initialize" }
             textMacrosManager.initExplicit(this@Profile)
             mapModel.areMapsReady.first { it }
             groupModel.init()
@@ -133,7 +139,7 @@ class Profile(
         debounceSaveProfile()
     }
 
-    suspend fun compileTriggers() {
+    suspend fun compileDslScripts() {
         // load triggers
         mainViewModel.displaySystemMessage("Компилирую скрипты...")
         val dslDir = File(getDslScriptsDirectory())
@@ -145,7 +151,10 @@ class Profile(
                 }
             }
         }
-        mainViewModel.displaySystemMessage("Триггеров в скриптах скомпилировано: $triggersLoaded")
+
+        scriptingEngine.sortRoundTriggersByPriority()
+
+        mainViewModel.displaySystemMessage("Триггеров в скриптах скомпилировано: ${scriptingEngine.getTriggers().values.flatten().filter { it.withDsl }.size}")
     }
 
     fun onCloseWindow() {
@@ -162,7 +171,11 @@ class Profile(
         scriptingEngine.cleanup()
     }
 
-    fun onSystemMessage(messageUntrimmed: String) {
+    fun isGroupEnabled(groupName: String) : Boolean {
+        return profileData.value.enabledGroups.contains(groupName.uppercase())
+    }
+
+    fun onSystemMessage(messageUntrimmed: String, recursionLevel: Int = 0) {
         val message = messageUntrimmed.trim()
         // get first word of the message
         when (messageUntrimmed.trim().substringBefore(" ")) {
@@ -189,10 +202,11 @@ class Profile(
             "#zap" -> client.forceDisconnect()
             "#conn" -> parseConnectCommand(message)
             "#echo" -> parseEchoCommand(message)
-            "#send" -> parseSendWindowCommand(message)
-            "#sendId" -> parseSendIdCommand(message)
-            "#sendAll" -> parseSendAllCommand(message)
+            "#send" -> parseSendWindowCommand(message, recursionLevel)
+            "#sendId" -> parseSendIdCommand(message, recursionLevel)
+            "#sendAll" -> parseSendAllCommand(message, recursionLevel)
             "#window" -> parseWindowCommand(message)
+            "#windowId" -> parseWindowIdCommand(message)
             "#output" -> parseOutputCommand(message)
             "#out" -> parseOutputCommand(message)
             "#lore" -> parseLoreCommand(message)
@@ -205,6 +219,7 @@ class Profile(
             "#unsub" -> parseRemoveSubstitute(message)
             "#unsubreg" -> parseRemoveSubstitute(message)
             "#subs" -> printAllSubstitutes(message)
+            "#version" -> printVersion()
             else -> mainViewModel.displaySystemMessage("Ошибка – неизвестное системное сообщение.")
         }
     }
@@ -336,7 +351,7 @@ class Profile(
 
     fun parseGroupCommand(message: String) {
         // matches #group enable {test}
-        val groupRegex = """\#group (enable|disable) [{]?([\p{L}\p{N}_]+)[}]?""".toRegex()
+        val groupRegex = """\#group (enable|disable) [{]?([\p{L}\p{N}\-_]+)[}]?""".toRegex()
         val match = groupRegex.find(message)
         if (match != null) {
             val enable = match.groupValues[1] // "enable" or "disable"
@@ -358,6 +373,7 @@ class Profile(
             scriptingEngine.sortAliasesByPriority()
             scriptingEngine.sortSubstitutesByPriority()
             scriptingEngine.sortHotkeysByPriority()
+            scriptingEngine.sortRoundTriggersByPriority()
         } else {
             val groupRegex2 = """\#group [{]?([\p{L}\p{N}_]+)[}]?$""".toRegex()
             val match2 = groupRegex2.find(message)
@@ -756,7 +772,7 @@ class Profile(
         mainViewModel.displayTaggedText(match.groupValues[1], false)
     }
 
-    fun parseSendWindowCommand(message: String) {
+    fun parseSendWindowCommand(message: String, recursionLevel: Int = 0) {
         // matches #send {name} {command}
         val sendWindowRegex = """\#send \{(.+?)} \{(.+)}$""".toRegex()
         val match = sendWindowRegex.find(message)
@@ -766,10 +782,10 @@ class Profile(
         }
         val windowName = match.groupValues[1]
         val command = match.groupValues[2]
-        scriptingEngine.sendWindowCommand(windowName, command)
+        scriptingEngine.sendWindowCommand(windowName, command, recursionLevel)
     }
 
-    fun parseSendIdCommand(message: String) {
+    fun parseSendIdCommand(message: String, recursionLevel: Int = 0) {
         // matches #sendId {name} {command}
         val sendWindowRegex = """\#sendId \{(\d+)} \{(.+)}$""".toRegex()
         val match = sendWindowRegex.find(message)
@@ -779,10 +795,10 @@ class Profile(
         }
         val windowId = match.groupValues[1].toInt()
         val command = match.groupValues[2]
-        scriptingEngine.sendId(windowId, command)
+        scriptingEngine.sendId(windowId, command, recursionLevel)
     }
 
-    fun parseSendAllCommand(message: String) {
+    fun parseSendAllCommand(message: String, recursionLevel: Int = 0) {
         // matches #sendAll text
         val sendAllRegex = """\#sendAll (.+)""".toRegex()
         val match = sendAllRegex.find(message)
@@ -791,7 +807,7 @@ class Profile(
             return
         }
         val command = match.groupValues[1]
-        scriptingEngine.sendAllCommand(command)
+        scriptingEngine.sendAllCommand(command, recursionLevel)
     }
 
     fun parseWindowCommand(message: String) {
@@ -805,6 +821,20 @@ class Profile(
         val windowName = match.groupValues[1]
         if (!scriptingEngine.switchWindowCommand(windowName)) {
             mainViewModel.displayErrorMessage("Ошибка #window - окно не найдено.")
+        }
+    }
+
+    fun parseWindowIdCommand(message: String) {
+        // matches #window {id}, starting with 1
+        val switchWindowIdRegex = """\#windowId [{]?(\d+)[}]?$""".toRegex()
+        val match = switchWindowIdRegex.find(message)
+        if (match == null) {
+            mainViewModel.displayErrorMessage("Ошибка #windowId - не смог распарсить. Правильный синтаксис: #windowId {номер окна начиная с 1}.")
+            return
+        }
+        val windowId = match.groupValues[1].toInt()
+        if (!scriptingEngine.windowId(windowId)) {
+            mainViewModel.displayErrorMessage("Ошибка #windowId - окно с таким индексом не найдено.")
         }
     }
 
@@ -1035,6 +1065,7 @@ class Profile(
                 targetRoomId = when (zone.id) {
                     372 -> 5413 // деревенский колодец у НГ недоступен напрямую, но можно подойти к нему
                     65 -> 6501 // фириен начинается с невалидной комнаты 6500
+                    47 -> 4791 // горый перевал имеет два входа, нам надо на тот который у МТ
                     else -> zone.roomsList.first().id
                 }
             }
@@ -1231,5 +1262,9 @@ class Profile(
                 mainViewModel.displayTaggedText("${if (isRegex) "Regex-Sub" else "Sub"}: {${sub.condition.originalPattern}} {${sub.action.originalCommand}} {${sub.priority}} {$groupName}")
             }
         }
+    }
+
+    private fun printVersion() {
+        mainViewModel.displayTaggedText("<color=white>Версия клиента: ${BuildInfo.version}</color>")
     }
 }

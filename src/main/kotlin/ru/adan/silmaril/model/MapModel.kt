@@ -83,6 +83,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
             roomDataManager.loadVisitedRoomsYaml()
             roomDataManager.loadAdditionalInfoYaml(zonesMap)
             roomDataManager.fixTyposInZones(zonesMap)
+            roomDataManager.fixZonesMisc(zonesMap)
             profileManager.displaySystemMessage("Карты готовы.")
             _areMapsReady.value = true
         }
@@ -262,7 +263,7 @@ class MapModel(private val settingsManager: SettingsManager, private val roomDat
         // @TODO: make a file for this, this shouldn't be done in the code
         if (zoneId == 109) {
             val junkRooms = listOf(10963, 10964, 10965, 10966, 10968, 10969, 10974, 10976)
-            for (junkRoom in junkRooms) rooms[junkRoom]?.exitsList = emptyList()
+            for (junkRoom in junkRooms) rooms[junkRoom]?.exitsList = mutableListOf()
         }
 
         for ((_, room) in rooms) {
