@@ -32,8 +32,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.PointerMatcher
 import androidx.compose.foundation.border
 import androidx.compose.foundation.onClick
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -52,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.oshai.kotlinlogging.KLogger
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.jewel.foundation.modifier.border
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.icon.IconKey
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
@@ -66,11 +63,15 @@ import ru.adan.silmaril.generated.resources.Res
 import ru.adan.silmaril.generated.resources.map_highlight
 import ru.adan.silmaril.generated.resources.warn
 import ru.adan.silmaril.misc.doubleClickOrSingle
+import ru.adan.silmaril.misc.getRoomIconOption
+import ru.adan.silmaril.misc.rememberIconPainterCache
+import ru.adan.silmaril.misc.roomIconOptions
 import ru.adan.silmaril.misc.toComposeColor
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.view.hovertooltips.LocalHoverManager
 import ru.adan.silmaril.view.hovertooltips.MapHoverTooltip
+import ru.adan.silmaril.view.small_widgets.EmptyOverlayReturnsFocus
 import ru.adan.silmaril.viewmodel.MapViewModel
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 
@@ -78,6 +79,7 @@ import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
 @Composable
 fun MapWindow(
     mapViewModel: MapViewModel,
+    inspectRoom: MutableState<Room?>,
     profileManager: ProfileManager,
     logger: KLogger
 ) {
@@ -136,10 +138,14 @@ fun MapWindow(
             .border(1.dp, color = if (currentColorStyle.borderAroundFloatWidgets()) JewelTheme.globalColors.borders.normal else Color.Unspecified)
             .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
     ) {
+        if (curZoneState.value == null)
+            EmptyOverlayReturnsFocus(profileManager)
+
         RoomsCanvas(
             mapViewModel = mapViewModel,
             profileManager = profileManager,
             settingsManager = settingsManager,
+            inspectRoom = inspectRoom,
             logger = logger,
             modifier = Modifier.fillMaxSize().clipToBounds(),
             zoneState = curZoneState,
@@ -158,9 +164,10 @@ fun MapWindow(
                 tooltipOffset = (position + internalPadding) / dpi
                 hoverManager.show(
                     ownerWindow,
-                    tooltipOffset,
-                    500,
-                    room.id,
+                    relativePosition = tooltipOffset,
+                    width = 500,
+                    assumedHeight = 500,
+                    uniqueKey = room.id,
                 ) {
                     MapHoverTooltip(room, curZoneState.value, mapModel, currentColorStyle)
                 }
@@ -204,6 +211,7 @@ fun RoomsCanvas(
     mapViewModel: MapViewModel,
     profileManager: ProfileManager,
     settingsManager: SettingsManager,
+    inspectRoom: MutableState<Room?>,
     logger: KLogger,
     modifier: Modifier = Modifier,
     zoneState: MutableState<Zone?>,
@@ -235,8 +243,7 @@ fun RoomsCanvas(
 
     // Generic icon: display it on top of rooms that have a custom icon set
     val roomIconKey: IconKey = remember { AllIconsKeys.Status.FailedInProgress }
-    val roomIconPath = remember(roomIconKey, true) { roomIconKey.path(true) }
-    val roomIconPainterProvider = rememberResourcePainterProvider(roomIconPath, roomIconKey.iconClass)
+    val roomIconPainterProvider = rememberResourcePainterProvider(roomIconKey.path(true), roomIconKey.iconClass)
     val roomIconPainter by roomIconPainterProvider.getPainter()
     val roomIconDesiredSize = remember { Size(70f, 70f) }
 
@@ -248,7 +255,17 @@ fun RoomsCanvas(
     val roomHighlightPainter = painterResource(Res.drawable.map_highlight)
     val roomHighlightDesiredSize = remember { Size(200f, 200f) }
 
+    // Room icons
+    val iconKeysInUse: Set<IconKey> = roomIconOptions.filter { it.icon != null }.map { it.icon!! }.toSet()
+    val painterCache = rememberIconPainterCache(iconKeysInUse)
+
     val lastMousePos = remember { mutableStateOf(Offset.Zero) }
+
+    // roomDataManager issues a "kick" when the user has updated room data. Force canvas to redraw when it happens.
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(roomDataManager) {
+        roomDataManager.kick.collect { tick++ } // each event bumps tick
+    }
 
     BoxWithConstraints(modifier = modifier) {
         var scaleLogical by remember { mutableStateOf(0.25f) }
@@ -348,12 +365,17 @@ fun RoomsCanvas(
                         val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
                         if (roomUnderMouse != null) {
 
-                            // don't detect double clicks on hidden rooms
+                            // compliance: don't detect double clicks on hidden rooms
                             val isRoomVisited = roomDataManager.isRoomVisited(zoneState.value?.id ?: -100, roomUnderMouse)
                             val hideRoom = !isRoomVisited && !mapModel.areRoomsConnected(centerOnRoomId, roomUnderMouse)
-                            if (hideRoom) return@doubleClickOrSingle
+                            if (hideRoom) {
+                                profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
+                                return@doubleClickOrSingle
+                            }
                             
                             profileManager.currentMainViewModel.value.treatUserInput("#path $roomUnderMouse")
+                            //profileManager.currentMainViewModel.value.inputFieldFocusRequester.requestFocus()
+                            profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
                         }
                     },
                     onSingleClick = { }
@@ -365,25 +387,44 @@ fun RoomsCanvas(
                         val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
                         if (roomUnderMouse != null) {
 
-                            // don't treat RMB clicks on hidden rooms
+                            // compliance: don't treat RMB clicks on hidden rooms
                             val isRoomVisited = roomDataManager.isRoomVisited(zoneState.value?.id ?: -100, roomUnderMouse)
                             val hideRoom = !isRoomVisited && !mapModel.areRoomsConnected(centerOnRoomId, roomUnderMouse)
-                            if (hideRoom) return@onClick
+                            if (hideRoom) {
+                                profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
+                                return@onClick
+                            }
 
-                            println("RMB on room $roomUnderMouse")
+                            inspectRoom.value = roomsMap[roomUnderMouse]
+                            onRoomHover(null, lastMousePos.value)
+                        } else {
+                            profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
                         }
                     }
                 )
-                // 3. Panning (drag)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        coroutineScope.launch {
-                            panOffset.snapTo(panOffset.value + dragAmount)
-                        }
+                // 3. Single click (left mouse button) - do nothing
+                .onClick(
+                    matcher = PointerMatcher.mouse(PointerButton.Primary),
+                    onClick = {
+                        // just return focus to main window
+                        profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
                     }
+                )
+                // 4. Panning (drag)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            coroutineScope.launch {
+                                panOffset.snapTo(panOffset.value + dragAmount)
+                            }
+                        },
+                        onDragEnd = {
+                            profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
+                        }
+                    )
                 }
-                // 4. Zooming (scroll)
+                // 5. Zooming (scroll)
                 .onPointerEvent(PointerEventType.Scroll) { event ->
                     val change = event.changes.first()
                     val scrollDelta = change.scrollDelta.y
@@ -430,14 +471,14 @@ fun RoomsCanvas(
                     }
                     change.consume()
                 }
-                // 5. Hovering (move)
+                // 6. Hovering (move)
                 .onPointerEvent(PointerEventType.Move) { event ->
                     lastMousePos.value = event.changes.first().position
                     val halfRoomSize = scaledRoomSize / 2f
 
                     val roomUnderMouse = getRoomUnderCursor(lastMousePos.value)
 
-                    // don't display hover for unvisited rooms
+                    // compliance: don't display hover for unvisited rooms
                     val isRoomVisited = roomDataManager.isRoomVisited(zoneState.value?.id ?: -100, roomUnderMouse ?: -1)
                     if (!isRoomVisited) {
                         onRoomHover(null, event.changes.first().position)
@@ -449,12 +490,15 @@ fun RoomsCanvas(
                         roomToOffsetMap[roomUnderMouse]?.y?.plus(halfRoomSize*2)?:lastMousePos.value.y)
                     )
                 }
-                // 6. Hover End (exit)
+                // 7. Hover End (exit)
                 .onPointerEvent(PointerEventType.Exit) { event ->
                     onRoomHover(null, event.changes.first().position)
                 }
         ) {
             val zoneId = zoneState.value?.id ?: -1
+
+            // force redraw when roomDataManager issues a kick
+            val forceRedraw = tick
 
             // Draw the connections (Lines) only for East/West/North/South exits
             val drawnConnections : Map<Int, MutableSet<Int>> = roomsMap.keys.associateWith { mutableSetOf() }
@@ -466,8 +510,7 @@ fun RoomsCanvas(
                         return@exitLoop
                     }
 
-                    // don't draw connections if one of the rooms is hidden
-
+                    // compliance: don't draw connections if one of the rooms is hidden
                     val isRoom1Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(room.id)?.id ?: zoneId, room.id)
                     val hideRoom1 = !isRoom1Visited && !mapModel.areRoomsConnected(centerOnRoomId, room.id)
                     val isRoom2Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(exit.roomId)?.id ?: zoneId, exit.roomId)
@@ -552,7 +595,7 @@ fun RoomsCanvas(
             roomToOffsetMap.entries.forEach { (roomId, centerOffset) ->
                 val isRoomVisited = roomDataManager.isRoomVisited(zoneId, roomId)
 
-                // don't draw unvisited rooms, unless they're adjacent to the one we're standing in
+                // compliance: don't draw unvisited rooms, unless they're adjacent to the one we're standing in
                 if (!isRoomVisited && !mapModel.areRoomsConnected(centerOnRoomId, roomId)) return@forEach
 
                 val cornerRadiusValue = scaledRoomSize * 0.15f // 15% of the size for the corner radius
@@ -607,7 +650,7 @@ fun RoomsCanvas(
                     val baseStyle = TextStyle(
                         fontFamily = robotoFont,
                         fontWeight = FontWeight.Bold,
-                        fontSize = (24 * scaleLogical * dpi).sp
+                        fontSize = (48 * scaleLogical).sp
                     )
 
                     val gmText = roomInfo.groupMates.toString()
@@ -648,11 +691,13 @@ fun RoomsCanvas(
                 // Draw a custom icon if there's an icon
                 val customIcon = roomDataManager.getRoomCustomIcon(roomId)
                 if (customIcon != null && (roomInfo == null || !roomInfo.groupMatesInFight || roomId == centerOnRoomId)) {
+                    val iconId = getRoomIconOption(customIcon)
+                    val customIconPainter = painterCache[roomIconOptions[iconId].icon!!]
                     translate(left = roomTopLeft.x + scaledRoomSize / 2 - roomIconScaledSize.width / 2, top = roomTopLeft.y + scaledRoomSize / 2 - roomIconScaledSize.height / 2) {
-                        with(roomIconPainter) {
+                        with(customIconPainter!!) {
                             draw(
                                 size = roomIconDesiredSize * scaleLogical * dpi,
-                                colorFilter = ColorFilter.tint(currentColorStyle.getUiColor(UiColor.MapNeutralIcon))
+                                colorFilter = if (!currentColorStyle.displayWhiteTintedMapIcons()) ColorFilter.tint(currentColorStyle.getUiColor(UiColor.MapNeutralIcon)) else ColorFilter.tint(Color(0xff131313))
                             )
                         }
                     }
@@ -687,7 +732,7 @@ fun RoomsCanvas(
                 // if the player is in the roomId, draw a white stroke over it
                 // if a groupmate is in the roomId, draw a gray stroke over it
                 if (roomId == centerOnRoomId || (roomInfo != null && !roomInfo.groupMatesInFight)) {
-                    val strokeWidth = 15f * scaleLogical // Make the stroke responsive to zoom
+                    val strokeWidth = 7.5f * scaleLogical * dpi // Make the stroke responsive to zoom
                     drawRoundRect(
                         color = if (roomId == centerOnRoomId) currentColorStyle.getUiColor(UiColor.MapRoomStroke)
                                 else currentColorStyle.getUiColor(UiColor.MapRoomStrokeSecondary),
@@ -705,7 +750,7 @@ fun RoomsCanvas(
                 room.exitsList.forEach { exit ->
                     if (exit.direction == "Up" || exit.direction == "Down") {
 
-                        // don't draw connections if one of the rooms is hidden
+                        // compliance: don't draw connections if one of the rooms is hidden
                         val isRoom1Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(room.id)?.id ?: zoneId, room.id)
                         val hideRoom1 = !isRoom1Visited && !mapModel.areRoomsConnected(centerOnRoomId, room.id)
                         val isRoom2Visited = roomDataManager.isRoomVisited(mapModel.getZoneByRoomId(exit.roomId)?.id ?: zoneId, exit.roomId)

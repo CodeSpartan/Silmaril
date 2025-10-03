@@ -68,7 +68,7 @@ data class Room(
 
     @field:JacksonXmlElementWrapper(useWrapping = true, localName = "Exits")
     @field:JacksonXmlProperty(localName = "RoomExit")
-    var exitsList: List<RoomExit> = listOf(),
+    var exitsList: MutableList<RoomExit> = mutableListOf(),
 
     var originalX : Int = x,
     var originalY : Int = y,

@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
@@ -59,9 +60,9 @@ data class SimpleHotkeyData(
 class TextMacrosManager() : KoinComponent {
 
     @OptIn(ExperimentalAtomicApi::class)
-    var startedToInitialize = AtomicBoolean(false)
+    var managerStartedInitialization = AtomicBoolean(false)
     @OptIn(ExperimentalAtomicApi::class)
-    var hasInitialized = AtomicBoolean(false)
+    var managerInitialized = AtomicBoolean(false)
     val logger = KotlinLogging.logger {}
     val profileManager: ProfileManager by inject()
 
@@ -81,150 +82,108 @@ class TextMacrosManager() : KoinComponent {
 
     @OptIn(ExperimentalAtomicApi::class)
     public suspend fun initExplicit(callerProfile: Profile) {
-        // if the initial loading has happened before, because we're opening a new profile window
-        if (hasInitialized.load()) {
-            textTriggersByGroup.value.forEach { (groupName, triggers) ->
-                triggers.forEach { trig ->
-                    callerProfile.addSingleTriggerToWindow(trig.condition, trig.action, groupName, trig.priority, trig.isRegex)
-                }
-            }
-            val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
-            callerProfile.scriptingEngine.sortTriggersByPriority()
-            callerProfile.mainViewModel.displaySystemMessage("Простых триггеров загружено: $totalNumberOfTriggers")
-
-            textAliasesByGroup.value.forEach { (groupName, aliases) ->
-                aliases.forEach { alias ->
-                    callerProfile.addSingleAliasToWindow(alias.shorthand, alias.action, groupName, alias.priority)
-                }
-            }
-            val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
-            callerProfile.scriptingEngine.sortAliasesByPriority()
-            callerProfile.mainViewModel.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
-
-            textSubsByGroup.value.forEach { (groupName, subs) ->
-                subs.forEach { sub ->
-                    callerProfile.addSingleSubToWindow(sub.condition, sub.action, groupName, sub.priority, sub.isRegex)
-                }
-            }
-            val totalNumberOfSubs = textSubsByGroup.value.values.sumOf { it.size }
-            callerProfile.scriptingEngine.sortSubstitutesByPriority()
-            callerProfile.mainViewModel.displaySystemMessage("Простых замен загружено: $totalNumberOfSubs")
-
-            hotkeysByGroup.value.forEach { (groupName, hotkeys) ->
-                hotkeys.forEach { hotkey ->
-                    callerProfile.addSingleHotkeyToWindow(hotkey.hotkeyString, hotkey.action, groupName, hotkey.priority)
-                }
-            }
-            val totalNumberOfHotkeys = hotkeysByGroup.value.values.sumOf { it.size }
-            callerProfile.scriptingEngine.sortHotkeysByPriority()
-            callerProfile.mainViewModel.displaySystemMessage("Триггеров загружено: $totalNumberOfHotkeys")
-
-            return
-        }
 
         // It tries to change 'false' to 'true'.
-        // If it fails (because it was already 'true'), it returns false, and we exit.
-        if (!startedToInitialize.compareAndSet(expectedValue = false, newValue = true)) {
-            logger.debug { "TextTriggerManager: Initialization already completed or in progress." }
-            return
+        // If it succeeds, then we initialize.
+        if (managerStartedInitialization.compareAndSet(expectedValue = false, newValue = true)) {
+            logger.info { "TextTriggerManager: first initialization." }
+            coroutineScope.launch {
+                _textTriggersByGroup.value = loadTextTriggers()
+                _textAliasesByGroup.value = loadTextAliases()
+                _textSubsByGroup.value = loadTextSubs()
+                _hotkeysByGroup.value = loadHotkeys()
+
+                launch {
+                    _textTriggersByGroup
+                        .drop(1)
+                        .debounce(500L) // Still debounce to batch rapid changes.
+                        .onEach {
+                            logger.debug { "TextTriggerManager: change detected, saving text triggers..." }
+                            saveTextTriggers()
+                        }
+                        .collect()
+                }
+
+                launch {
+                    _textAliasesByGroup
+                        .drop(1)
+                        .debounce(500L) // Still debounce to batch rapid changes.
+                        .onEach {
+                            logger.debug { "TextAliasManager: change detected, saving text aliases..." }
+                            saveTextAliases()
+                        }
+                        .collect()
+                }
+
+                launch {
+                    _hotkeysByGroup
+                        .drop(1)
+                        .debounce(500L) // Still debounce to batch rapid changes.
+                        .onEach {
+                            logger.debug { "HotkeysManager: change detected, saving hotkeys..." }
+                            saveHotkeys()
+                        }
+                        .collect()
+                }
+
+                launch {
+                    _textSubsByGroup
+                        .drop(1)
+                        .debounce(500L) // Still debounce to batch rapid changes.
+                        .onEach {
+                            logger.debug { "TextSubsManager: change detected, saving text aliases..." }
+                            saveTextSubs()
+                        }
+                        .collect()
+                }
+
+                logger.info { "TextTriggerManager (${callerProfile.profileName}): has initialized" }
+                managerInitialized.store(true)
+            }
+
         }
 
-        coroutineScope.launch {
-            val initialTriggerData = loadTextTriggers()
-            val initialAliasData = loadTextAliases()
-            val initialSubsData = loadTextSubs()
-            val initialHotkeyData = loadHotkeys()
+        // all profiles wait until the text macros manager initializes fully
+        while(!managerInitialized.load()) {
+            delay(100)
+        }
 
-            // triggers
-            initialTriggerData.forEach { (groupName, triggers) ->
-                triggers.forEach { trig ->
-                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleTriggerToAll(trig.condition, trig.action, groupName, trig.priority, trig.isRegex)
-                }
-            }
-            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortTriggersByPriority() }
-            _textTriggersByGroup.value = initialTriggerData
-            val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
-            profileManager.currentMainViewModel.value.displaySystemMessage("Простых триггеров загружено: $totalNumberOfTriggers")
-
-            // aliases
-            initialAliasData.forEach { (groupName, aliases) ->
-                aliases.forEach { alias ->
-                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleAliasToAll(alias.shorthand, alias.action, groupName, alias.priority)
-                }
-            }
-            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortAliasesByPriority() }
-            _textAliasesByGroup.value = initialAliasData
-            val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
-            profileManager.currentMainViewModel.value.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
-
-            // subs
-            initialSubsData.forEach { (groupName, aliases) ->
-                aliases.forEach { sub ->
-                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleSubToAll(sub.condition, sub.action, groupName, sub.priority, sub.isRegex)
-                }
-            }
-            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortSubstitutesByPriority() }
-            _textSubsByGroup.value = initialSubsData
-            val totalNumberOfSubs = textSubsByGroup.value.values.sumOf { it.size }
-            profileManager.currentMainViewModel.value.displaySystemMessage("Простых замен загружено: $totalNumberOfSubs")
-
-            // hotkeys
-            initialHotkeyData.forEach { (groupName, hotkeys) ->
-                hotkeys.forEach { hotkey ->
-                    profileManager.gameWindows.value.values.firstOrNull()?.addSingleHotkeyToAll(hotkey.hotkeyString, hotkey.action, groupName, hotkey.priority)
-                }
-            }
-            profileManager.gameWindows.value.values.forEach { profile -> profile.scriptingEngine.sortHotkeysByPriority() }
-            _hotkeysByGroup.value = initialHotkeyData
-            val totalNumberOfHotkeys = hotkeysByGroup.value.values.sumOf { it.size }
-            profileManager.currentMainViewModel.value.displaySystemMessage("Хоткеев загружено: $totalNumberOfHotkeys")
-
-            hasInitialized.store(true)
-
-            launch {
-                _textTriggersByGroup
-                    .drop(1)
-                    .debounce(500L) // Still debounce to batch rapid changes.
-                    .onEach {
-                        logger.debug { "TextTriggerManager: change detected, saving text triggers..." }
-                        saveTextTriggers()
-                    }
-                    .collect()
-            }
-
-            launch {
-                _textAliasesByGroup
-                    .drop(1)
-                    .debounce(500L) // Still debounce to batch rapid changes.
-                    .onEach {
-                        logger.debug { "TextAliasManager: change detected, saving text aliases..." }
-                        saveTextAliases()
-                    }
-                    .collect()
-            }
-
-            launch {
-                _hotkeysByGroup
-                    .drop(1)
-                    .debounce(500L) // Still debounce to batch rapid changes.
-                    .onEach {
-                        logger.debug { "HotkeysManager: change detected, saving hotkeys..." }
-                        saveHotkeys()
-                    }
-                    .collect()
-            }
-
-            launch {
-                _textSubsByGroup
-                    .drop(1)
-                    .debounce(500L) // Still debounce to batch rapid changes.
-                    .onEach {
-                        logger.debug { "TextSubsManager: change detected, saving text aliases..." }
-                        saveTextSubs()
-                    }
-                    .collect()
+        // once the initial loading has happened, create triggers, etc... from loaded data
+        textTriggersByGroup.value.forEach { (groupName, triggers) ->
+            triggers.forEach { trig ->
+                callerProfile.addSingleTriggerToWindow(trig.condition, trig.action, groupName, trig.priority, trig.isRegex)
             }
         }
+        val totalNumberOfTriggers = textTriggersByGroup.value.values.sumOf { it.size }
+        callerProfile.scriptingEngine.sortTriggersByPriority()
+        callerProfile.mainViewModel.displaySystemMessage("Простых триггеров загружено: $totalNumberOfTriggers")
+
+        textAliasesByGroup.value.forEach { (groupName, aliases) ->
+            aliases.forEach { alias ->
+                callerProfile.addSingleAliasToWindow(alias.shorthand, alias.action, groupName, alias.priority)
+            }
+        }
+        val totalNumberOfAliases = textAliasesByGroup.value.values.sumOf { it.size }
+        callerProfile.scriptingEngine.sortAliasesByPriority()
+        callerProfile.mainViewModel.displaySystemMessage("Простых алиасов загружено: $totalNumberOfAliases")
+
+        textSubsByGroup.value.forEach { (groupName, subs) ->
+            subs.forEach { sub ->
+                callerProfile.addSingleSubToWindow(sub.condition, sub.action, groupName, sub.priority, sub.isRegex)
+            }
+        }
+        val totalNumberOfSubs = textSubsByGroup.value.values.sumOf { it.size }
+        callerProfile.scriptingEngine.sortSubstitutesByPriority()
+        callerProfile.mainViewModel.displaySystemMessage("Простых замен загружено: $totalNumberOfSubs")
+
+        hotkeysByGroup.value.forEach { (groupName, hotkeys) ->
+            hotkeys.forEach { hotkey ->
+                callerProfile.addSingleHotkeyToWindow(hotkey.hotkeyString, hotkey.action, groupName, hotkey.priority)
+            }
+        }
+        val totalNumberOfHotkeys = hotkeysByGroup.value.values.sumOf { it.size }
+        callerProfile.scriptingEngine.sortHotkeysByPriority()
+        callerProfile.mainViewModel.displaySystemMessage("Простых хоткеев загружено: $totalNumberOfHotkeys")
     }
 
     private suspend fun loadTextTriggers() : Map<String, List<SimpleTriggerData>> {
@@ -232,9 +191,7 @@ class TextMacrosManager() : KoinComponent {
             logger.debug { "Loading text triggers from disk..." }
             val triggersDir = File(getTriggersDirectory())
 
-            val triggerFiles =
-                triggersDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) }
-                    ?: emptyArray()
+            val triggerFiles = triggersDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) } ?: emptyArray()
 
             if (triggerFiles.isEmpty()) return@withContext emptyMap()
 
@@ -364,9 +321,7 @@ class TextMacrosManager() : KoinComponent {
             logger.debug { "Loading text subs from disk..." }
             val subsDir = File(getSubstitutesDirectory())
 
-            val subsFiles =
-                subsDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) }
-                    ?: emptyArray()
+            val subsFiles = subsDir.listFiles { file, name -> name.endsWith(".yaml", ignoreCase = true) } ?: emptyArray()
 
             if (subsFiles.isEmpty()) return@withContext emptyMap()
 

@@ -1,7 +1,14 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+        vendor.set(JvmVendorSpec.JETBRAINS)
+    }
+
+    compilerOptions {
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
+    }
 }
 
 plugins {
@@ -12,7 +19,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization) // xml, yaml, json
     // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
     id("com.github.ben-manes.versions") version "0.52.0"
-    id("com.google.devtools.ksp") version "2.1.21-2.0.2"
+    id("com.google.devtools.ksp") version "2.2.20-2.0.2"
 }
 
 // This will version all classes with the version set in this file. Allows us to know the program version in the code.
@@ -49,8 +56,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-scripting-common:${libs.versions.kotlin.get()}")
     implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
     // for icons
-    implementation("org.jetbrains.compose.material:material-desktop:1.8.2")
-    implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.7.3")
+    implementation(compose.material)
+    implementation(compose.materialIconsExtended)
     // Koin
     implementation(project.dependencies.platform("io.insert-koin:koin-bom:4.0.3"))
     implementation("io.insert-koin:koin-core")
@@ -81,11 +88,25 @@ dependencies {
         exclude(group = "org.jetbrains.compose.material")
     }
     // See https://github.com/JetBrains/Jewel/releases for the release notes
-    implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.29.0-252.24604")
-    // For custom decorated windows
-    implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.29.0-252.24604")
+    implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.30.0-252.26252")
+    // For custom decorated windows:
+    implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.30.0-252.26252")
     // Jewel Icons
-    implementation("com.jetbrains.intellij.platform:icons:252.23892.530")
+    implementation("com.jetbrains.intellij.platform:icons:252.26199.158")
+
+    // Markdown
+    //implementation("org.jetbrains.jewel:jewel-markdown-int-ui-standalone-styling:0.30.0-252.26252")
+    // markdown extensions
+    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-gfm-tables:0.30.0-252.26252")
+    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-images:0.30.0-252.26252")
+    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-autolink:0.30.0-252.26252")
+    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-gfm-alerts:0.30.0-252.26252")
+    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-gfm-strikethrough:0.30.0-252.26252")
+    // for JBRFileDialog
+    //implementation("org.jetbrains.runtime:jbr-api:1.7.0")
+    // for koil
+    //implementation(project.dependencies.platform("io.coil-kt.coil3:coil-bom:3.3.0"))
+    //implementation("io.coil-kt.coil3:coil-compose")
     /** end of jewel imports */
 
     // already brought in by currentOs

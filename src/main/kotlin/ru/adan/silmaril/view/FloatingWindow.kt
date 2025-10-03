@@ -9,10 +9,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposeDialog
 import androidx.compose.ui.awt.ComposeWindow
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isPrimaryPressed
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import org.koin.compose.koinInject
+import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
@@ -24,12 +31,14 @@ import java.awt.event.ComponentEvent
 /***
  * A floating window is an undecorated window, like Map, Monsters, Players and Output Window
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun FloatingWindow(
     show: MutableState<Boolean>,
     visible: MutableState<Boolean>,
     owner: ComposeWindow, // owner is necessary for correct focus behavior
     windowName: String,
+    profileManager: ProfileManager,
     content: @Composable () -> Unit
 ) {
     val settingsManager: SettingsManager = koinInject()
@@ -60,6 +69,7 @@ fun FloatingWindow(
 
                         override fun componentResized(e: ComponentEvent) {
                             settingsManager.updateFloatingWindow(windowName, location, size)
+                            profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
                         }
                     })
                 }
@@ -71,7 +81,10 @@ fun FloatingWindow(
             CompositionLocalProvider(OwnerWindow provides window) {
                 CompositionLocalProvider(LocalTopBarHeight provides titleBarHeight) {
                     Column(Modifier.background(Color.Black)) {
-                        AppWindowTitleBar(titleBarHeight)
+                        AppWindowTitleBar(
+                            titleBarHeight,
+                            onInteract = { profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit) }
+                        )
                         content()
                     }
                 }
@@ -81,8 +94,40 @@ fun FloatingWindow(
 }
 
 @Composable
-private fun WindowScope.AppWindowTitleBar(height : Dp) = WindowDraggableArea {
-    Box(Modifier.fillMaxWidth().height(height).background(Color.DarkGray))
+private fun WindowScope.AppWindowTitleBar(
+    height: Dp,
+    onInteract: () -> Unit // called on left-release or right-press
+) = WindowDraggableArea {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .background(Color.DarkGray)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    var primaryDown = false
+                    while (true) {
+                        val e = awaitPointerEvent(PointerEventPass.Final)
+                        when (e.type) {
+                            PointerEventType.Press -> {
+                                if (e.buttons.isPrimaryPressed) primaryDown = true
+                                if (e.buttons.isSecondaryPressed) {
+                                    onInteract()
+                                    // consume so nothing else tries to show a menu
+                                    e.changes.forEach { it.consume() }
+                                }
+                            }
+                            PointerEventType.Release -> {
+                                if (primaryDown) {
+                                    primaryDown = false
+                                    onInteract() // click or drag finished
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+    )
 }
 
 // This will provide any composable with a reference to its immediate containing window.

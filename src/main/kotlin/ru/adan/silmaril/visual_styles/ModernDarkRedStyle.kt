@@ -40,6 +40,10 @@ class ModernDarkRedColorStyle : ColorStyle() {
         }
     }
 
+    override fun displayWhiteTintedMapIcons(): Boolean {
+        return false
+    }
+
     override fun borderAroundFloatWidgets(): Boolean {
         return false
     }

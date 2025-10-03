@@ -30,6 +30,7 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
     val roomDataManager: RoomDataManager = koinInject()
     val robotoFont = remember { FontManager.getFont("RobotoClassic") }
     val roomComment = roomDataManager.getRoomComment(room.id)
+    val roomTrigger = roomDataManager.getRoomTrigger(room.id)
 
     Column(modifier = Modifier
         .padding(all = 0.dp)
@@ -68,6 +69,25 @@ fun MapHoverTooltip(room: Room, zone: Zone?, mapModel: MapModel, style: ColorSty
                         }
                         withStyle(style = SpanStyle(color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light)) {
                             append(roomComment)
+                        }
+                    }
+                )
+
+                Divider(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                    thickness = 1.dp,
+                    color = style.getUiColor(UiColor.HoverSeparator)
+                )
+            }
+
+            if (roomTrigger != null) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(style = SpanStyle(color = Color.White, fontFamily = robotoFont)) {
+                            append("Триггер: ")
+                        }
+                        withStyle(style = SpanStyle(color = Color.White, fontFamily = robotoFont, fontWeight = FontWeight.Light)) {
+                            append(roomTrigger)
                         }
                     }
                 )

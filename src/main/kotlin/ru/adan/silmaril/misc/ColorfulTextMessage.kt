@@ -3,6 +3,7 @@ package ru.adan.silmaril.misc
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import org.jetbrains.jewel.ui.util.fromRGBAHexStringOrNull
+import org.jetbrains.jewel.ui.util.fromRgbaHexStringOrNull
 
 @Immutable
 data class ColorfulTextMessage(
@@ -110,7 +111,7 @@ data class ColorfulTextMessage(
                     9 -> v         // #RRGGBBAA
                     else -> return null
                 }
-                return Color.fromRGBAHexStringOrNull(rgba)
+                return Color.fromRgbaHexStringOrNull(rgba)
             }
 
             // "bright-yellow" / "dark-green" / "yellow" -> (AnsiColor, isBright)

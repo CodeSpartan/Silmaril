@@ -24,6 +24,9 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.zip.ZipInputStream
 import androidx.compose.runtime.*
+import ru.adan.silmaril.mud_messages.Creature
+import java.time.LocalDateTime
+import java.util.Locale
 
 fun unzipFile(zipFilePath: String, destDirectory: String) {
     val destDir = File(destDirectory)
@@ -409,4 +412,113 @@ fun rememberIsAtBottom(state: LazyListState, fullyVisible: Boolean = false): Sta
 object BuildInfo {
     val version: String =
         BuildInfo::class.java.`package`?.implementationVersion ?: "dev"
+}
+
+/** Utility functions that help get target by name like "part1.part2.part3" */
+val debugTokenization = false
+fun tokenizeQuery(q: String, ignoreCase: Boolean): List<String> {
+    if (debugTokenization) println("\n>>> tokenizeQuery(q='$q', ignoreCase=$ignoreCase)")
+    if (debugTokenization) println("q codepoints: ${showCodePoints(q)}")
+
+    // Do the same normalization as tokenizeName
+    val replaced = q.replace(Regex("""[^\p{L}\p{N}]+"""), " ")
+    if (debugTokenization) println("after non-letter/digit -> ' $replaced '  codepoints: ${showCodePoints(replaced)}")
+    val trimmed = replaced.trim()
+    if (debugTokenization) println("trimmed -> '$trimmed'")
+    val tokens = trimmed.split(Regex("""\s+""")).filter(String::isNotEmpty)
+    if (debugTokenization) println("split on \\s+ -> tokens=${tokens.joinToString(prefix = "[", postfix = "]")}  details=${tokens.map { showCodePoints(it) }}")
+
+    val out = if (ignoreCase) tokens.map { it.lowercase(Locale.ROOT) } else tokens
+    if (debugTokenization) if (ignoreCase) { println("after lowercase -> ${out.joinToString(prefix = "[", postfix = "]")}  details=${out.map { showCodePoints(it) }}") }
+
+    return out
+}
+
+fun tokenizeName(name: String, ignoreCase: Boolean): List<String> {
+    if (debugTokenization) println("\n>>> tokenizeName(name='$name', ignoreCase=$ignoreCase)")
+    if (debugTokenization) println("name codepoints: ${showCodePoints(name)}")
+    val replaced = name.replace(Regex("""[^\p{L}\p{N}]+"""), " ")
+    if (debugTokenization) println("after non-letter/digit -> ' $replaced '  codepoints: ${showCodePoints(replaced)}")
+    val trimmed = replaced.trim()
+    if (debugTokenization) println("trimmed -> '$trimmed'")
+    val tokens = trimmed.split(Regex("""\s+""")).filter(String::isNotEmpty)
+    if (debugTokenization) println("split on \\s+ -> tokens=${tokens.joinToString(prefix = "[", postfix = "]")}  details=${tokens.map { showCodePoints(it) }}")
+    val out = if (ignoreCase) tokens.map { it.lowercase(Locale.ROOT) } else tokens
+    if (debugTokenization) if (ignoreCase) { println("after lowercase -> ${out.joinToString(prefix = "[", postfix = "]")}  details=${out.map { showCodePoints(it) }}") }
+    return out
+}
+
+fun matchesSequentialPrefixes(words: List<String>, parts: List<String>): Boolean {
+    if (debugTokenization) println("\n>>> matchesSequentialPrefixes(words=${words}, parts=${parts})")
+    if (debugTokenization) println("words details: ${words.map { showCodePoints(it) }}")
+    if (debugTokenization) println("parts details: ${parts.map { showCodePoints(it) }}")
+
+    if (parts.size > words.size) {
+        if (debugTokenization) println("parts.size (${parts.size}) > words.size (${words.size}) -> false")
+        return false
+    }
+    val lastStart = words.size - parts.size
+    if (debugTokenization) println("lastStart=$lastStart (will try start in 0..$lastStart)")
+
+    for (start in 0..lastStart) {
+        if (debugTokenization) println(" start=$start -> checking window [${start}..${start + parts.size - 1}]")
+        var ok = true
+        for (i in parts.indices) {
+            val w = words[start + i]
+            val p = parts[i]
+            val starts = w.startsWith(p)
+            if (debugTokenization) println("   compare i=$i  word='$w' ${showCodePoints(w)}  part='$p' ${showCodePoints(p)}  -> startsWith=$starts")
+            if (!starts) {
+                ok = false
+                if (debugTokenization) println("   mismatch at i=$i -> break")
+                break
+            }
+        }
+        if (ok) {
+            if (debugTokenization) println(" window starting at $start matched -> return true")
+            return true
+        } else {
+            if (debugTokenization) println(" window starting at $start did not match")
+        }
+    }
+    if (debugTokenization) println("no window matched -> return false")
+    return false
+}
+
+fun filterCreatures(creatures: List<Creature>, query: String, ignoreCase: Boolean = true): List<Creature> {
+    if (debugTokenization) println("=== filterCreatures ===")
+    if (debugTokenization) println("query='$query'  ignoreCase=$ignoreCase  creatures.size=${creatures.size}")
+    val parts = tokenizeQuery(query, ignoreCase)
+    if (debugTokenization) println("tokenizeQuery -> parts=${parts.joinToString(prefix = "[", postfix = "]")}  details=${parts.map { showCodePoints(it) }}")
+
+    if (parts.isEmpty()) {
+        if (debugTokenization) println("parts is empty -> returning emptyList()")
+        return emptyList()
+    }
+
+    val result = creatures.filter { creature ->
+        if (debugTokenization) println("\n-- Evaluating creature: '${creature.name}' (${showCodePoints(creature.name)})")
+        val words = tokenizeName(creature.name, ignoreCase)
+        if (debugTokenization) println("tokenizeName('${creature.name}') -> words=${words.joinToString(prefix = "[", postfix = "]")}  details=${words.map { showCodePoints(it) }}")
+        val matched = matchesSequentialPrefixes(words, parts)
+        if (debugTokenization) println("matchesSequentialPrefixes -> $matched for creature='${creature.name}'")
+        matched
+    }
+
+    if (debugTokenization) println("\n=== filterCreatures result ===")
+    if (debugTokenization) println("Matched ${result.size} creature(s): ${result.map { it.name }}")
+    return result
+}
+
+// Helper to show Unicode code points for debugging mixed scripts, etc.
+private fun showCodePoints(s: String): String =
+    s.map { c -> "U+${c.code.toString(16).uppercase().padStart(4, '0')}('$c')" }
+        .joinToString(" ")
+
+/** End of: Utility functions that help get target by name like "part1.part2.part3" */
+
+fun getTimeNowWithMillis() : String {
+    val current = LocalDateTime.now()
+    val formatter = DateTimeFormatter.ofPattern("HH:mm:ss:SSS")
+    return current.format(formatter)
 }

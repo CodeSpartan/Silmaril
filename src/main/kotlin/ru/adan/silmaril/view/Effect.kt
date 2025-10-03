@@ -121,7 +121,10 @@ data class CreatureEffect(
     val rounds: Int?
 ) {
     companion object {
-        fun fromAffect(a: Affect): CreatureEffect? {
+
+        val iconUndef = Res.drawable.effectNoIcon
+
+        fun fromAffect(a: Affect, hideNoIcon: Boolean = true): CreatureEffect? {
 
             val resource = when (a.name) {
                 "голод" -> Res.drawable.hunger
@@ -143,6 +146,7 @@ data class CreatureEffect(
                 "серьезное обновление" -> Res.drawable.heal_druid
                 "критическое обновление" -> Res.drawable.heal_druid
                 // holds
+                "портал" -> Res.drawable.hold_person // @TODO: get another icon
                 "придержать персону" -> Res.drawable.hold_person
                 "придержать любого" -> Res.drawable.hold_person
                 "невидимость" -> Res.drawable.invisibility
@@ -196,17 +200,28 @@ data class CreatureEffect(
                 else -> false
             }
 
-            if (resource != null) {
+            if (hideNoIcon) {
+                if (resource != null) {
+                    return CreatureEffect(
+                        name = a.name,
+                        duration = a.duration,
+                        lastServerDuration = a.duration,
+                        rounds = a.rounds,
+                        icon = resource,
+                        isRoundBased = isRoundBased,
+                    )
+                }
+                return null
+            } else {
                 return CreatureEffect(
                     name = a.name,
                     duration = a.duration,
                     lastServerDuration = a.duration,
                     rounds = a.rounds,
-                    icon = resource,
+                    icon = resource ?: iconUndef,
                     isRoundBased = isRoundBased,
                 )
             }
-            return null
         }
     }
 }

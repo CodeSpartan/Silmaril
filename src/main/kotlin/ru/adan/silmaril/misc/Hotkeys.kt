@@ -4,7 +4,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.key
 
-class Hotkey(
+data class Hotkey(
     val keyboardKey: Key,
     val isCtrlPressed: Boolean,
     val isShiftPressed: Boolean,
@@ -16,13 +16,13 @@ class Hotkey(
     companion object {
         fun create (keyString: String, actionText: String, priority: Int) : Hotkey?
         {
-            val parts = keyString.uppercase().split('+').map { it.trim() }
+            val parts = keyString.split('+').map { it.trim() }
             if (parts.isEmpty()) return null
 
-            val keyName = parts.last()
+            val keyName = parts.last().takeIf { it.length > 1 } ?: parts.last().uppercase()
             val keyboardKey = keyMap[keyName] ?: return null // Return null if the key is not in our map
 
-            val modifiers = parts.dropLast(1).toSet()
+            val modifiers = parts.dropLast(1).map { it.uppercase() }.toSet()
 
             return Hotkey(
                 keyboardKey = keyboardKey,
@@ -72,5 +72,9 @@ class Hotkey(
             "Insert" to Key.Insert, "Home" to Key.Home,
             "Delete" to Key.Delete, "MoveEnd" to Key.MoveEnd,
         )
+    }
+
+    override fun toString(): String {
+        return "Hotkey(key='$keyboardKey', action='$actionText')"
     }
 }

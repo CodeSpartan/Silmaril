@@ -31,6 +31,7 @@ import org.koin.core.logger.Level
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.intui.standalone.theme.IntUiTheme
+import org.jetbrains.jewel.intui.standalone.theme.createDefaultTextStyle
 import org.jetbrains.jewel.intui.standalone.theme.darkThemeDefinition
 import org.jetbrains.jewel.intui.standalone.theme.default
 import org.jetbrains.jewel.intui.window.decoratedWindow
@@ -39,13 +40,16 @@ import org.jetbrains.jewel.ui.ComponentStyling
 import org.jetbrains.jewel.window.DecoratedWindow
 import org.jetbrains.jewel.window.styling.TitleBarStyle
 import ru.adan.silmaril.misc.BuildInfo
+import ru.adan.silmaril.misc.FontManager
 import ru.adan.silmaril.model.LoreManager
 import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.RoomDataManager
 import ru.adan.silmaril.model.TextMacrosManager
 import ru.adan.silmaril.view.GroupWindow
 import ru.adan.silmaril.view.MobsWindow
+import ru.adan.silmaril.view.small_dialogs.RoomDialog
 import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
+import ru.adan.silmaril.xml_schemas.Room
 
 @OptIn(ExperimentalLayoutApi::class)
 fun main() {
@@ -57,7 +61,9 @@ fun main() {
     val logger = KotlinLogging.logger {}
     logger.info { "Starting program, version: ${BuildInfo.version}"}
 
-    val themeDefinition = JewelTheme.darkThemeDefinition()
+    val themeDefinition = JewelTheme.darkThemeDefinition(
+        defaultTextStyle = JewelTheme.createDefaultTextStyle(fontFamily = FontManager.getFont("RobotoClassic")),
+    )
 
     // it's a Composable
     application {
@@ -87,6 +93,7 @@ fun main() {
             )
 
             val showProfileDialog = remember { mutableStateOf(false) }
+            val inspectingRoom: MutableState<Room?> = remember { mutableStateOf(null)}
 
             IntUiTheme(
                 theme = themeDefinition,
@@ -145,21 +152,21 @@ fun main() {
                         )
 
                         // Map widget
-                        FloatingWindow(showMapWindow, showTitleMenu, window, "MapWindow")
+                        FloatingWindow(showMapWindow, showTitleMenu, window, "MapWindow", profileManager)
                         {
                             HoverManagerProvider(window) {
-                                MapWindow(profileManager.currentMapViewModel.value, profileManager, logger)
+                                MapWindow(profileManager.currentMapViewModel.value, inspectingRoom, profileManager, logger)
                             }
                         }
 
                         // Additional output widget
-                        FloatingWindow(showAdditionalOutputWindow, showTitleMenu, window, "AdditionalOutput")
+                        FloatingWindow(showAdditionalOutputWindow, showTitleMenu, window, "AdditionalOutput", profileManager)
                         {
-                            AdditionalOutputWindow(outputWindowModel, logger)
+                            AdditionalOutputWindow(outputWindowModel, logger, profileManager)
                         }
 
                         // Group widget
-                        FloatingWindow(showGroupWindow, showTitleMenu, window, "GroupWindow")
+                        FloatingWindow(showGroupWindow, showTitleMenu, window, "GroupWindow", profileManager)
                         {
                             HoverManagerProvider(window) {
                                 GroupWindow(profileManager.currentClient.value, logger)
@@ -167,7 +174,7 @@ fun main() {
                         }
 
                         // Mob widget
-                        FloatingWindow(showMobsWindow, showTitleMenu, window, "MobsWindow")
+                        FloatingWindow(showMobsWindow, showTitleMenu, window, "MobsWindow", profileManager)
                         {
                             HoverManagerProvider(window) {
                                 MobsWindow(profileManager.currentClient.value, logger)
@@ -180,6 +187,8 @@ fun main() {
                             onAddWindow = { windowName -> profileManager.addProfile(windowName) }
                         )
 
+                        // Hidden by default, opens on right-click on a room in the map widget
+                        RoomDialog(inspectingRoom, settingsManager, roomDataManager, profileManager, logger)
                 },)
             }
 

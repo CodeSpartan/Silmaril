@@ -30,7 +30,7 @@ class MapViewModel(
     private val onDisplayTaggedString: (String) -> Unit,
     private val onSendMessageToServer: (String) -> Unit,
     private val mapModel: MapModel,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
 ) : KoinComponent {
     val roomDataManager : RoomDataManager by inject()
     private val viewModelScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -83,14 +83,23 @@ class MapViewModel(
 
     fun onNewRoom(roomMsg: CurrentRoomMessage) {
         roomDataManager.visitRoom(zoneId = roomMsg.zoneId, roomId = roomMsg.roomId)
+        // invoke room trigger if we're not in preview mode
+        if (previewZoneMsg.zoneId == -100) {
+            val roomTrigger = roomDataManager.getRoomTrigger(roomMsg.roomId)
+            if (roomTrigger != null) {
+                onSendMessageToServer(roomTrigger)
+            }
+        }
         tryMoveAlongPath(roomMsg)
     }
 
     fun canMoveForward() : Boolean {
         // we can forego checking party members if we're not a leader, but we should check our own stamina
         if (groupModel.isLeader() == false) {
-            onDisplayTaggedString("Вы устали.")
-            return groupModel.getMyStamina()?.let { it > 5 } ?: false
+            if (groupModel.getMyStamina()?.let { it > 5 } != true) {
+                onDisplayTaggedString("Вы устали.")
+                return false
+            }
         }
 
         if (ignoreGroupMates) return true

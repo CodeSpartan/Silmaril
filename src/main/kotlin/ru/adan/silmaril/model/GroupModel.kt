@@ -27,10 +27,10 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
     private var myName = ""
     private var myMaxHp = -1
 
-    val myNameRegex = """^Вы [\p{L}-\s]+ (\p{L}+), (\p{L})+ \d+ уровня\.$""".toRegex()
+    val myNameRegex = """^Вы [\p{L}\-\s]+ (\p{L}+), (?:(?:[\p{L}\-\s,]+?,) )?(\p{L}+) \d+ уровня\.$""".toRegex()
     val myNameRegex2 = """^Аккaунт \[\p{L}+\] Персонаж \[(\p{L}+)\]$""".toRegex()
     val myMaxHpRegex = """^Вы имеете \d+\((\d+)\) единиц здоровья, \d+\(\d+\) энергетических единиц\.$""".toRegex()
-    val othersMaxHpRegex = """^(\p{L}+) сообщи(?:л|ла|ло|ли) группе: \d+\/(\d+)H, \d+\/\d+V$""".toRegex()
+    val othersMaxHpRegex = """^(\p{L}+) сообщи(?:л|ла|ло|ли) группе: \d+\/(\d+)H, \d+\/\d+V(, Зап\:\d+\:\d+)?$""".toRegex()
     val petRegex1 = """^Имя:\s+([\p{L}\s]+), Где находится: В комнате <.+>$""".toRegex()
     val petRegex2 = """^Состояние: \d+\/(\d+)H, \d+\/\d+V$""".toRegex()
 
@@ -118,4 +118,6 @@ class GroupModel(private val client: MudConnection, private val settingsManager:
         if (myName == "") return null
         return groupMates.value.first().movesPercent.toInt()
     }
+
+    fun getMyName() : String = myName
 }

@@ -69,6 +69,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import org.jetbrains.jewel.foundation.ExperimentalJewelApi
 import ru.adan.silmaril.model.RoomDataManager
 import java.awt.KeyboardFocusManager
 import java.awt.MouseInfo
@@ -144,7 +145,7 @@ internal fun DecoratedWindowScope.TitleBarView(
                             selected = false,
                             iconKey = AllIconsKeys.Gutter.ReadAccess,
                             onClick = {
-                                roomDataManager.loadAdanRoomData()
+                                roomDataManager.importRoomDataFromAMC()
                             },
                         ) {
                             Text("Импортировать карты из AMC")
@@ -350,11 +351,11 @@ internal fun DecoratedWindowScope.TitleBarView(
     }
 }
 
+@OptIn(ExperimentalJewelApi::class)
 @Composable
 private fun TitleBarTabsPanel(selectedTabIndex: MutableState<Int>) {
     val profileManager: ProfileManager = koinInject()
     val gameWindows by profileManager.gameWindows.collectAsState()
-    val robotoFont = remember { FontManager.getFont("RobotoClassic") }
 
     val purpleTabStyle = remember {
         TabStyle.Default.dark(
@@ -374,7 +375,6 @@ private fun TitleBarTabsPanel(selectedTabIndex: MutableState<Int>) {
                         label = {
                             Text(
                                 text = profile.profileName.capitalized(),
-                                fontFamily = robotoFont, // default font (jetbrains?) displays some russian glyphs with incorrect height
                                 fontSize = 14.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

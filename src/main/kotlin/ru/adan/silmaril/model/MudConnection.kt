@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import ru.adan.silmaril.mud_messages.Creature
 import ru.adan.silmaril.mud_messages.GroupStatusMessage
 import ru.adan.silmaril.mud_messages.LoreMessage
+import ru.adan.silmaril.mud_messages.RoomMobs
 import ru.adan.silmaril.mud_messages.RoomMonstersMessage
 
 // Useful link: https://www.ascii-code.com/CP1251
@@ -80,8 +81,8 @@ class MudConnection(
     private val _lastGroupMessage = MutableStateFlow(listOf<Creature>())
     val lastGroupMessage: StateFlow<List<Creature>> get() = _lastGroupMessage
 
-    private val _lastMonstersMessage = MutableStateFlow(listOf<Creature>())
-    val lastMonstersMessage: StateFlow<List<Creature>> get() = _lastMonstersMessage
+    private val _lastMonstersMessage = MutableStateFlow(RoomMobs.EMPTY)
+    val lastMonstersMessage: StateFlow<RoomMobs> get() = _lastMonstersMessage
 
     private val _isEchoOn = MutableStateFlow(false)
     val isEchoOn: StateFlow<Boolean> get() = _isEchoOn
@@ -441,27 +442,99 @@ class MudConnection(
     }
 
     private fun decompress(data: ByteArray): ByteArray {
-        inflater?.setInput(data)
-        // This buffer will hold the decompressed output
-        val outputBuffer = ByteArray(32767)
-        var totalDecompressed = 0
+        val inf = inflater ?: run {
+            logger.debug { "[inflate] inflater is null; returning empty" }
+            return byteArrayOf()
+        }
 
-        while ((inflater?.avail_in ?: 0) > 0) {
-            inflater?.setOutput(outputBuffer, totalDecompressed, outputBuffer.size - totalDecompressed)
-            val err = inflater?.inflate(JZlib.Z_SYNC_FLUSH)
-            if (err != JZlib.Z_OK) {
-                logger.warn { "Zlib inflation error: $err" }
-                stopDecompression()
-                connectionScope.launch {
-                    printYellowMessage("Сервер отключил компрессию.")
-                    _isEchoOn.value = false
-                    //processData(data)
+        // Feed input
+        inf.setInput(data)
+        logger.debug { "[inflate] called with ${data.size} bytes" }
+        logger.debug { "[inflate] initial avail_in=${inf.avail_in}, next_in_index=${inf.next_in_index}" }
+
+        val out = ByteArrayOutputStream()
+        val chunk = ByteArray(64 * 1024) // 64 kb
+
+        var iter = 0
+        while (true) {
+            iter++
+            // Provide output space for this step
+            inf.setOutput(chunk, 0, chunk.size)
+
+            val beforeInAvail = inf.avail_in
+            val beforeOutIdx = inf.next_out_index
+
+            val rc = inf.inflate(JZlib.Z_SYNC_FLUSH)
+
+            val produced = inf.next_out_index - beforeOutIdx
+            val consumed = beforeInAvail - inf.avail_in
+            val availOut = inf.avail_out
+
+            if (produced > 0)
+                out.write(chunk, 0, produced)
+
+            logger.debug { "[inflate][iter=$iter] rc=${rcName(rc)}($rc), consumed=$consumed, produced=$produced, avail_in=${inf.avail_in}, " +
+                    "avail_out=$availOut, total_in=${inf.total_in}, total_out=${inf.total_out}" }
+            if (inf.msg != null) {
+                logger.debug { "[inflate][iter=$iter] msg='${inf.msg}'" }
+            }
+
+            when (rc) {
+                JZlib.Z_OK -> {
+                    // If no progress, stop for now; caller can feed more data later.
+                    if (consumed == 0 && produced == 0) {
+                        logger.debug { "[inflate] Z_OK but no progress (need more input or larger output). Breaking." }
+                        break
+                    }
+                    // Otherwise continue; either more input remains or we filled output and will loop to give more space.
                 }
+
+                JZlib.Z_STREAM_END -> {
+                    logger.info { "[inflate] Z_STREAM_END reached. Breaking & stopping decompression." }
+                    stopDecompression()
+                    connectionScope.launch {
+                        printYellowMessage("Сервер отключил компрессию.")
+                        _isEchoOn.value = false
+                    }
+                    break
+                }
+
+                JZlib.Z_BUF_ERROR -> {
+                    // Not fatal.
+                    logger.debug { "[inflate] Z_BUF_ERROR but progress possible; continuing." }
+                }
+
+                else -> {
+                    // Real error
+                    logger.error { "[inflate] ERROR rc=${rcName(rc)}($rc)." }
+                    //stopDecompression()
+                    throw IOException("inflate error: ${rcName(rc)}($rc)")
+                }
+            }
+
+            // Safety: if there’s no input left and we didn’t produce anything this round, stop.
+            if (inf.avail_in == 0 && produced == 0) {
+                logger.debug { "[inflate] No input left and produced=0. Breaking." }
                 break
             }
-            totalDecompressed += (inflater?.next_out_index ?: 0) - totalDecompressed
         }
-        return outputBuffer.copyOf(totalDecompressed)
+
+        val result = out.toByteArray()
+        logger.debug { "[inflate] done. output=${result.size} bytes (total_out reported=${inf.total_out})." }
+        return result
+    }
+
+    private fun rcName(rc: Int): String = when (rc) {
+        JZlib.Z_OK -> "Z_OK"
+        JZlib.Z_STREAM_END -> "Z_STREAM_END"
+        JZlib.Z_NEED_DICT -> "Z_NEED_DICT"
+        JZlib.Z_ERRNO -> "Z_ERRNO"
+        JZlib.Z_STREAM_ERROR -> "Z_STREAM_ERROR"
+        JZlib.Z_DATA_ERROR -> "Z_DATA_ERROR"
+        JZlib.Z_MEM_ERROR -> "Z_MEM_ERROR"
+        JZlib.Z_BUF_ERROR -> "Z_BUF_ERROR"
+        JZlib.Z_VERSION_ERROR -> "Z_VERSION_ERROR"
+        else -> "UNKNOWN"
     }
 
     private fun stopDecompression() {
@@ -746,11 +819,11 @@ class MudConnection(
     {
         var col: Int
         if (param1.isNotEmpty() && param2.isNotEmpty()) {
-            isColorBright = param1.toInt() == 1
-            col = param2.toInt()
+            isColorBright = (param1.toIntOrNull() ?: 0)== 1
+            col = param2.toIntOrNull() ?: 38
         } else {
             isColorBright = false
-            col = param1.toInt()
+            col = param1.toIntOrNull() ?: 38
         }
         if (col != 0)
             currentColor = AnsiColor.entries.toTypedArray()[col - 30]
@@ -790,12 +863,14 @@ class MudConnection(
                 }
                 // 11 is ProtocolVersion, it's always 1, we don't care
                 12 -> GroupStatusMessage.fromXml(msg)?.let { _lastGroupMessage.value = it.allCreatures }
-                13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value = it.allCreatures }
+                13 -> RoomMonstersMessage.fromXml(msg)?.let { _lastMonstersMessage.value =
+                    RoomMobs(it.isRound, it.allCreatures)
+                }
                 14 -> CurrentRoomMessage.fromXml(msg)?.let { _currentRoomMessages.emit(it) }
             }
-            //logger.debug { "- Custom message: $_customMessageType" }
-            //logger.debug { msg }
-            //logger.debug { "- End of custom message" }
+            // logger.debug { "- Custom message: $_customMessageType" }
+            // logger.debug { msg }
+            // logger.debug { "- End of custom message" }
         } else {
             processTextMessage(mainBuffer, mainBufferLastValidIndex, true)
         }
@@ -812,6 +887,13 @@ class MudConnection(
             // send glued string to the trigger system
             onMessageReceived(gluedString)
             _unformattedTextMessages.emit(gluedString)
+
+            // if the window has quit the game, send empty messages to various viewmodels, because MUD doesn't do it
+            if (gluedString == "Добро пожаловать в MUD Adamant Adan!") {
+                _currentRoomMessages.emit(CurrentRoomMessage.EMPTY)
+                _lastGroupMessage.emit(listOf())
+                _lastMonstersMessage.emit(RoomMobs.EMPTY)
+            }
 
             var str = "Text message: \n"
             for (chunk in gluedMessage.chunks) {

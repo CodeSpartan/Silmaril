@@ -5,6 +5,7 @@ import kotlin.script.experimental.api.*
 import kotlin.script.experimental.jvm.dependenciesFromClassloader
 import kotlin.script.experimental.jvm.jvm
 import kotlin.script.experimental.annotations.KotlinScript
+import kotlin.script.experimental.jvm.dependenciesFromClassContext
 import kotlin.script.experimental.jvm.util.classpathFromClass
 
 // The @KotlinScript annotation is what the IDE and compiler read.
@@ -25,12 +26,14 @@ object MudScriptDefinition : ScriptCompilationConfiguration({
         "kotlin.text.MatchResult",
         "ru.adan.silmaril.mud_messages.*",
         "kotlinx.coroutines.*",
-        "kotlin.random.Random"
+        "kotlin.random.Random",
+        "org.koin.core.component.KoinComponent"
     )
 
     jvm {
-        dependenciesFromClassloader(wholeClasspath = true)
-        classpathFromClass(MudScriptDefinition::class)
+        dependenciesFromClassContext(MudScriptDefinition::class, wholeClasspath = true)
+        //dependenciesFromClassloader(wholeClasspath = true)
+        //classpathFromClass(MudScriptDefinition::class)
     }
 
     ide {

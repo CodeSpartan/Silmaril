@@ -9,16 +9,20 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import ru.adan.silmaril.misc.AnsiColor
 import ru.adan.silmaril.misc.ColorfulTextMessage
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.misc.Hotkey
 import ru.adan.silmaril.misc.TextMessageChunk
 import ru.adan.silmaril.model.LoreManager
-import ru.adan.silmaril.model.OutputWindowModel
 import ru.adan.silmaril.model.ProfileManager
 import ru.adan.silmaril.model.SettingsManager
+import ru.adan.silmaril.view.CreatureEffect
+import ru.adan.silmaril.mud_messages.Creature
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
@@ -28,15 +32,26 @@ import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 import kotlin.text.replace
 
+class TransientScriptData(
+    var freeAvailable: Boolean = true,
+    var standUpJob: Job? = null,
+    val fightStatusMultiDelegate: MutableList<(inFight: Boolean) -> Unit> = mutableListOf(),
+    var isInFightMode: Boolean = false,
+    var currentEnemy: String = "",
+    val backgroundScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+)
+
 interface ScriptingEngine {
     // Properties
     val profileName: String
     val mainViewModel: MainViewModel
     val logger: KLogger
+    val scriptData: TransientScriptData
 
     // Methods
     fun addTriggerToGroup(group: String, trigger: Trigger)
     fun addTrigger(trigger: Trigger)
+    fun addRoundTrigger(roundTrigger: RoundTrigger)
     fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
     fun removeSubstituteFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean
     fun addAliasToGroup(group: String, alias: Trigger)
@@ -47,8 +62,8 @@ interface ScriptingEngine {
     fun addHotkeyToGroup(group: String, hotkey: Hotkey)
     fun removeHotkeyFromGroup(keyString: String, actionText: String, priority: Int, group: String) : Boolean
     fun sendCommand(command: String)
-    fun sendAllCommand(command: String)
-    fun sendWindowCommand(window: String, command: String)
+    fun sendAllCommand(command: String, recursionLevel: Int = 0)
+    fun sendWindowCommand(window: String, command: String, recursionLevel: Int = 0)
     fun getVarCommand(varName: String): Variable?
     fun setVarCommand(varName: String, varValue: Any)
     fun unvarCommand(varName: String)
@@ -57,9 +72,12 @@ interface ScriptingEngine {
     fun sortAliasesByPriority()
     fun sortHotkeysByPriority()
     fun sortSubstitutesByPriority()
+    fun sortRoundTriggersByPriority()
     fun processLine(line: String)
+    fun processRound(newRound: Boolean, groupMates: List<Creature>, mobs: List<Creature>)
     fun processAlias(line: String) : Pair<Boolean, String?>
     fun processHotkey(keyEvent: KeyEvent) : Boolean
+    fun isBoundHotkeyEvent(keyEvent: KeyEvent) : Boolean
     fun processSubstitutes(msg: ColorfulTextMessage) : ColorfulTextMessage?
     fun loadScript(scriptFile: File) : Int
     fun getTriggers(): MutableMap<String, CopyOnWriteArrayList<Trigger>>
@@ -70,6 +88,8 @@ interface ScriptingEngine {
     fun loreCommand(loreName: String)
     fun commentCommand(comment: String): Boolean
     fun getProfileManager(): ProfileManager
+    fun getGroupAffects(): List<Pair<String, List<CreatureEffect>>>
+    fun getMobsAffects(): List<Pair<String, List<CreatureEffect>>>
     fun cleanup()
 }
 
@@ -77,6 +97,7 @@ open class ScriptingEngineImpl(
     override val profileName: String,
     override val mainViewModel: MainViewModel,
     private val isGroupActive: (String) -> Boolean,
+    override val scriptData: TransientScriptData,
     private val settingsManager: SettingsManager,
     private val profileManager: ProfileManager,
     private val loreManager: LoreManager,
@@ -91,6 +112,9 @@ open class ScriptingEngineImpl(
     private val triggers : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
     private var triggersByPriority = listOf<Trigger>()
 
+    private val roundTriggers : MutableMap<String, CopyOnWriteArrayList<RoundTrigger>> = mutableMapOf() // key is GroupName
+    private var roundTriggersByPriority = listOf<RoundTrigger>()
+
     private val aliases : MutableMap<String, CopyOnWriteArrayList<Trigger>> = mutableMapOf() // key is GroupName
     private var aliasesByPriority = listOf<Trigger>()
 
@@ -103,6 +127,8 @@ open class ScriptingEngineImpl(
     private var currentlyLoadingScript = ""
     private val regexContainsPercentPatterns = Regex("""%\d+""")
 
+    private var newRoundDelayJob: Job? = null
+
     override fun addTriggerToGroup(group: String, trigger: Trigger) {
         settingsManager.addGroup(group)
         if (!triggers.containsKey(group)) {
@@ -113,6 +139,15 @@ open class ScriptingEngineImpl(
 
     override fun addTrigger(trigger: Trigger) {
         addTriggerToGroup(currentlyLoadingScript, trigger)
+    }
+
+    override fun addRoundTrigger(roundTrigger: RoundTrigger) {
+        val group = currentlyLoadingScript
+        settingsManager.addGroup(group)
+        if (!roundTriggers.containsKey(group)) {
+            roundTriggers[group] = CopyOnWriteArrayList<RoundTrigger>()
+        }
+        roundTriggers[group]!!.add(roundTrigger)
     }
 
     override fun removeTriggerFromGroup(condition: String, action: String, priority: Int, group: String, isRegex: Boolean) : Boolean {
@@ -194,12 +229,12 @@ open class ScriptingEngineImpl(
         mainViewModel.treatUserInput(command)
     }
 
-    override fun sendAllCommand(command: String) {
-        profileManager.gameWindows.value.values.forEach { profile -> profile.mainViewModel.treatUserInput(command) }
+    override fun sendAllCommand(command: String, recursionLevel: Int) {
+        profileManager.gameWindows.value.values.forEach { profile -> profile.mainViewModel.treatUserInput(command, true, recursionLevel) }
     }
 
-    override fun sendWindowCommand(window: String, command: String) {
-        profileManager.gameWindows.value[window]?.mainViewModel?.treatUserInput(command)
+    override fun sendWindowCommand(window: String, command: String, recursionLevel: Int) {
+        profileManager.gameWindows.value[window]?.mainViewModel?.treatUserInput(command, true, recursionLevel)
     }
 
     override fun switchWindowCommand(window: String) : Boolean =
@@ -218,6 +253,16 @@ open class ScriptingEngineImpl(
 
     override fun getVarCommand(varName: String): Variable? =
         profileManager.gameWindows.value[profileName]?.getVariable(varName)
+
+    override fun getGroupAffects(): List<Pair<String, List<CreatureEffect>>> =
+        profileManager.currentGroupModel.value.getGroupMates().map { groupMate ->
+            groupMate.name to groupMate.affects.mapNotNull { affect -> CreatureEffect.fromAffect(affect, false) }
+        }
+
+    override fun getMobsAffects(): List<Pair<String, List<CreatureEffect>>> =
+        profileManager.currentMobsModel.value.getMobs().map { mob ->
+            mob.name to mob.affects.mapNotNull { affect -> CreatureEffect.fromAffect(affect, false) }
+        }
 
     override fun cleanup() {
         cleanupCoroutine()
@@ -251,6 +296,10 @@ open class ScriptingEngineImpl(
         substitutesByPriority = substitutes.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
     }
 
+    override fun sortRoundTriggersByPriority() {
+        roundTriggersByPriority = roundTriggers.filter { isGroupActive(it.key) }.values.flatten().sortedBy { it.priority }
+    }
+
     /**
      * Checks a line of text from the MUD against all active triggers.
      */
@@ -259,7 +308,46 @@ open class ScriptingEngineImpl(
             val match = trigger.condition.check(line)
             if (match != null) {
                 // Execute the trigger's action if it matches
-                trigger.action.lambda.invoke(this, match)
+                try {
+                    trigger.action.lambda.invoke(this, match)
+                } catch (e: Exception) {
+                    echo("Ошибка DSL триггера.", color = AnsiColor.Red, true)
+                    echo("Профиль: $profileName, триггер: ${trigger.condition.originalPattern}", color = AnsiColor.Red, true)
+                    echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                    logger.warn { "Ошибка DSL триггера." }
+                    logger.warn { "Профиль: $profileName, триггер: ${trigger.condition.originalPattern}" }
+                    logger.warn { e.stackTraceToString() }
+                }
+            }
+        }
+    }
+
+    override fun processRound(newRound: Boolean, groupMates: List<Creature>, mobs: List<Creature>) {
+        for (roundTrigger in roundTriggersByPriority) {
+            if (roundTrigger.isNewRound == newRound) {
+                try {
+                    // process old rounds immediately
+                    if (!newRound) {
+                        roundTrigger.action.lambda.invoke(this, groupMates, mobs)
+                    }
+                    // process new rounds with a ~18ms delay, so that we've already received the status line, knowing who our target is
+                    else {
+                        newRoundDelayJob?.cancel()
+                        newRoundDelayJob = scriptData.backgroundScope.launch {
+                            delay(3)
+                            roundTrigger.action.lambda.invoke(this@ScriptingEngineImpl, groupMates, mobs)
+                        }
+                    }
+                } catch (e: Exception) {
+                    echo("Ошибка Round триггера.", color = AnsiColor.Red, true)
+                    echo("Профиль $profileName, newRound: $newRound", color = AnsiColor.Red, true)
+                    echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                    logger.warn { "Ошибка Round триггера." }
+                    logger.warn { "Профиль $profileName, newRound: $newRound" }
+                    logger.warn { e.stackTraceToString() }
+                }
             }
         }
     }
@@ -268,8 +356,21 @@ open class ScriptingEngineImpl(
         for (alias in aliasesByPriority) {
             val match = alias.condition.check(line.trim())
             if (match != null) {
+                // If non-DSL alias
                 if (alias.action.commandToSend != null) {
-                    val returnStr = alias.action.commandToSend.invoke(this, match)
+                    var returnStr = ""
+                    try {
+                        returnStr = alias.action.commandToSend.invoke(this, match)
+                    } catch (e: Exception) {
+                        echo("Ошибка алиаса.", color = AnsiColor.Red, true)
+                        echo("Профиль: $profileName, алиас: ${alias.condition.originalPattern}", color = AnsiColor.Red, true)
+                        echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                        logger.warn { "Ошибка алиаса." }
+                        logger.warn { "Профиль: $profileName, алиас: ${alias.condition.originalPattern}" }
+                        logger.warn { e.stackTraceToString() }
+                    }
+
 
                     // When it's a normal alias (not DSL) without any matching patterns such as %0, %1, etc,
                     // then there's an automatically added (.+) at the end of the condition (see AliasCondition::parsePattern).
@@ -283,7 +384,17 @@ open class ScriptingEngineImpl(
                     return true to returnStr
                 } else {
                     // In DSL, don't return any string. The lambda is supposed to issue its own "sends".
-                    alias.action.lambda.invoke(this, match)
+                    try {
+                        alias.action.lambda.invoke(this, match)
+                    } catch (e: Exception) {
+                        echo("Ошибка алиаса.", color = AnsiColor.Red, true)
+                        echo("Профиль: $profileName, алиас: ${alias.condition.originalPattern}", color = AnsiColor.Red, true)
+                        echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                        logger.warn { "Ошибка алиаса." }
+                        logger.warn { "Профиль: $profileName, алиас: ${alias.condition.originalPattern}" }
+                        logger.warn { e.stackTraceToString() }
+                    }
                     return true to null
                 }
             }
@@ -307,30 +418,52 @@ open class ScriptingEngineImpl(
         return foundHotkeys.isNotEmpty()
     }
 
+    override fun isBoundHotkeyEvent(keyEvent: KeyEvent): Boolean {
+        if (!Hotkey.isKeyValid(keyEvent)) return false
+
+        val foundHotkeys = hotkeysByPriority.filter { it.keyboardKey == keyEvent.key
+                && it.isAltPressed == keyEvent.isAltPressed
+                && it.isCtrlPressed == keyEvent.isCtrlPressed
+                && it.isShiftPressed == keyEvent.isShiftPressed
+        }
+
+        return foundHotkeys.isNotEmpty()
+    }
+
     override fun processSubstitutes(msg: ColorfulTextMessage): ColorfulTextMessage? {
         if (substitutesByPriority.isEmpty()) return msg
 
         var current = msg
         // Keep list order as is (assumed already by priority), or sort if needed:
         // val triggers = substitutesByPriority.sortedByDescending { it.priority }
-        val triggers = substitutesByPriority
+        val substitutes = substitutesByPriority
 
-        for (trigger in triggers) {
+        for (substitute in substitutes) {
             val fullText = buildString { current.chunks.forEach { append(it.text) } }
             if (fullText.isEmpty()) return current
 
-            // DSL trigger: execute and suppress the line entirely.
-            if (trigger.action.commandToSend == null) {
-                val m = trigger.condition.check(fullText)
+            // DSL substitute with a lambda: execute and suppress the line entirely.
+            if (substitute.action.commandToSend == null) {
+                val m = substitute.condition.check(fullText)
                 if (m != null) {
-                    trigger.action.lambda.invoke(this, m)
+                    try {
+                        substitute.action.lambda.invoke(this, m)
+                    } catch (e: Exception) {
+                        echo("Ошибка замены.", color = AnsiColor.Red, true)
+                        echo("Профиль: $profileName, замена: ${substitute.condition.originalPattern}", color = AnsiColor.Red, true)
+                        echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                        logger.warn { "Ошибка замены." }
+                        logger.warn { "Профиль: $profileName, замена: ${substitute.condition.originalPattern}" }
+                        logger.warn { e.stackTraceToString() }
+                    }
                     return null
                 }
                 continue
             }
 
             // Substitution trigger: find all non-overlapping occurrences on the current text
-            val occurrences = findAllOccurrences(fullText, trigger.condition)
+            val occurrences = findAllOccurrences(fullText, substitute.condition)
             if (occurrences.isEmpty()) continue
 
             // Build a new chunk list by splicing in replacements for every occurrence (left-to-right).
@@ -350,7 +483,18 @@ open class ScriptingEngineImpl(
                 val defaultBright = startLoc.ic.chunk.fg.isBright
                 val defaultAnsi = startLoc.ic.chunk.fg.ansi
 
-                val replacementText = trigger.action.commandToSend!!.invoke(this, occ.match)
+                var replacementText = " "
+                try {
+                    replacementText = substitute.action.commandToSend.invoke(this, occ.match)
+                } catch (e: Exception) {
+                    echo("Ошибка замены.", color = AnsiColor.Red, true)
+                    echo("Профиль: $profileName, замена: ${substitute.condition.originalPattern}", color = AnsiColor.Red, true)
+                    echoDslException(e.stackTraceToString(), color = AnsiColor.Red, true)
+
+                    logger.warn { "Ошибка замены." }
+                    logger.warn { "Профиль: $profileName, замена: ${substitute.condition.originalPattern}" }
+                    logger.warn { e.stackTraceToString() }
+                }
                 val replacementChunks: Array<TextMessageChunk> =
                     ColorfulTextMessage.makeColoredChunksFromTaggedText(
                         taggedText = replacementText,
@@ -373,7 +517,7 @@ open class ScriptingEngineImpl(
             current = ColorfulTextMessage(merged.toTypedArray())
 
             // Respect stopProcess after applying this trigger
-            if (trigger.stopProcess) return current
+            if (substitute.stopProcess) return current
         }
 
         return current
@@ -388,7 +532,7 @@ open class ScriptingEngineImpl(
         //println("[HOST]: Host Classloader: ${this.javaClass.classLoader}")
         //println("[HOST]: Host's ScriptingEngine Interface Classloader: ${ScriptingEngine::class.java.classLoader}")
 
-        logger.info {"[SYSTEM]: Loading and evaluating script ${scriptFile.name}..."}
+        //logger.info {"[SYSTEM]: Loading and evaluating script ${scriptFile.name}..."}
         currentlyLoadingScript = scriptFile.name.replace(".mud.kts", "").uppercase()
         settingsManager.addGroup(currentlyLoadingScript)
 
@@ -410,7 +554,7 @@ open class ScriptingEngineImpl(
             }
 
             val triggersLoaded = result.reports.filter { report -> report.severity < ScriptDiagnostic.Severity.ERROR }.size
-            logger.info { "Triggers loaded: $triggersLoaded" }
+            // logger.debug { "Triggers loaded: $triggersLoaded" } -- this doesn't show how many triggers were loaded, shows something else
             return triggersLoaded
 
         } catch (e: Exception) {

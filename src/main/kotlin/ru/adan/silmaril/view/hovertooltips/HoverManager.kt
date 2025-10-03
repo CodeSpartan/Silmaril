@@ -21,6 +21,7 @@ import java.awt.Window
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.DialogWindow
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -36,7 +37,7 @@ import javax.swing.JDialog
  * Any component can get this from the CompositionLocal and use it.
  */
 interface HoverManager {
-    fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, content: @Composable () -> Unit)
+    fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, assumedHeight: Int, uniqueKey: Int, content: @Composable () -> Unit)
     fun hide()
 }
 
@@ -48,6 +49,7 @@ val LocalHoverManager = staticCompositionLocalOf<HoverManager> {
     error("No HoverManager provided")
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun FloatingTooltipContainer(
     show: MutableState<Boolean>,
@@ -124,15 +126,16 @@ fun HoverManagerProvider(
     var tooltipContent by remember { mutableStateOf<@Composable () -> Unit>({}) }
     var tooltipPosition by remember { mutableStateOf(Point(0, 0)) }
     var tooltipWidth by remember { mutableStateOf(0) }
-    val tooltipHeight = 500 // an assumption
+    var tooltipHeight by remember { mutableStateOf(500) } // an assumption
     var tooltipUniqueKey by remember { mutableStateOf(-1) }
     // by default, assume ru.adan.silmaril.main window owns everything, but later show() will potentially provide another owner
     var tooltipParentWindow by remember { mutableStateOf<Window>(mainWindow) }
 
     val manager = remember {
         object : HoverManager {
-            override fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, uniqueKey: Int, content: @Composable () -> Unit) {
+            override fun show(ownerWindow: Window?, relativePosition: Offset, width: Int, assumedHeight: Int, uniqueKey: Int, content: @Composable () -> Unit) {
                 tooltipWidth = width
+                tooltipHeight = assumedHeight
                 tooltipUniqueKey = uniqueKey
                 if (ownerWindow != null)
                     tooltipParentWindow = ownerWindow
@@ -170,8 +173,8 @@ fun HoverManagerProvider(
 
         val finalY = when {
             // Check if it goes off the bottom edge
-            desiredPosition.y + tooltipHeight > screenBounds.y + screenBounds.height ->
-                desiredPosition.y - (desiredPosition.y + tooltipHeight - (screenBounds.y + screenBounds.height)) - reverseOffset.y.toInt()
+            desiredPosition.y + tooltipHeight > screenBounds.y + (screenBounds.height - 96) -> // 96 is Windows 11 start bar height
+                desiredPosition.y - (desiredPosition.y + tooltipHeight - (screenBounds.y + screenBounds.height - 96)) - reverseOffset.y.toInt()
             else -> desiredPosition.y
         }
 

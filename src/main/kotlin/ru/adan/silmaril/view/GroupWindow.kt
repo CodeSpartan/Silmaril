@@ -34,6 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -184,6 +187,22 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
             .background(currentColorStyle.getUiColor(UiColor.AdditionalWindowBackground))
             .border(1.dp, color = if (currentColorStyle.borderAroundFloatWidgets()) JewelTheme.globalColors.borders.normal else Color.Unspecified)
             .onGloballyPositioned { layoutCoordinates -> internalPadding = layoutCoordinates.positionInWindow() }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val e = awaitPointerEvent()
+                        when (e.type) {
+                            PointerEventType.Press -> if (e.buttons.isSecondaryPressed) {
+                                profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
+                                e.changes.forEach { it.consume() }
+                            }
+                            PointerEventType.Release -> {
+                                profileManager.currentMainViewModel.value.focusTarget.tryEmit(Unit)
+                            }
+                        }
+                    }
+                }
+            }
     ) {
         Column() {
             // Title row
@@ -484,12 +503,13 @@ fun GroupWindow(client: MudConnection, logger: KLogger) {
                     ) {
                         creatureEffects[index]?.forEachIndexed { effectIndex, effect ->
                             Effect(currentColorStyle, robotoFont, effect, onEffectHover = { show, mousePos, effectPosInWindow ->
-                                tooltipOffset =  (internalPadding + effectPosInWindow + Offset(50f, 35f)) / dpi
+                                tooltipOffset = (internalPadding + effectPosInWindow + Offset(33f, 14f) * dpi ) / dpi
                                 if (show) {
                                     hoverManager.show(
                                         ownerWindow,
-                                        tooltipOffset,
-                                        250,
+                                        relativePosition = tooltipOffset,
+                                        width = 250,
+                                        assumedHeight = 68,
                                         Objects.hash(index, effectIndex, effect.name.hashCode()),
                                     ) {
                                         EffectTooltip(effect, robotoFont, currentColorStyle)
