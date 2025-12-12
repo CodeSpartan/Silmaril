@@ -45,7 +45,8 @@
       "Bash(gradlew.bat compileDebugKotlinAndroid:*)",
       "Bash(find:*)",
       "Bash(dir:*)",
-      "Bash(./gradlew.bat tasks:*)"
+      "Bash(./gradlew.bat tasks:*)",
+      "Bash(git check-ignore:*)"
     ],
     "deny": [],
     "ask": []
