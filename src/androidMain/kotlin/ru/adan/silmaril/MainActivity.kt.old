@@ -1,0 +1,414 @@
+package ru.adan.silmaril
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.*
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.startKoin
+import org.koin.java.KoinJavaComponent.get
+import ru.adan.silmaril.misc.OutputItem
+import ru.adan.silmaril.model.AndroidProfileManager
+import ru.adan.silmaril.model.ConnectionState as ModelConnectionState
+import ru.adan.silmaril.model.MapModel
+import ru.adan.silmaril.model.RoomDataManager
+import ru.adan.silmaril.ui.ConnectionState as UiConnectionState
+import ru.adan.silmaril.viewmodel.UnifiedMapsViewModel
+import ru.adan.silmaril.platform.AndroidContext
+import ru.adan.silmaril.platform.Platform
+import ru.adan.silmaril.platform.createLogger
+import ru.adan.silmaril.ui.*
+import ru.adan.silmaril.view.*
+
+class MainActivity : ComponentActivity() {
+    private val logger = createLogger("MainActivity")
+    private var profileManager: AndroidProfileManager? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Initialize Android context for platform-specific operations
+        AndroidContext.initialize(this)
+        logger.info { "Silmaril starting on ${Platform.name}" }
+
+        // Initialize Koin
+        startKoin {
+            androidContext(this@MainActivity)
+            modules(androidModule)
+        }
+
+        // Get ProfileManager from Koin
+        profileManager = get(AndroidProfileManager::class.java)
+
+        setContent {
+            SilmarilTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = SilmarilTheme.colors.background
+                ) {
+                    MudClientApp(profileManager = profileManager!!)
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        profileManager?.cleanup()
+    }
+}
+
+@Composable
+fun MudClientApp(profileManager: AndroidProfileManager) {
+    // Get MapModel and RoomDataManager from Koin
+    val mapModel = remember { get<MapModel>(MapModel::class.java) }
+    val roomDataManager = remember { get<RoomDataManager>(RoomDataManager::class.java) }
+    val unifiedMapsViewModel = remember { get<UnifiedMapsViewModel>(UnifiedMapsViewModel::class.java) }
+
+    LaunchedEffect(Unit) {
+        // Initialize maps on first composition
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            mapModel.initMaps(profileManager)
+        }
+    }
+
+    // Get current profile components
+    val client = profileManager.currentClient.collectAsState().value
+    val mainViewModel = profileManager.currentMainViewModel.collectAsState().value
+    val mapViewModel = profileManager.currentMapViewModel.collectAsState().value
+    val groupModel = profileManager.currentGroupModel.collectAsState().value
+    val mobsModel = profileManager.currentMobsModel.collectAsState().value
+
+    // Collect map info for rooms (groupmates/enemies positions)
+    val mapInfoByRoom by unifiedMapsViewModel.mapUpdatesForRooms.collectAsState()
+
+    // Connection state from client (with null safety)
+    val modelConnectionState = client?.connectionState?.collectAsState()?.value ?: ModelConnectionState.DISCONNECTED
+    // Convert to UI connection state for ConnectionStatusIndicator
+    val connectionState = when (modelConnectionState) {
+        ModelConnectionState.CONNECTED -> UiConnectionState.Connected
+        ModelConnectionState.CONNECTING -> UiConnectionState.Connecting
+        ModelConnectionState.DISCONNECTED -> UiConnectionState.Disconnected
+        ModelConnectionState.FAILED -> UiConnectionState.Disconnected
+    }
+    val isEchoOn = mainViewModel?.isEnteringPassword?.collectAsState()?.value ?: false
+    val groupStatus = groupModel?.groupMates?.collectAsState()?.value ?: emptyList()
+    val mobs = mobsModel?.mobs?.collectAsState()?.value ?: emptyList()
+
+    // Collect output lines - wrapped in OutputItem for stable LazyColumn keys
+    val outputLines = remember { mutableStateListOf<OutputItem>() }
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+
+    // Input state
+    var inputText by remember { mutableStateOf("") }
+
+    // Output text size state (default 12sp)
+    var outputTextSize by remember { mutableStateOf(12f) }
+
+    // Scaffold state for drawer
+    val scaffoldState = rememberScaffoldState()
+
+    // Track if auto-scroll should be enabled (user hasn't scrolled up)
+    var autoScrollEnabled by remember { mutableStateOf(true) }
+
+    // Track if user is at the bottom (for showing/hiding FAB)
+    val isAtBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = layoutInfo.totalItemsCount
+            totalItems == 0 || lastVisibleItem >= totalItems - 2
+        }
+    }
+
+    // Detect when user manually scrolls - disable auto-scroll when scrolling up,
+    // re-enable when user scrolls back to bottom manually
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.isScrollInProgress to listState.layoutInfo
+        }.collect { (isScrolling, layoutInfo) ->
+            if (isScrolling) {
+                // User is manually scrolling - check position
+                val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                val totalItems = layoutInfo.totalItemsCount
+                val atBottom = totalItems == 0 || lastVisibleItem >= totalItems - 2
+
+                if (!atBottom && autoScrollEnabled) {
+                    // User scrolled away from bottom - disable auto-scroll
+                    autoScrollEnabled = false
+                }
+            }
+        }
+    }
+
+    // When user manually scrolls back to bottom, re-enable auto-scroll
+    LaunchedEffect(isAtBottom) {
+        if (isAtBottom && !autoScrollEnabled) {
+            autoScrollEnabled = true
+        }
+    }
+
+    // Collect output from mainViewModel
+    LaunchedEffect(mainViewModel) {
+        mainViewModel?.messages?.collect { colorfulMessage ->
+            // Wrap in OutputItem for stable id
+            val item = OutputItem.new(colorfulMessage)
+            outputLines.add(item)
+            // Keep only last 500 lines
+            if (outputLines.size > 500) {
+                outputLines.removeAt(0)
+            }
+        }
+    }
+
+    // Track the last message id - when it changes, a new message arrived
+    val lastId by remember { derivedStateOf { outputLines.lastOrNull()?.id } }
+
+    // Auto-scroll when new messages arrive (lastId changes) and auto-scroll is enabled
+    LaunchedEffect(lastId, autoScrollEnabled) {
+        if (lastId != null && autoScrollEnabled && outputLines.isNotEmpty()) {
+            // Wait one frame so LazyColumn is laid out with the new item
+            kotlinx.coroutines.yield()
+            listState.scrollToItem(outputLines.size - 1)
+        }
+    }
+
+    // Detect keyboard visibility changes using WindowInsets
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    var previousImeBottom by remember { mutableStateOf(0) }
+
+    // Scroll to bottom when keyboard appears
+    LaunchedEffect(imeBottom) {
+        if (imeBottom > previousImeBottom && outputLines.isNotEmpty()) {
+            // Keyboard appeared - scroll to bottom
+            autoScrollEnabled = true
+            listState.scrollToItem(outputLines.size - 1)
+        }
+        previousImeBottom = imeBottom
+    }
+
+    Scaffold(
+        scaffoldState = scaffoldState,
+        drawerContent = {
+            NavigationDrawer(
+                scaffoldState = scaffoldState,
+                scope = scope,
+                connectionState = connectionState,
+                serverName = client?.host ?: "adan.ru",
+                onConnect = { client?.connect() },
+                onDisconnect = { client?.forceDisconnect() },
+                onClearOutput = { },
+                client = client,
+                mapViewModel = mapViewModel,
+                mapModel = mapModel,
+                roomDataManager = roomDataManager,
+                mapInfoByRoom = mapInfoByRoom,
+                mainViewModel = mainViewModel,
+                outputTextSize = outputTextSize,
+                onOutputTextSizeChange = { outputTextSize = it }
+            )
+        },
+        drawerGesturesEnabled = true,
+        backgroundColor = SilmarilTheme.colors.background
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 8.dp)
+                .imePadding() // Handle keyboard appearing
+        ) {
+            // Top section that should NOT be pushed up by keyboard
+            Column(modifier = Modifier.padding(top = 4.dp)) {
+                // Top bar with menu button only (no room info)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp), // Fixed height for compact top bar
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    CompactDrawerMenuButton(scaffoldState = scaffoldState, scope = scope)
+                }
+
+                // Group and Mobs widgets at top - always 50% width each
+                if (groupStatus.isNotEmpty() || mobs.isNotEmpty()) {
+                    GroupMobsWidgets(
+                        groupStatus = groupStatus,
+                        mobs = mobs,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
+
+            // Output display - this takes the remaining space and shrinks when keyboard appears
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1E1E1E))
+                    .padding(4.dp)
+            ) {
+                if (outputLines.isEmpty()) {
+                    Text(
+                        text = "No output yet. Connect to start.",
+                        color = SilmarilTheme.colors.textSecondary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(
+                            count = outputLines.size,
+                            key = { idx -> outputLines[idx].id }
+                        ) { idx ->
+                            val item = outputLines[idx]
+                            OutputLineView(item, outputTextSize)
+                        }
+                    }
+
+                    // Scroll-to-bottom FAB (only shown when not at bottom) - grey to match UI
+                    if (!isAtBottom) {
+                        FloatingActionButton(
+                            onClick = {
+                                scope.launch {
+                                    autoScrollEnabled = true
+                                    listState.scrollToItem(outputLines.size - 1)
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .size(36.dp),
+                            backgroundColor = Color(0xFF5a5a5a)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Scroll to bottom",
+                                tint = Color(0xFFe8e8e8),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Input field - styled to match desktop's ModernBlack theme
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)
+                    .height(40.dp), // Fixed height to match button
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Custom styled input field matching desktop
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(
+                            color = Color(0xFF3d3d3d), // InputField color from ModernBlack
+                            shape = RoundedCornerShape(32.dp) // Corner roundness from desktop
+                        )
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = if (isEchoOn) PasswordVisualTransformation() else VisualTransformation.None,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(
+                            onSend = {
+                                if (connectionState == UiConnectionState.Connected) {
+                                    mainViewModel?.treatUserInput(inputText)
+                                    inputText = ""
+                                    // Scroll to bottom when sending
+                                    scope.launch {
+                                        autoScrollEnabled = true
+                                        if (outputLines.isNotEmpty()) {
+                                            listState.scrollToItem(outputLines.size - 1)
+                                        }
+                                    }
+                                }
+                            }
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = Color(0xFFe8e8e8), // InputFieldText from ModernBlack
+                            fontSize = 14.sp
+                        ),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                        enabled = connectionState == UiConnectionState.Connected,
+                        decorationBox = { innerTextField ->
+                            if (inputText.isEmpty()) {
+                                Text(
+                                    text = if (isEchoOn) "Enter password..." else "Enter command...",
+                                    color = Color(0xFF888888),
+                                    fontSize = 14.sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        mainViewModel?.treatUserInput(inputText)
+                        inputText = ""
+                        // Scroll to bottom when sending
+                        scope.launch {
+                            autoScrollEnabled = true
+                            if (outputLines.isNotEmpty()) {
+                                listState.scrollToItem(outputLines.size - 1)
+                            }
+                        }
+                    },
+                    enabled = connectionState == UiConnectionState.Connected,
+                    modifier = Modifier.height(40.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = Color(0xFF5a5a5a), // Light grey
+                        disabledBackgroundColor = Color(0xFF3a3a3a)
+                    )
+                ) {
+                    Text("Send", color = Color(0xFFe8e8e8))
+                }
+            }
+        }
+    }
+}

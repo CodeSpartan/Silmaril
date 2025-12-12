@@ -245,9 +245,80 @@ jobs:
           if-no-files-found: error
           compression-level: 6
 
+  build-android:
+    if: startsWith(github.ref, 'refs/tags/')
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v2
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set build version from tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "APP_VERSION=0.0.0-SNAPSHOT+${GITHUB_SHA::7}" >> $GITHUB_ENV
+          fi
+          echo "Building Android version: ${APP_VERSION}"
+
+      - name: Build Android Release APK
+        shell: bash
+        run: |
+          ./gradlew --no-daemon --stacktrace --info \
+            -Pversion="${APP_VERSION}" \
+            assembleRelease
+
+      - name: Locate APK
+        id: find_apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=$(find build/outputs/apk/release -type f -name "*.apk" 2>/dev/null | head -n1 || true)
+          echo "Found APK: ${apk:-<none>}"
+          if [[ -z "${apk:-}" ]]; then
+            echo "No .apk found!" >&2
+            ls -laR build/outputs || true
+            exit 1
+          fi
+          echo "file=$apk" >> $GITHUB_OUTPUT
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "${{ steps.find_apk.outputs.file }}" "dist/Silmaril-${APP_VERSION}-android.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Silmaril-${{ env.APP_VERSION }}-android
+          path: dist/*.apk
+          if-no-files-found: error
+          compression-level: 6
+
   release:
     name: Create GitHub Release
-    needs: [ build ]
+    needs: [ build, build-android ]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -266,13 +337,15 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body: |
-            Portable desktop builds for ${{ github.ref_name }}.
+            Portable desktop builds and Android APK for ${{ github.ref_name }}.
             Platforms:
             - Linux x64
             - macOS arm64
             - Windows x64
+            - Android (minSdk 26)
           files: |
             dist/*.zip
             dist/*.dmg
+            dist/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
