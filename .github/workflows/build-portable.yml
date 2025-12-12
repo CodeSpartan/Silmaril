@@ -262,11 +262,30 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+      - name: Download JBR 21.0.8 for Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/jbr"
+          JBR_URL="https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-21.0.8-linux-x64-b895.146.tar.gz"
+          echo "Downloading JBR: $JBR_URL"
+          curl -fL "$JBR_URL" -o "$RUNNER_TEMP/jbr.tar.gz"
+          tar -xzf "$RUNNER_TEMP/jbr.tar.gz" -C "$RUNNER_TEMP/jbr"
+          JBR_HOME=$(find "$RUNNER_TEMP/jbr" -maxdepth 2 -type d -name "jbrsdk*" | head -n1)
+          if [[ -z "$JBR_HOME" ]]; then
+            echo "Failed to locate extracted JBR directory" >&2
+            ls -la "$RUNNER_TEMP/jbr"
+            exit 1
+          fi
+          echo "Resolved JBR_HOME: $JBR_HOME"
+          if [[ ! -x "$JBR_HOME/bin/java" ]]; then
+            echo "java not found at $JBR_HOME/bin/java" >&2
+            ls -la "$JBR_HOME/bin" || true
+            exit 1
+          fi
+          echo "JBR_HOME=$JBR_HOME" >> $GITHUB_ENV
+          echo "JAVA_HOME=$JBR_HOME" >> $GITHUB_ENV
+          echo "$JBR_HOME/bin" >> $GITHUB_PATH
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
@@ -286,6 +305,8 @@ jobs:
         run: |
           ./gradlew --no-daemon --stacktrace --info \
             -Pversion="${APP_VERSION}" \
+            -Dorg.gradle.java.installations.paths="${JBR_HOME}" \
+            -Dorg.gradle.java.installations.auto-download=false \
             assembleRelease
 
       - name: Locate APK
