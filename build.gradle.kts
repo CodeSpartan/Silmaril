@@ -1,25 +1,142 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.kotlinSerialization)
+    id("com.google.devtools.ksp") version "2.2.20-2.0.2"
+}
+
 kotlin {
     jvmToolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
         vendor.set(JvmVendorSpec.JETBRAINS)
     }
 
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
+    }
+
+    jvm("desktop") {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        }
+    }
+
     compilerOptions {
         freeCompilerArgs.add("-Xannotation-default-target=param-property")
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
-}
 
-plugins {
-    kotlin("jvm") version libs.versions.kotlin
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-    // alias(libs.plugins.composeHotReload) // don't need it, since I don't use hotreload. maybe later?
-    alias(libs.plugins.kotlinSerialization) // xml, yaml, json
-    // lets you know how to update packages with this command: ./gradlew dependencyUpdates -Drevision=release
-    id("com.github.ben-manes.versions") version "0.52.0"
-    id("com.google.devtools.ksp") version "2.2.20-2.0.2"
+    sourceSets {
+        val commonMain by getting {
+            dependencies {
+                // Compose
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material)
+                implementation(compose.materialIconsExtended)
+                implementation(compose.components.resources)
+                implementation(compose.components.uiToolingPreview)
+
+                // Coroutines
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+
+                // Serialization
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+                implementation("com.charleskorn.kaml:kaml:0.85.0")
+
+                // Koin DI
+                implementation(project.dependencies.platform("io.insert-koin:koin-bom:4.0.3"))
+                implementation("io.insert-koin:koin-core")
+                implementation("io.insert-koin:koin-compose")
+                implementation("io.insert-koin:koin-compose-viewmodel")
+
+                // ktor for networking
+                implementation("io.ktor:ktor-network:3.2.3")
+            }
+        }
+
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+
+        // Shared JVM source set for code that works on both Android and Desktop
+        val jvmMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                // Jackson for XML (shared between Android and Desktop)
+                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.1")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.2")
+
+                // EvalEx for math and logical expression evaluation
+                implementation("com.ezylang:EvalEx:3.5.0")
+            }
+        }
+
+        val androidMain by getting {
+            dependsOn(jvmMain)
+            dependencies {
+                // Android-specific Compose
+                implementation(libs.androidx.activity.compose)
+
+                // Koin Android
+                implementation("io.insert-koin:koin-android")
+                implementation("io.insert-koin:koin-androidx-compose")
+
+                // Coroutines Android
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+                // StAX API and implementation for Android (Android doesn't include javax.xml.stream)
+                implementation("javax.xml.stream:stax-api:1.0-2")
+                implementation("com.fasterxml.woodstox:woodstox-core:6.5.1")
+            }
+        }
+
+        val desktopMain by getting {
+            dependsOn(jvmMain)
+            dependencies {
+                // Desktop Compose
+                implementation(compose.desktop.currentOs) {
+                    exclude(group = "org.jetbrains.compose.material")
+                }
+
+                // Coroutines Swing for Desktop
+                implementation(libs.kotlinx.coroutinesSwing)
+
+                // Jewel UI
+                implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.30.0-252.26252")
+                implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.30.0-252.26252")
+                implementation("com.jetbrains.intellij.platform:icons:252.26199.158")
+
+                // Kotlin Scripting (JVM only)
+                implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:${libs.versions.kotlin.get()}")
+                implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:${libs.versions.kotlin.get()}")
+                implementation("org.jetbrains.kotlin:kotlin-scripting-common:${libs.versions.kotlin.get()}")
+                implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
+
+                // Logging (JVM)
+                implementation("io.insert-koin:koin-logger-slf4j")
+                implementation("ch.qos.logback:logback-classic:1.5.16")
+                implementation("io.github.oshai:kotlin-logging-jvm:7.0.12")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.10.1")
+
+                // zlib compression
+                implementation("com.jcraft:jzlib:1.1.3")
+
+                // Koin navigation
+                implementation("io.insert-koin:koin-compose-viewmodel-navigation")
+            }
+        }
+
+        val desktopTest by getting
+    }
 }
 
 // This will version all classes with the version set in this file. Allows us to know the program version in the code.
@@ -36,88 +153,32 @@ group = "ru.adan"
 // Use -Pversion=... if provided
 version = providers.gradleProperty("version").orElse("1.0-SNAPSHOT")
 
-dependencies {
-    // Add the kotlinx-coroutines-swing dependency for enabling Dispatchers.Main on Compose Desktop
-    implementation(libs.kotlinx.coroutinesSwing)
-    // json
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
-    // jackson xml
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.1")
-    // this allows us to load fonts from the composeResources folder and load them in a new way
-    implementation(compose.components.resources)
-    // For Kotlin Scripting
-    /**
-     * The Kotlin team has announced changes/deprecations around scripting for K2,
-     * including plans to drop JSR-223 and some related artifacts after Kotlin 2.3.
-     * Do we even need them??
-     */
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm:${libs.versions.kotlin.get()}")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm-host:${libs.versions.kotlin.get()}")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-common:${libs.versions.kotlin.get()}")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:${libs.versions.kotlin.get()}")
-    // for icons
-    implementation(compose.material)
-    implementation(compose.materialIconsExtended)
-    // Koin
-    implementation(project.dependencies.platform("io.insert-koin:koin-bom:4.0.3"))
-    implementation("io.insert-koin:koin-core")
-    implementation("io.insert-koin:koin-compose")
-    implementation("io.insert-koin:koin-compose-viewmodel")
-    implementation("io.insert-koin:koin-compose-viewmodel-navigation")
-    // The Koin compiler that KSP will use
-    ksp("io.insert-koin:koin-ksp-compiler:2.1.0")
-    // SLF4J Logger for Koin
-    implementation("io.insert-koin:koin-logger-slf4j")
-    // SLF4J Backend (Logback)
-    implementation("ch.qos.logback:logback-classic:1.5.16")
-    // Kotlin Logging, the facade for idiomatic logging in Kotlin
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.12")
-    // Something that solves the MDC/Coroutine issue for SLF4J (in this case, Logback)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.10.1")
-    // ktor.io
-    implementation("io.ktor:ktor-network:3.2.3")
-    // zlib
-    implementation("com.jcraft:jzlib:1.1.3")
-    // Kaml (kotlin yaml)
-    implementation("com.charleskorn.kaml:kaml:0.85.0")
-    // helps XML with serialization somehow
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.2")
+android {
+    namespace = "ru.adan.silmaril"
+    compileSdk = 35
 
-    /** jewel imports */
-    implementation(compose.desktop.currentOs) {
-        exclude(group = "org.jetbrains.compose.material")
+    defaultConfig {
+        applicationId = "ru.adan.silmaril"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
     }
-    // See https://github.com/JetBrains/Jewel/releases for the release notes
-    implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.30.0-252.26252")
-    // For custom decorated windows:
-    implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.30.0-252.26252")
-    // Jewel Icons
-    implementation("com.jetbrains.intellij.platform:icons:252.26199.158")
 
-    // Markdown
-    //implementation("org.jetbrains.jewel:jewel-markdown-int-ui-standalone-styling:0.30.0-252.26252")
-    // markdown extensions
-    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-gfm-tables:0.30.0-252.26252")
-    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-images:0.30.0-252.26252")
-    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-autolink:0.30.0-252.26252")
-    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-gfm-alerts:0.30.0-252.26252")
-    //implementation("org.jetbrains.jewel:jewel-markdown-extensions-gfm-strikethrough:0.30.0-252.26252")
-    // for JBRFileDialog
-    //implementation("org.jetbrains.runtime:jbr-api:1.7.0")
-    // for koil
-    //implementation(project.dependencies.platform("io.coil-kt.coil3:coil-bom:3.3.0"))
-    //implementation("io.coil-kt.coil3:coil-compose")
-    /** end of jewel imports */
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+        }
+    }
 
-    // already brought in by currentOs
-    //implementation(compose.runtime)
-    //implementation(compose.foundation)
-    //implementation(compose.material3)
-    //implementation(compose.ui)
-    implementation(compose.components.uiToolingPreview) // @TODO: previews don't currently work
-    // I don't use only if you use ViewModel/lifecycle APIs in Desktop, we use Koin koin-compose-viewmodel
-    //implementation(libs.androidx.lifecycle.viewmodelCompose)
-    //implementation(libs.androidx.lifecycle.runtimeCompose)
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    buildFeatures {
+        compose = true
+    }
 }
 
 /**
@@ -131,6 +192,7 @@ compose.desktop {
         //javaHome = "C:/Users/<UserName>/.jdks/jbr-21.0.8"
 
         jvmArgs += listOf(
+            "-Dskiko.renderApi=OPENGL"
 //            "-XX:NativeMemoryTracking=detail",
 //            "-Xlog:gc*:stdout:time,level,tags",
 //            "-Xlog:class+unload=info",
