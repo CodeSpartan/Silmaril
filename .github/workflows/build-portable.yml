@@ -300,21 +300,21 @@ jobs:
           fi
           echo "Building Android version: ${APP_VERSION}"
 
-      - name: Build Android Release APK
+      - name: Build Android Debug APK
         shell: bash
         run: |
           ./gradlew --no-daemon --stacktrace --info \
             -Pversion="${APP_VERSION}" \
             -Dorg.gradle.java.installations.paths="${JBR_HOME}" \
             -Dorg.gradle.java.installations.auto-download=false \
-            assembleRelease
+            assembleDebug
 
       - name: Locate APK
         id: find_apk
         shell: bash
         run: |
           set -euo pipefail
-          apk=$(find build/outputs/apk/release -type f -name "*.apk" 2>/dev/null | head -n1 || true)
+          apk=$(find build/outputs/apk/debug -type f -name "*.apk" 2>/dev/null | head -n1 || true)
           echo "Found APK: ${apk:-<none>}"
           if [[ -z "${apk:-}" ]]; then
             echo "No .apk found!" >&2
