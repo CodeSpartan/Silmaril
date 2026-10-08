@@ -21,6 +21,7 @@ import ru.adan.silmaril.misc.ProfileData
 import ru.adan.silmaril.misc.Variable
 import ru.adan.silmaril.misc.toVariable
 import ru.adan.silmaril.scripting.ScriptingEngine
+import ru.adan.silmaril.scripting.DslScriptCache
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
 import org.koin.core.component.get
@@ -148,10 +149,11 @@ class Profile(
         val dslDir = File(getDslScriptsDirectory())
         var triggersLoaded = 0
         if (dslDir.exists() && dslDir.isDirectory) {
-            dslDir.listFiles()?.forEach { file ->
-                if (file.isFile && file.extension == "kts") {
-                    triggersLoaded += scriptingEngine.loadScript(file)
-                }
+            val scriptFiles = dslDir.listFiles()?.filter { it.isFile && it.extension == "kts" }.orEmpty()
+            // Compile everything in parallel (shared across windows, cached on disk), then evaluate in order
+            DslScriptCache.precompile(scriptFiles)
+            scriptFiles.forEach { file ->
+                triggersLoaded += scriptingEngine.loadScript(file)
             }
         }
 

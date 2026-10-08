@@ -6,9 +6,12 @@ import ru.adan.silmaril.model.ProfileManagerInterface
 import ru.adan.silmaril.model.SettingsProvider
 import ru.adan.silmaril.viewmodel.MainViewModel
 import java.io.File
+import kotlinx.coroutines.runBlocking
 import kotlin.script.experimental.api.*
-import kotlin.script.experimental.host.toScriptSource
-import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
+import kotlin.script.experimental.jvm.BasicJvmScriptEvaluator
+import kotlin.script.experimental.jvm.baseClassLoader
+import kotlin.script.experimental.jvm.jvm
+import kotlin.script.experimental.jvm.loadDependencies
 
 /**
  * Desktop-specific implementation of ScriptingEngine that supports loading .kts scripts.
@@ -32,11 +35,12 @@ class DesktopScriptingEngineImpl(
     loreManager
 ) {
     companion object {
-        val jvmHost by lazy { BasicJvmScriptingHost() }
+        private val evaluator by lazy { BasicJvmScriptEvaluator() }
     }
 
     /**
      * Loads and executes a user's .kts script file using kotlin-scripting.
+     * Compilation is shared between windows and cached on disk, see [DslScriptCache].
      * @return number of triggers loaded
      */
     override fun loadScript(scriptFile: File): Int {
@@ -44,12 +48,17 @@ class DesktopScriptingEngineImpl(
         settingsProvider.addGroup(currentlyLoadingScript)
 
         try {
-            val host = jvmHost
-            val compilationConfig = MudScriptDefinition
             val evaluationConfig = ScriptEvaluationConfiguration {
                 constructorArgs(this@DesktopScriptingEngineImpl)
+                jvm {
+                    // Resolve app classes (MudScriptHost etc.) from the app itself, never from a second copy.
+                    baseClassLoader(MudScriptHost::class.java.classLoader)
+                    loadDependencies(false)
+                }
             }
-            val result = host.eval(scriptFile.toScriptSource(), compilationConfig, evaluationConfig)
+            val result = runBlocking {
+                DslScriptCache.load(scriptFile).onSuccess { evaluator(it, evaluationConfig) }
+            }
 
             // Process any resulting errors or warnings.
             result.reports.forEach { report ->
