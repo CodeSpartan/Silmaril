@@ -1,6 +1,7 @@
 package ru.adan.silmaril.mud_messages
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
@@ -133,7 +134,10 @@ data class LoreMessage(
 
         fun fromXml(xml: String): LoreMessage? {
             logger.debug { "LoreMessage.fromXml(): $xml" }
-            val xmlMapper = XmlMapper().registerKotlinModule()
+            val xmlMapper = XmlMapper().registerKotlinModule().apply {
+                // tolerate elements we don't model (e.g. <DropLocations> from lores made by other clients)
+                configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            }
             return try {
                 xmlMapper.readValue(xml, LoreMessage::class.java)
             } catch (e: Exception) {

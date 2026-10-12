@@ -37,6 +37,13 @@ D:\Repos\Silmaril
 ./gradlew.bat createReleaseDistributable
 ```
 
+**Producing a new build (deploy to D:\Progs\Silmaril):**
+When asked to produce a new build, run `createReleaseDistributable`, then delete everything inside `D:\Progs\Silmaril` and copy the contents of `build\compose\binaries\main-release\app\Silmaril\` (`Silmaril.exe`, `app`, `runtime`) into it. The copied files go directly in that folder, with no extra `Silmaril` subfolder:
+```bash
+./gradlew.bat createReleaseDistributable
+rm -rf /d/Progs/Silmaril/* && cp -r build/compose/binaries/main-release/app/Silmaril/. /d/Progs/Silmaril/
+```
+
 **Run desktop application:**
 ```bash
 ./gradlew.bat run
