@@ -18,6 +18,12 @@ expect class MccpInflater() {
     fun isStreamEnded(): Boolean
 
     /**
+     * After the stream has ended: the bytes of the last input that came after the end of the
+     * compressed stream (uncompressed data the server sent once it turned compression off).
+     */
+    fun remainingInput(): ByteArray
+
+    /**
      * Reset the inflater state
      */
     fun reset()

@@ -151,7 +151,7 @@ tasks.withType<Jar>().configureEach {
 
 group = "ru.adan"
 // Use -Pversion=... if provided
-version = providers.gradleProperty("version").orElse("1.0-SNAPSHOT")
+version = providers.gradleProperty("version").orElse("1.0-SNAPSHOT").get()
 
 android {
     namespace = "ru.adan.silmaril"

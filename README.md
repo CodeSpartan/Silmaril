@@ -398,6 +398,10 @@ Hotkey: {F4} {#window лучник} {5} {ОБЩЕЕ}
 
 ### Прочие команды
 ```
+#moveWindow 1 -- на Desktop, сделает текущее окно первым
+```
+
+```
 #conn сервер порт -- подключиться к серверу.
 #zap -- разорвать связь с сервером.
 ```
@@ -554,8 +558,10 @@ var collectQuests = false
 
 > [!TIP]
 > Этот раздел – для разработчиков.
- 
-Программа написана на Kotlin Compose, в большинстве кода использует Material. Однако для кастомного тайтл бара, был использован [Jewel](https://github.com/JetBrains/intellij-community/tree/master/platform/jewel). 
+
+Программа написана на Kotlin Compose Multiplatform с поддержкой Desktop (Windows, Linux, macOS) и Android.
+
+В большинстве кода использует Material. Однако для кастомного тайтл бара на Desktop, был использован [Jewel](https://github.com/JetBrains/intellij-community/tree/master/platform/jewel).
 
 > [!IMPORTANT]
 > Из-за Jewel, компиляция возможна только на [JBR](https://github.com/JetBrains/JetBrainsRuntime/releases) (21.0.8), т.к. обычная JDK не экспоузит манипуляцию тайтл-баром.
@@ -563,21 +569,58 @@ var collectQuests = false
 > [!IMPORTANT]
 > DSL-скрипты корректно распознаются только в [IntelliJ IDEA 2025.1.4.1 (Ultimate Edition)](https://www.jetbrains.com/idea/download/other.html)
 
-Автор не является экспертом в Kotlin, поэтому некоторые инструкции могут быть необязательными. 
+### Требования
+
+*   [JBR 21.0.8](https://github.com/JetBrains/JetBrainsRuntime/releases) – для компиляции Desktop и Android
+*   [Android SDK](https://developer.android.com/studio) – для компиляции Android (compileSdk 35, minSdk 26, targetSdk 35)
+*   [IntelliJ IDEA](https://www.jetbrains.com/idea/download/other.html) – рекомендуется для разработки
+
+### Настройка проекта
+
+Автор не является экспертом в Kotlin, поэтому некоторые инструкции могут быть необязательными.
 
 *   Установите [JBR 21.0.8-b1038.68](https://github.com/JetBrains/JetBrainsRuntime/releases), чтобы `where java` в консоли указывала на JBR.
 *   Откройте проект в [IntelliJ IDEA](https://www.jetbrains.com/idea/download/other.html)
+*   **Для Android**: Создайте файл `local.properties` в корне проекта с путём к Android SDK:
+    ```properties
+    sdk.dir=C\:\\Users\\<имя пользователя>\\AppData\\Local\\Android\\Sdk
+    # В моем случае:
+    # sdk.dir=E\:\\Progs\\Android\\AndroidSdkKotlin
+    ```
+    > [!NOTE]
+    > Файл `local.properties` не коммитится в git
 *   После инициализации gradle, запустите gradle-таск `generateResourceAccessorsForMain` (меню gradle находится с правой стороны IDE)
-*   Используйте таск `run` для запуска в IDE; таск `createReleaseDistributable` для портабельной сборки.
 
-Опционально:
+### Сборка Desktop
+
+*   Таск `run` – запуск в IDE
+*   Таск `createReleaseDistributable` – портабельная сборка для текущей ОС
+
+### Сборка Android
+
+*   **Через IDE**: Run/Debug конфигурация Android (устанавливается на эмулятор или физическое устройство)
+*   **Через командную строку**:
+    ```bash
+    # Сборка debug APK (автоматически подписанный)
+    ./gradlew.bat assembleDebug
+
+    # Сборка release APK (требует настройки подписи)
+    ./gradlew.bat assembleRelease
+    ```
+*   Готовый APK находится в `build/outputs/apk/debug/` или `build/outputs/apk/release/`
+
+> [!NOTE]
+> GitHub Actions автоматически собирает debug APK для каждого релиза.
+
+### Опционально
+
 *   Чтобы IDE корректно работала с DSL скриптами, зайдите в File -> Settings -> Editor -> Languages & Framework -> Kotlin -> Kotlin Scripting и нажмите **Scan Classpath**. После перезапуска, в списке должен появиться MudScriptHost (.mud.kts). Отсортируйте его, чтобы он стал предпоследним в списке.
-*   Сделайте junction `mklink /J "<путь к проекту>\src\main\resources\dsl" "C:\Users\<имя пользователя>\Documents\Silmaril\dsl"`. Таким образом, DSL-скрипты будут как будто лежать в проекте, получая авто-комплит и подсветку синтаксиса в IDE.
+*   Сделайте junction `mklink /J "<путь к проекту>\src\desktopMain\resources\dsl" "C:\Users\<имя пользователя>\Documents\Silmaril\dsl"`. Таким образом, DSL-скрипты будут как будто лежать в проекте, получая авто-комплит и подсветку синтаксиса в IDE.
 
 ### Знакомство с кодовой базой
 * Проект использует архитектуру MVVM, поэтому почти все Composable лежат в папке `view`, модели в `model`, а прокладки между ними в `viewmodel`.
 * Используется библиотека Koin для Dependency Injection. Все factory лежат в `Modules.kt`
-* Логирование настраивается в `\src\main\resources\logback.xml` - это библиотека logback.
+* Логирование настраивается в `\src\desktopMain\resources\logback.xml` - это библиотека logback.
 * Каждое игровое окно - это модель `Profile`. У него есть свой `MudConnection`, `ScriptingEngine`, `MainViewModel`, `MapViewModel`, `GroupModel`, `MobsModel`, т.е. все модели, принадлежащие одному персонажу.
 * В `Main` создаются окна `MainWindow`, `MapWindow`, `GroupWindow`, `MobsWindow`, `OutputWindow`, а при переключении окна, в них скармливается другой `Profile`.
 * Код еще не очень хорошо рефакторнут, напр. есть god-class `Profile`, который следовало бы разобрать. Там сейчас обрабатываются все текстовые команды, вместо отдельного менеджера.

@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream
 actual class MccpInflater actual constructor() {
     private val inflater = Inflater()
     private var streamEnded = false
+    private var remaining = byteArrayOf()
 
     init {
         inflater.init(JZlib.W_ZLIB)
@@ -41,6 +42,7 @@ actual class MccpInflater actual constructor() {
                 }
                 JZlib.Z_STREAM_END -> {
                     streamEnded = true
+                    remaining = input.copyOfRange(inflater.next_in_index, inflater.next_in_index + inflater.avail_in)
                     break
                 }
                 JZlib.Z_BUF_ERROR -> {
@@ -60,8 +62,11 @@ actual class MccpInflater actual constructor() {
 
     actual fun isStreamEnded(): Boolean = streamEnded
 
+    actual fun remainingInput(): ByteArray = remaining
+
     actual fun reset() {
         streamEnded = false
+        remaining = byteArrayOf()
         inflater.init(JZlib.W_ZLIB)
     }
 

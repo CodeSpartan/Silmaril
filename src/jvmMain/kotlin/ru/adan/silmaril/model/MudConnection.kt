@@ -390,13 +390,7 @@ class MudConnection(
                     if (bytesRead > 0) {
                         // Create a view of the buffer with only the data we read
                         val dataChunk = socketBuffer.copyOf(bytesRead)
-
-                        if (_compressionInProgress) {
-                            val decompressedData = decompress(dataChunk)
-                            processData(decompressedData)
-                        } else {
-                            processData(dataChunk)
-                        }
+                        handleReceivedChunk(dataChunk)
                     }
                 }
             } catch (e: io.ktor.utils.io.CancellationException) {
@@ -417,6 +411,29 @@ class MudConnection(
         }
     }
 
+    // One read can hold both plain and compressed bytes: the MCCP start sequence followed by the
+    // start of the zlib stream, or the end of the zlib stream followed by plain text (compression
+    // turned off). Split the chunk at those points so each part goes to the right place.
+    private suspend fun handleReceivedChunk(chunk: ByteArray) {
+        var data = chunk
+        while (data.isNotEmpty()) {
+            if (_compressionInProgress) {
+                val inf = inflater
+                processData(decompress(data))
+                if (inf != null && inf.isStreamEnded()) {
+                    // non-empty only if plain bytes followed the end of the stream in this chunk
+                    data = inf.remainingInput()
+                    inf.close()
+                } else {
+                    data = byteArrayOf()
+                }
+            } else {
+                val consumed = processData(data)
+                data = data.copyOfRange(consumed, data.size)
+            }
+        }
+    }
+
     private fun startDecompression() {
         _compressionInProgress = true
         inflater = MccpInflater()
@@ -432,7 +449,10 @@ class MudConnection(
 
         if (inf.isStreamEnded()) {
             logger.info { "[inflate] Z_STREAM_END reached. Stopping decompression." }
-            stopDecompression()
+            // don't close the inflater here, handleReceivedChunk still needs its remainingInput()
+            _compressionInProgress = false
+            _compressionEnabled = false
+            inflater = null
             connectionScope.launch {
                 printYellowMessage("Сервер отключил компрессию.")
                 _isEchoOn.value = false
@@ -451,8 +471,11 @@ class MudConnection(
 
     /**************** PROCESS ****************/
 
-    private suspend fun processData(data: ByteArray) {
-        for (offset in 0 until data.size) {
+    // Returns how many bytes were consumed: all of them, unless the MCCP start sequence was found,
+    // in which case everything after it is compressed and must go through the inflater instead.
+    private suspend fun processData(data: ByteArray): Int {
+        var offset = 0
+        while (offset < data.size) {
             val newByte = data[offset]
 
             when (lastByte) {
@@ -541,6 +564,9 @@ class MudConnection(
                             if (headerFoundBytes == 4) {
                                 logger.debug { "Detected command: IAC SUB_START COMPRESS WILL SUB_STOP" }
                                 startDecompression()
+                                lastByte = ControlCharacters.NonControlCharacter
+                                headerFoundBytes = 0
+                                return offset + 1
                             }
                             // if (IAC, WILL, SE) -- this should never happen
                             else {
@@ -632,7 +658,9 @@ class MudConnection(
             }
             if (lastByte == ControlCharacters.NonControlCharacter)
                 headerFoundBytes = 0
+            offset++
         }
+        return data.size
     }
 
     private fun bufferToColorfulText(buffer: ByteArray, bufferEndPointer: Int) : ColorfulTextMessage {
